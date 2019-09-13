@@ -1,0 +1,22 @@
+{
+  "name": "com.unity.animation",
+  "displayName": "Animation",
+  "version": "0.2.13-preview",
+  "unity": "2019.3",
+  "description": "The Animation package brings a new animation system to Unity, entirely in C# and with performance in mind. It aligns with our DOTS coding style.",
+  "dependencies": {
+    "com.unity.mathematics": "1.1.0",
+    "com.unity.entities": "0.1.1-preview",
+    "com.unity.collections": "0.1.1-preview",
+    "com.unity.jobs": "0.1.1-preview",
+    "com.unity.burst": "1.1.3-preview.3",
+    "com.unity.test-framework": "1.0.16",
+    "com.unity.dataflowgraph": "0.11.5-preview",
+    "com.unity.test-framework.performance": "1.2.3-preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.cds.internal.unity3d.com:unity/Unity.Animation.git",
+    "revision": "86d379197bab301ce614c73ce954778ea1228fbb"
+  }
+}

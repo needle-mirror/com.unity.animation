@@ -1,0 +1,20 @@
+{
+    "name": "Unity.Animation.Editor",
+    "references": [
+        "Unity.Animation",
+        "Unity.Animation.Hybrid",
+        "Unity.Entities",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Unity.AnimationCurves.Tests",
+  "references": [
+    "Unity.AnimationCurves",
+    "Unity.AnimationCurves.Hybrid",
+    "Unity.Entities",
+    "Unity.PerformanceTesting",
+    "Unity.Mathematics"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": []
+}
