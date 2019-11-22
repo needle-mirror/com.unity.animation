@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -10,11 +12,14 @@ namespace Unity.Animation
 {
     public abstract class RigComputeMatricesSystemBase : JobComponentSystem
     {
+        const int k_SharedRigDefinitionsCount = 10;
         private EntityQuery m_GlobalSpaceOnlyQuery;
         private EntityQuery m_RigSpaceOnlyQuery;
         private EntityQuery m_GlobalAndRigSpaceQuery;
 
         private NativeHashMap<int, SharedRigDefinition> m_SharedRigDefinitions;
+        private List<SharedRigDefinition>               m_SharedValues;
+        private List<int>                               m_SharedIndex;
 
         static readonly ProfilerMarker k_Marker = new ProfilerMarker("RigComputeMatricesSystemBase");
 
@@ -55,11 +60,15 @@ namespace Unity.Animation
                 ComponentType.ReadWrite<AnimatedLocalToWorld>(),
                 ComponentType.ReadWrite<AnimatedLocalToRig>()
                 );
+
+            m_SharedRigDefinitions = new NativeHashMap<int, SharedRigDefinition>(k_SharedRigDefinitionsCount, Allocator.Persistent);
+            m_SharedValues = new List<SharedRigDefinition>(k_SharedRigDefinitionsCount);
+            m_SharedIndex = new List<int>(k_SharedRigDefinitionsCount);
         }
+
         protected override void OnDestroy()
         {
-            if (m_SharedRigDefinitions.IsCreated)
-                m_SharedRigDefinitions.Dispose();
+            m_SharedRigDefinitions.Dispose();
 
             base.OnDestroy();
         }
@@ -68,7 +77,7 @@ namespace Unity.Animation
         {
             k_Marker.Begin();
 
-            ECSUtils.UpdateSharedComponentDataHashMap(ref m_SharedRigDefinitions, EntityManager, Allocator.Persistent);
+            ECSUtils.UpdateSharedComponentDataHashMap(ref m_SharedRigDefinitions, m_SharedValues, m_SharedIndex, EntityManager, Allocator.Persistent);
 
             var globalSpaceOnlyJob = new ComputeGlobalSpaceJob
             {
@@ -120,12 +129,12 @@ namespace Unity.Animation
 
             // TODO : These jobs should ideally all run in parallel since the queries are mutually exclusive.
             //        For now, in order to prevent the safety system from throwing errors schedule
-            //        globalAndRigSpaceJob with a dependency on the two others. 
+            //        globalAndRigSpaceJob with a dependency on the two others.
             var inputDep = globalAndRigSpaceJob.Schedule(
                 m_GlobalAndRigSpaceQuery,
                 JobHandle.CombineDependencies(globalSpaceOnlyHandle, rigSpaceOnlyHandle)
                 );
-            
+
             k_Marker.End();
 
             return inputDep;

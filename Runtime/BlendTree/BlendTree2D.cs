@@ -12,11 +12,11 @@ namespace Unity.Animation
         FreeformCartesian2D
     }
 
-    public struct BlendTree2DMotionData
+    public struct BlendTree2DMotionData : IBufferElementData
     {
         public float2                              MotionPosition;
         public float                               MotionSpeed;
-        public WeakAssetReference                  Motion;
+        public Motion                              Motion;
         public MotionType                          MotionType;
     }
 
@@ -28,6 +28,6 @@ namespace Unity.Animation
         public BlobArray<float2>                MotionPositions;
         public BlobArray<float>                 MotionSpeeds;
         public BlobArray<MotionType>            MotionTypes;
-        public BlobArray<WeakAssetReference>    Motions;
+        public BlobArray<Motion>                Motions;
     }
 }

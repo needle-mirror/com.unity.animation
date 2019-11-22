@@ -10,11 +10,18 @@ namespace Unity.Animation
         BlendTree2DSimpleDirectionnal,
     }
 
-    public struct BlendTree1DMotionData : IComparable<BlendTree1DMotionData>
+    public struct Motion
+    {
+        public BlobAssetReference<Clip>                             Clip;
+        public BlobAssetReference<BlendTree1D>                      BlendTree1D;
+        public BlobAssetReference<BlendTree2DSimpleDirectionnal>    BlendTree2DSimpleDirectionnal;
+    }
+
+    public struct BlendTree1DMotionData : IComparable<BlendTree1DMotionData>, IBufferElementData
     {
         public float                               MotionThreshold;
         public float                               MotionSpeed;
-        public WeakAssetReference                  Motion;
+        public Motion                              Motion;
         public MotionType                          MotionType;
 
         public int CompareTo(BlendTree1DMotionData other)
@@ -50,6 +57,6 @@ namespace Unity.Animation
         public BlobArray<float>                 MotionThresholds;
         public BlobArray<float>                 MotionSpeeds;
         public BlobArray<MotionType>            MotionTypes;
-        public BlobArray<WeakAssetReference>    Motions;
+        public BlobArray<Motion>                Motions;
     }
 }

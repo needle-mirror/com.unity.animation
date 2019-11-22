@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEditor;
 
@@ -172,8 +171,18 @@ namespace Unity.Animation
 
         private static void ConvertCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationCurve curve, int curveIndex, in int curveCount)
         {
-            for (var f = 0; f <= clip.FrameCount; ++f)
-                samples[curveIndex + f * curveCount] = curve.Evaluate(f / clip.SampleRate);
+            var lastValue = 0.0f;
+
+            for (var frameIter = 0; frameIter < clip.FrameCount; frameIter++)
+            {
+                lastValue = curve.Evaluate(frameIter / clip.SampleRate);
+                samples[curveIndex + frameIter * curveCount] = lastValue;
+            }
+
+            // adjust last frame value to match value at duration
+            var valueAtDuration = curve.Evaluate(clip.Duration);
+
+            samples[curveIndex + clip.FrameCount * curveCount] = Core.AdjustLastFrameValue(lastValue, valueAtDuration, clip.LastFrameError);
         }
 
 #else

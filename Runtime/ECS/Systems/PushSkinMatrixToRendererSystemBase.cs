@@ -2,7 +2,7 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
-
+using Unity.Transforms;
 using UnityEngine;
 
 namespace Unity.Animation
@@ -15,34 +15,48 @@ namespace Unity.Animation
         protected override void OnCreate()
         {
             m_Query = GetEntityQuery(
-                ComponentType.ReadWrite<SkinMatrix>()
+                ComponentType.ReadWrite<SkinMatrix>(),
+                ComponentType.ReadWrite<BoneIndexOffset>()
                 );
-            m_Buffer = new ComputeBuffer(1024, UnsafeUtility.SizeOf<float3x4>(), ComputeBufferType.Default);
+            m_Buffer = new ComputeBuffer(2048, UnsafeUtility.SizeOf<float3x4>(), ComputeBufferType.Default);
         }
 
         protected override unsafe void OnUpdate()
         {
-            var skinRenderer = GetArchetypeChunkSharedComponentType<SkinRenderer>();
             var skinMatrix = GetArchetypeChunkBufferType<SkinMatrix>();
             var chunks = m_Query.CreateArchetypeChunkArray(Allocator.TempJob);
+            var matrixOffsetType = GetArchetypeChunkComponentType<BoneIndexOffset>();
 
-            //@TODO: Handle when m_Buffer is too small...
+            var numElements = 0;
+            foreach (var chunk in chunks)
+            {
+                for (int i = 0; i != chunk.Count; i++)
+                {
+                    var skinMatricesBuf = chunk.GetBufferAccessor(skinMatrix);
+                    var skinMatrixArray = skinMatricesBuf[i].Reinterpret<float3x4>();
+                    numElements += skinMatrixArray.Length;
+                }
+            }
+
+            if (m_Buffer.count < numElements)
+            {
+                m_Buffer.Dispose();
+                m_Buffer = new ComputeBuffer(numElements, UnsafeUtility.SizeOf<float3x4>(), ComputeBufferType.Default);
+            }
+
             var allSkinMatrices = new NativeArray<float3x4>(m_Buffer.count, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
             int offset = 0;
             int matrixCount = 0;
             foreach (var chunk in chunks)
             {
-                var renderer = EntityManager.GetSharedComponentData<SkinRenderer>(chunk.GetSharedComponentIndex(skinRenderer));
                 var skinMatricesBuf = chunk.GetBufferAccessor(skinMatrix);
-
-                if (renderer.Mesh == null)
-                    continue;
+                var matrixOffset = chunk.GetNativeArray(matrixOffsetType);
 
                 for (int i = 0; i != chunk.Count; i++)
                 {
                     var skinMatrixArray = skinMatricesBuf[i].Reinterpret<float3x4>();
-                    if (matrixCount + skinMatrixArray.Length >= 1024)
+                    if (matrixCount + skinMatrixArray.Length >= m_Buffer.count)
                         continue;
 
                     matrixCount += skinMatrixArray.Length;
@@ -53,20 +67,16 @@ namespace Unity.Animation
                         skinMatrixArray.Length * UnsafeUtility.SizeOf<float3x4>()
                         );
 
-                    var properties = new MaterialPropertyBlock();
-                    properties.SetInt("_SkinMatricesOffset", offset);
-                    properties.SetBuffer("_SkinMatrices", m_Buffer);
-
-                    if (renderer.Material0)
-                        Graphics.DrawMesh(renderer.Mesh, Matrix4x4.identity, renderer.Material0, renderer.Layer, null, 0, properties, renderer.CastShadows, renderer.ReceiveShadows);
-                    if (renderer.Material1)
-                        Graphics.DrawMesh(renderer.Mesh, Matrix4x4.identity, renderer.Material1, renderer.Layer, null, 1, properties, renderer.CastShadows, renderer.ReceiveShadows);
-
+                    matrixOffset[i] = new BoneIndexOffset
+                    {
+                        Value = offset
+                    };
                     offset += skinMatrixArray.Length;
                 }
             }
 
             m_Buffer.SetData(allSkinMatrices, 0, 0, offset);
+            Shader.SetGlobalBuffer("_SkinMatrices", m_Buffer);
             allSkinMatrices.Dispose();
             chunks.Dispose();
         }

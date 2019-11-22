@@ -5,7 +5,99 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [0.2.14] - unreleased
+## [0.2.16-preview.5] - 2019-11-22
+
+### Changed
+- Upgraded com.unity.entities to 0.2.0-preview.18
+- Upgraded com.unity.collections to 0.2.0-preview.13
+- Upgraded com.unity.jobs to 0.2.0-preview.13
+- Upgraded com.unity.rendering.hybrid to 0.2.0-preview.18
+
+## [0.2.16-preview.4] - 2019-11-21
+
+### Changed
+- Upgraded com.unity.dataflowgraph to 0.11.9-preview
+
+## [0.2.16-preview.3] - 2019-11-20
+
+### Changed
+- Upgraded com.unity.entities to 0.2.0-preview.12
+- Upgraded com.unity.collections to 0.2.0-preview.7
+- Upgraded com.unity.jobs to 0.2.0-preview.7
+- Upgraded com.unity.rendering.hybrid to 0.2.0-preview.12
+- Upgraded com.unity.test-framework to 1.1.3
+
+## [0.2.16-preview.2] - 2019-11-15
+
+### Added
+- Dependency on com.unity.rendering.hybrid 0.2.0-preview.8 for GPU skinning
+
+### Changed
+- Upgraded com.unity.entities to 0.2.0-preview.8
+- Upgraded com.unity.collections to 0.2.0-preview.5
+- Upgraded com.unity.jobs to 0.2.0-preview.5
+- Upgraded com.unity.burst to 1.2.0-preview.9
+
+## [0.2.16-preview.1] - 2019-11-05
+
+### Changed
+- Upgraded com.unity.entities to 0.2.0-preview.4
+- Upgraded com.unity.collections to 0.2.0-preview.2
+- Upgraded com.unity.jobs to 0.2.0-preview.2
+
+## [0.2.15-preview.1] - 2019-10-24
+
+### Added
+- Baking of a UberClipNode. UberClipNode let you Loop Transform, In Place, Compute Root Motion, etc. on the fly at runtime. 
+  However those computation are cpu intensive and can be baked down to a simple clip evaluation.
+  
+### Fixed
+- Reviewed animation clip resampling. More precisely about what happens around evaluation at stop time (Duration). 
+  Clips with duration not at a multiple of sample rate were not evaluated correctly around last frame.
+
+## [0.2.15] - 2019-10-23
+
+### Changed
+- Upgraded com.unity.dataflowgraph to 0.11.8-preview
+
+## [0.2.14] - 2019-10-18
+
+### Added
+- Added RigComponent and RigConversion System for conversion workflow.
+
+### Changed
+- BlendTree1DNode changed FileNotFoundException for InvalidOperationException since we are not loading anymore the motion from the file system.
+- BlendTree2DNode changed FileNotFoundException for InvalidOperationException since we are not loading anymore the motion from the file system.
+- Upgraded com.unity.burst to 1.2.0-preview.6
+- Upgraded com.unity.dataflowgraph to 0.11.7-preview
+- Upgraded com.unity.entities to 0.2.0-preview.1
+- Upgraded com.unity.collections to 0.1.2-preview.1
+- Upgraded com.unity.jobs to 0.1.2-preview.1
+- Upgraded com.unity.test-framework to 1.1.2
+- Upgraded com.unity.test-framework.performance to 1.3.0-preview
+
+### Fixed
+- Fixed BlendTree1DNode throwing error when changing rig definition.
+
+### Deprecated
+- Deprecating Skeleton, please use a RigComponent instead.
+
+### Removed
+- Removed WeakAssetReference, Asset serialization is now handled by DOTS conversion workflow. All animation asset should now be stored in DOTS entities file format.
+
+### Know Isssues
+- Conversion of nested Blend Tree is disabled by default. We can't nest blob asset reference into a blob asset reference. Nested Blend tree created at runtime work.
+- BlobAssetReference on ISharedComponent is not currectly supported by DOTS conversion workflow. Since we are using a Shared component to batch togheter similar rig
+  for performance reason, you need to manually setup the rig entity at Initialization with a call to: 
+  ```
+    if (EntityManager.HasComponent<Unity.Animation.RigDefinitionComponent>(rigEntity))
+    {
+        var rigDefinition = EntityManager.GetComponentData<Unity.Animation.RigDefinitionComponent>(rigEntity);
+        if(!rigDefinition.Value.IsCreated)
+            throw new System.ObjectDisposedException("RigDefinition is not Created");
+        RigEntityBuilder.SetupRigEntity(rigEntity, EntityManager, rigDefinition.Value);
+    }
+  ```
 
 ## [0.2.13] - 2019-09-13
 

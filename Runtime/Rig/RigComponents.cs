@@ -126,5 +126,24 @@ namespace Unity.Animation
         public BindingSet               Bindings;
 
         public BindingDefaultValues     DefaultValues;
+
+        internal int m_HashCode;
+
+        public override int GetHashCode()
+        {
+            return m_HashCode;
+        }
+    }
+
+    // This component is a temporary fix to workaround serializing/deserializing
+    // BlobAssetReference data in SharedComponentData
+    public struct RigDefinitionSetup : IComponentData
+    {
+        public BlobAssetReference<RigDefinition> Value;
+    }
+
+    public struct SharedRigDefinition : ISharedComponentData
+    {
+        public BlobAssetReference<RigDefinition> Value;
     }
 }

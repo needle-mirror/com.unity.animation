@@ -62,6 +62,8 @@ namespace Unity.Animation.Tests
         public void Setup()
         {
 #if UNITY_EDITOR
+            PlaymodeTestsEditorSetup.CreateStreamingAssetsDirectory();
+
             var denseClip1 = CreateConstantDenseClip(
                         new[] { ("Root", m_ClipRootLocalTranslation1), ("Child1", m_ClipChildLocalTranslation1) },
                         new[] { ("Root", m_ClipRootLocalRotation1), ("Child1", m_ClipChildLocalRotation1) },

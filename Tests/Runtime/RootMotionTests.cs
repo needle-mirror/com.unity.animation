@@ -30,6 +30,8 @@ namespace Unity.Animation.Tests
         public void Setup()
         {
 #if UNITY_EDITOR
+            PlaymodeTestsEditorSetup.CreateStreamingAssetsDirectory();
+
             {
                 var motionClip = CreateLinearDenseClip
                 (

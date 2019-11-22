@@ -1,6 +1,6 @@
-using System.IO;
 using NUnit.Framework;
 using Unity.Entities;
+using Unity.Animation;
 using Unity.Mathematics;
 using UnityEngine.TestTools;
 
@@ -34,6 +34,12 @@ namespace Unity.Animation.Tests
 
         readonly string blendParameterX = "directionX";
         readonly string blendParameterY = "directionY";
+        readonly string[] blobPath = new string[] {
+            "BlendTreeNode2DTestsClip1.blob",
+            "BlendTreeNode2DTestsClip2.blob",
+            "BlendTreeNode2DTestsClip3.blob",
+            "BlendTreeNode2DTestsClip4.blob"
+        };
 
         BlobAssetReference<RigDefinition> CreateTestRigDefinition()
         {
@@ -48,18 +54,7 @@ namespace Unity.Animation.Tests
         public void Setup()
         {
 #if UNITY_EDITOR
-            var motionData = new []
-            {
-                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, Motion = new WeakAssetReference(System.Guid.NewGuid().ToString()), MotionType = MotionType.Clip },
-                new BlendTree2DMotionData { MotionPosition = new float2(2, 0), MotionSpeed = 0.4f, Motion = new WeakAssetReference(System.Guid.NewGuid().ToString()), MotionType = MotionType.Clip },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, 2), MotionSpeed = 0.6f, Motion = new WeakAssetReference(System.Guid.NewGuid().ToString()), MotionType = MotionType.Clip },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, Motion = new WeakAssetReference(System.Guid.NewGuid().ToString()), MotionType = MotionType.Clip },
-            };
-
-
-            var blendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(motionData, new StringHash(blendParameterX), new StringHash(blendParameterY));
-            var blobPath = "BlendTreeNode2DSimpleDirectionnalTests.blob";
-            BlobFile.WriteBlobAsset(ref blendTree, blobPath);
+            PlaymodeTestsEditorSetup.CreateStreamingAssetsDirectory();
 
             var denseClip = CreateConstantDenseClip(
                         new[] { ("Root", m_Clip1LocalTranslation) },
@@ -67,8 +62,7 @@ namespace Unity.Animation.Tests
                         new[] { ("Root", m_Clip1LocalScale)}
             );
 
-            blobPath = motionData[0].Motion.GetGuidStr() + ".blob";
-            BlobFile.WriteBlobAsset(ref denseClip, blobPath);
+            BlobFile.WriteBlobAsset(ref denseClip, blobPath[0]);
 
             denseClip = CreateConstantDenseClip(
                         new[] { ("Root", m_Clip2LocalTranslation) },
@@ -76,8 +70,7 @@ namespace Unity.Animation.Tests
                         new[] { ("Root", m_Clip2LocalScale)}
             );
 
-            blobPath = motionData[1].Motion.GetGuidStr() + ".blob";
-            BlobFile.WriteBlobAsset(ref denseClip, blobPath);
+            BlobFile.WriteBlobAsset(ref denseClip, blobPath[1]);
 
             denseClip = CreateConstantDenseClip(
                         new[] { ("Root", m_Clip3LocalTranslation) },
@@ -85,8 +78,7 @@ namespace Unity.Animation.Tests
                         new[] { ("Root", m_Clip3LocalScale)}
             );
 
-            blobPath = motionData[2].Motion.GetGuidStr() + ".blob";
-            BlobFile.WriteBlobAsset(ref denseClip, blobPath);
+            BlobFile.WriteBlobAsset(ref denseClip, blobPath[2]);
 
             denseClip = CreateConstantDenseClip(
                         new[] { ("Root", m_Clip4LocalTranslation) },
@@ -94,28 +86,10 @@ namespace Unity.Animation.Tests
                         new[] { ("Root", m_Clip4LocalScale)}
             );
 
-            blobPath = motionData[3].Motion.GetGuidStr() + ".blob";
-            BlobFile.WriteBlobAsset(ref denseClip, blobPath);
-
-            var assetRef = new WeakAssetReference(System.Guid.NewGuid().ToString());
-            var nestedMotionData = new []
-            {
-                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, Motion = assetRef, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-                new BlendTree2DMotionData { MotionPosition = new float2(2, 0),  MotionSpeed = 0.4f, Motion = assetRef, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, 2),  MotionSpeed = 0.6f, Motion = assetRef, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, Motion = assetRef, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-            };
-
-
-            var nestedBlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(nestedMotionData, new StringHash(blendParameterX), new StringHash(blendParameterX));
-            blobPath = "BlendTreeNode2DTestsNestedBlendTree2DSimpleDirectionnal.blob";
-            BlobFile.WriteBlobAsset(ref nestedBlendTree, blobPath);
-
-            blobPath = assetRef.GetGuidStr() + ".blob";
-            BlobFile.WriteBlobAsset(ref blendTree, blobPath);
-
+            BlobFile.WriteBlobAsset(ref denseClip, blobPath[3]);
 #endif
         }
+
         [OneTimeSetUp]
         protected override void OneTimeSetUp()
         {
@@ -124,11 +98,35 @@ namespace Unity.Animation.Tests
             // Create rig
             m_Rig = CreateTestRigDefinition();
 
-            var path = "BlendTreeNode2DSimpleDirectionnalTests.blob";
-            m_BlendTree = BlobFile.ReadBlobAsset<BlendTree2DSimpleDirectionnal>(path);
+            var motionData = new BlendTree2DMotionData[]
+            {
+                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, MotionType = MotionType.Clip },
+                new BlendTree2DMotionData { MotionPosition = new float2(2, 0), MotionSpeed = 0.4f,  MotionType = MotionType.Clip },
+                new BlendTree2DMotionData { MotionPosition = new float2(0, 2), MotionSpeed = 0.6f,  MotionType = MotionType.Clip },
+                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, MotionType = MotionType.Clip },
+            };
 
-            path = "BlendTreeNode2DTestsNestedBlendTree2DSimpleDirectionnal.blob";
-            m_NestedBlendTree = BlobFile.ReadBlobAsset<BlendTree2DSimpleDirectionnal>(path);
+            for(int i=0;i<blobPath.Length;i++)
+            {
+                motionData[i].Motion.Clip = BlobFile.ReadBlobAsset<Clip>(blobPath[i]);
+            }
+
+            m_BlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(motionData, new StringHash(blendParameterX), new StringHash(blendParameterY));
+
+            var nestedMotionData = new BlendTree2DMotionData[]
+            {
+                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
+                new BlendTree2DMotionData { MotionPosition = new float2(2, 0),  MotionSpeed = 0.4f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
+                new BlendTree2DMotionData { MotionPosition = new float2(0, 2),  MotionSpeed = 0.6f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
+                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
+            };
+
+            for(int i=0;i<nestedMotionData.Length;i++)
+            {
+                nestedMotionData[i].Motion.BlendTree2DSimpleDirectionnal = m_BlendTree;
+            }
+
+            m_NestedBlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(nestedMotionData, new StringHash(blendParameterX), new StringHash(blendParameterY));
         }
 
         [Test]
@@ -160,7 +158,7 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-        public void SettingBlendTreeAssetWithMotionFileNotFoundThrow()
+        public void SettingBlendTreeAssetWithInvalidMotionThrow()
         {
             var motionData = new []
             {
@@ -174,7 +172,7 @@ namespace Unity.Animation.Tests
 
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.RigDefinition, m_Rig);
 
-            Assert.Throws<FileNotFoundException>(() => Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, blendTreeAsset));
+            Assert.Throws<System.InvalidOperationException>(() => Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, blendTreeAsset));
         }
 
         [Test]

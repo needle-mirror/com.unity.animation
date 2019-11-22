@@ -74,6 +74,8 @@ namespace Unity.Animation.Tests
         public void Setup()
         {
 #if UNITY_EDITOR
+            PlaymodeTestsEditorSetup.CreateStreamingAssetsDirectory();
+
             var constantHierarchyClip = CreateConstantDenseClip(
                         new[] { ("Root", m_ClipRootLocalTranslation), ("Child1", m_ClipChildLocalTranslation) },
                         new[] { ("Root", m_ClipRootLocalRotation), ("Child1", m_ClipChildLocalRotation) },

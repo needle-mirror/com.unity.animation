@@ -4,7 +4,7 @@ namespace Unity.Animation.Hybrid
 {
     public class SkinnedMesh : MonoBehaviour
     {
-        public Skeleton Skeleton;
+        public RigComponent Rig;
         public SkinnedMeshRenderer SkinnedMeshRenderer;
     }
 }

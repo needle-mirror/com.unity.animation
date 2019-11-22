@@ -1,6 +1,7 @@
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-
+using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -124,7 +125,7 @@ namespace Unity.Animation
 
         private int FillCurvesForBindings(
             ref BlobBuilderArray<float> samples,
-            int numFloats,
+            int keyFloatCount,
             ref Clip sourceClip,
             ref BlobArray<StringHash> sourceClipBindings,
             int sourceClipCurveOffset,
@@ -140,28 +141,28 @@ namespace Unity.Animation
                 Assert.IsTrue(clipBindingIndex != -1);
 
                 // Copy all the curves for this binding to the clip instance.
-                var clipCurveIndex = sourceClipCurveOffset + clipBindingIndex * numFloats;
+                var clipCurveIndex = sourceClipCurveOffset + clipBindingIndex * keyFloatCount;
 
                 CopyCurve(ref samples, instanceCurveOffset, instanceCurveCount,
-                    ref sourceClip, clipCurveIndex, numFloats);
+                    ref sourceClip, clipCurveIndex, keyFloatCount);
 
-                instanceCurveOffset += numFloats;
+                instanceCurveOffset += keyFloatCount;
             }
 
             return instanceCurveOffset;
         }
 
         private void CopyCurve(ref BlobBuilderArray<float> destSamples, int destCurveIndex, int destCurveCount,
-            ref Clip sourceClip, int sourceCurveIndex, int numFloatsPerKey)
+            ref Clip sourceClip, int sourceCurveIndex, int keyFloatCount)
         {
             var sourceCurveCount = sourceClip.Bindings.CurveCount;
             var numFrames = Clip.FrameCount;
-            for (var f = 0; f <= numFrames; ++f)
+            for (var frameIter = 0; frameIter <= Clip.FrameCount; frameIter++)
             {
-                for (var k = 0; k < numFloatsPerKey; ++k)
+                for (var keyIter = 0; keyIter < keyFloatCount; keyIter++)
                 {
-                    destSamples[f * destCurveCount + destCurveIndex + k] =
-                        sourceClip.Samples[f * sourceCurveCount + sourceCurveIndex + k];
+                    destSamples[frameIter * destCurveCount + destCurveIndex + keyIter] =
+                        sourceClip.Samples[frameIter * sourceCurveCount + sourceCurveIndex + keyIter];
                 }
             }
         }

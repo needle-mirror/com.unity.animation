@@ -1,86 +1,156 @@
-using System.Collections.Generic;
 using UnityEngine;
-using UnityEditor;
 using UnityEditor.Animations;
 using Unity.Entities;
-using Unity.Animation.Editor;
+using Unity.Animation;
 
 namespace Unity.Animation.Editor
 {
+    public struct BakeOptions
+    {
+        public BlobAssetReference<RigDefinition>   RigDefinition;
+        public ClipConfiguration                   ClipConfiguration;
+        public float                               SampleRate;
+
+        public bool NeedBaking => RigDefinition.IsCreated && ClipConfiguration.Mask != 0 && SampleRate > 0;
+    }
+
     public static class BlendTreeConversion
     {
-        public static WeakAssetReference Convert(BlendTree blendTree)
+        public static int Convert(BlendTree blendTree, Entity entity, EntityManager entityManager, BakeOptions bakeOptions = default)
         {
+            AssertBlendTreeIsNotNested(blendTree);
+
+            ValidateBakeOptions(bakeOptions);
+
             if(blendTree.blendType == BlendTreeType.Simple1D)
-                return ConvertBlendTree1D(blendTree);
+                return ConvertBlendTree1D(blendTree, entity, entityManager, bakeOptions);
             else if(blendTree.blendType == BlendTreeType.SimpleDirectional2D)
-                return ConvertSimpleDirectional2DBlendTree(blendTree);
+                return ConvertSimpleDirectional2DBlendTree(blendTree, entity, entityManager, bakeOptions);
             else
                 throw new System.ArgumentException($"Selected Blend Tree type is not supported.");
         }
 
-        private static WeakAssetReference ConvertBlendTree1D(BlendTree blendTree)
+        private static int ConvertBlendTree1D(BlendTree blendTree, Entity entity, EntityManager entityManager, BakeOptions bakeOptions)
         {
-            var blendTree1DMotionData = new BlendTree1DMotionData[blendTree.children.Length];
+            if(!entityManager.HasComponent<BlendTree1DResource>(entity))
+                entityManager.AddBuffer<BlendTree1DResource>(entity);
+
+            if(!entityManager.HasComponent<BlendTree1DMotionData>(entity))
+                entityManager.AddBuffer<BlendTree1DMotionData>(entity);
+
+            var blendTreeResources = entityManager.GetBuffer<BlendTree1DResource>(entity);
+            var blendTreeMotionData = entityManager.GetBuffer<BlendTree1DMotionData>(entity);
+
+            var blendTreeIndex = blendTreeResources.Length;
+
+            blendTreeResources.Add( new BlendTree1DResource {
+                BlendParameter = blendTree.blendParameter,
+                MotionCount = blendTree.children.Length,
+                MotionStartIndex = blendTreeMotionData.Length
+            });
+
             for(int i=0;i<blendTree.children.Length;i++)
             {
-                blendTree1DMotionData[i].MotionThreshold = blendTree.children[i].threshold;
-                blendTree1DMotionData[i].MotionSpeed = blendTree.children[i].timeScale;
-                blendTree1DMotionData[i].Motion = Convert(blendTree.children[i].motion);
-                blendTree1DMotionData[i].MotionType = GetMotionType(blendTree.children[i].motion);
+                var motionData = new BlendTree1DMotionData {
+                    MotionThreshold = blendTree.children[i].threshold,
+                    MotionSpeed = blendTree.children[i].timeScale,
+                    MotionType = GetMotionType(blendTree.children[i].motion),
+                };
+
+                if(motionData.MotionType == MotionType.Clip)
+                {
+                    var clip = ClipBuilder.AnimationClipToDenseClip(blendTree.children[i].motion as AnimationClip);
+                    if(bakeOptions.NeedBaking)
+                    {
+                        var clipInstance = ClipInstance.Create(bakeOptions.RigDefinition, clip);
+
+                        clip = UberClipNode.Bake(clipInstance, bakeOptions.ClipConfiguration, bakeOptions.SampleRate);
+
+                        clipInstance.Release();
+                    }
+                    
+                    motionData.Motion.Clip = clip;
+                }
+
+                blendTreeMotionData.Add(motionData);
             }
 
-            var blendTreeBlobAsset = BlendTreeBuilder.CreateBlendTree(blendTree1DMotionData, new StringHash(blendTree.blendParameter) );
-            return CreateBlobAsset(blendTree, blendTreeBlobAsset);
+            return blendTreeIndex;
         }
 
-        private static WeakAssetReference ConvertSimpleDirectional2DBlendTree(BlendTree blendTree)
+        private static int ConvertSimpleDirectional2DBlendTree(BlendTree blendTree, Entity entity, EntityManager entityManager, BakeOptions bakeOptions)
         {
-            var blendTree2DMotionData = new BlendTree2DMotionData[blendTree.children.Length];
+            if(!entityManager.HasComponent<BlendTree2DResource>(entity))
+                entityManager.AddBuffer<BlendTree2DResource>(entity);
+
+            if(!entityManager.HasComponent<BlendTree2DMotionData>(entity))
+                entityManager.AddBuffer<BlendTree2DMotionData>(entity);
+
+            var blendTreeResources = entityManager.GetBuffer<BlendTree2DResource>(entity);
+            var blendTreeMotionData = entityManager.GetBuffer<BlendTree2DMotionData>(entity);
+
+            var blendTreeIndex = blendTreeResources.Length;
+
+            blendTreeResources.Add( new BlendTree2DResource {
+                BlendParameterX = blendTree.blendParameter,
+                BlendParameterY = blendTree.blendParameterY,
+                MotionCount = blendTree.children.Length,
+                MotionStartIndex = blendTreeMotionData.Length
+            });
+
             for(int i=0;i<blendTree.children.Length;i++)
             {
-                blendTree2DMotionData[i].MotionPosition = blendTree.children[i].position;
-                blendTree2DMotionData[i].MotionSpeed = blendTree.children[i].timeScale;
-                blendTree2DMotionData[i].Motion = Convert(blendTree.children[i].motion);
-                blendTree2DMotionData[i].MotionType = GetMotionType(blendTree.children[i].motion);
+                var motionData = new BlendTree2DMotionData {
+                    MotionPosition = blendTree.children[i].position,
+                    MotionSpeed = blendTree.children[i].timeScale,
+                    MotionType = GetMotionType(blendTree.children[i].motion),
+                };
+
+                if(motionData.MotionType == MotionType.Clip)
+                {
+                    var clip = ClipBuilder.AnimationClipToDenseClip(blendTree.children[i].motion as AnimationClip);
+                    if(bakeOptions.NeedBaking)
+                    {
+                        var clipInstance = ClipInstance.Create(bakeOptions.RigDefinition, clip);
+
+                        clip = UberClipNode.Bake(clipInstance, bakeOptions.ClipConfiguration, bakeOptions.SampleRate);
+
+                        clipInstance.Release();
+                    }
+                    
+                    motionData.Motion.Clip = clip;
+                }
+
+                blendTreeMotionData.Add(motionData);
             }
 
-            var blendTreeBlobAsset = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(blendTree2DMotionData, new StringHash(blendTree.blendParameter), new StringHash(blendTree.blendParameterY) );
-            return CreateBlobAsset(blendTree, blendTreeBlobAsset);
+            return blendTreeIndex;
         }
 
-        public static WeakAssetReference Convert(Motion motion)
+        private static void AssertBlendTreeIsNotNested(BlendTree blendTree)
         {
-            var animationClip = motion as AnimationClip;
-            var blendTree = motion as BlendTree;
-
-            if (blendTree != null)
-                return Convert(blendTree);
-            else if( animationClip != null)
+            for(int i=0;i<blendTree.children.Length;i++)
             {
-                var clip = ClipBuilder.AnimationClipToDenseClip(animationClip);
-                return CreateBlobAsset(animationClip, clip);
+                var nestedBlendTree = blendTree.children[i].motion as BlendTree;
+                if(nestedBlendTree != null)
+                    throw new System.NotSupportedException($"BlendTree:{blendTree.name} have nested blendtree:{nestedBlendTree.name}.");
             }
-            else
-                throw new System.ArgumentException($"Selected Motion type is not supported.");
         }
 
-        private static WeakAssetReference CreateBlobAsset<T>(UnityEngine.Object obj, BlobAssetReference<T> blobAsset) where T : struct
+        private static void ValidateBakeOptions(BakeOptions bakeOptions)
         {
-            var sourcePath = AssetDatabase.GetAssetPath(obj);
-            if (sourcePath == null || sourcePath.Length == 0)
-                throw new System.ArgumentException( $"Object '{obj.name}' is currently not managed by the AssetDatabase. Please create an asset for this object before trying to convert it.");
+            if (bakeOptions.RigDefinition == BlobAssetReference<RigDefinition>.Null ||
+                bakeOptions.ClipConfiguration.Mask == 0 ||
+                bakeOptions.SampleRate == 0)
+            {
+                return;
+            }
 
-            string guid = AssetDatabase.AssetPathToGUID(sourcePath);
-
-            var path = AnimationImporter.PrepareBlobAssetPath(guid);
-
-            BlobFile.WriteBlobAsset(ref blobAsset, path);
-
-            return new WeakAssetReference(guid);
+            if (bakeOptions.SampleRate < 0)
+                throw new System.ArgumentOutOfRangeException("bakeOptions.SampleRate", bakeOptions.SampleRate, "SampleRate cannot be negative.");
         }
 
-        private static MotionType GetMotionType(Motion motion)
+        private static MotionType GetMotionType(UnityEngine.Motion motion)
         {
             var blendTree = motion as BlendTree;
 

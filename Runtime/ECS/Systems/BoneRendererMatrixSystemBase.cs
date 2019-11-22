@@ -10,20 +10,7 @@ namespace Unity.Animation
 {
     public abstract class BoneRendererMatrixSystemBase : JobComponentSystem
     {
-        EntityQuery m_Query;
-
         static readonly ProfilerMarker k_Marker = new ProfilerMarker("BoneRendererMatrixSystemBase");
-
-        protected override void OnCreate()
-        {
-            m_Query = GetEntityQuery(
-                ComponentType.ReadOnly<RigEntity>(),
-                ComponentType.ReadOnly<BoneSize>(),
-                ComponentType.ReadOnly<RigIndex>(),
-                ComponentType.ReadOnly<RigParentIndex>(),
-                ComponentType.ReadWrite<BoneWorldMatrix>()
-                );
-        }
 
         protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
@@ -31,7 +18,7 @@ namespace Unity.Animation
 
             inputDeps = new ComputeBoneMatricesJob {
                 GlobalMatrices = GetBufferFromEntity<AnimatedLocalToWorld>(true)
-            }.Schedule(m_Query, inputDeps);
+            }.Schedule(this, inputDeps);
 
             k_Marker.End();
             return inputDeps;

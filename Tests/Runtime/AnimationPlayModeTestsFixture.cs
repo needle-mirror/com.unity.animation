@@ -11,7 +11,7 @@ namespace Unity.Animation.Tests
         [SetUp]
         protected override void SetUp()
         {
-            World = World.Active;
+            World = new World("Test World");
 
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
@@ -25,6 +25,7 @@ namespace Unity.Animation.Tests
         {
             DestroyNodesAndGraphBuffers();
             m_AnimationGraphSystem.RemoveRef();
+            World.Dispose();
         }
     }
 }

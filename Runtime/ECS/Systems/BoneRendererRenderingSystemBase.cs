@@ -48,7 +48,7 @@ namespace Unity.Animation
             // Pack the rendering for each mesh to benefit from DrawInstanced.
             foreach (var boneShape in boneShapes)
             {
-                m_Query.SetFilter(new BoneRenderer.BoneShape { Value = boneShape });
+                m_Query.SetSharedComponentFilter(new BoneRenderer.BoneShape { Value = boneShape });
                 var chunks = m_Query.CreateArchetypeChunkArray(Allocator.TempJob);
 
                 var boneColorType = GetArchetypeChunkComponentType<BoneRenderer.BoneColor>(true);

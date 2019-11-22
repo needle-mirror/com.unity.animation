@@ -10,7 +10,14 @@ namespace Unity.Animation
     static public partial class Core
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        unsafe static internal ref T GetDataInSample<T>(ref BlobArray<float> samples, int offset)
+        internal static unsafe void SetDataInSample<T>(ref BlobArray<float> samples, int offset, T data)
+            where T : unmanaged
+        {
+            *(T*)((float*)samples.GetUnsafePtr() + offset) = data;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static unsafe ref T GetDataInSample<T>(ref BlobArray<float> samples, int offset)
             where T : unmanaged
         {
             return ref *(T*)((float*)samples.GetUnsafePtr() + offset);
@@ -450,11 +457,11 @@ namespace Unity.Animation
             static public ClipKeyframe Create(ref Clip clip, float time)
             {
                 var curveCount = clip.Bindings.CurveCount;
-                var sampleIndex = math.clamp(time * clip.SampleRate, 0, clip.FrameCount);
+                var sampleIndex = math.clamp(time, 0, clip.Duration) * clip.SampleRate;
 
                 return new ClipKeyframe {
-                    Left = (int)(math.floor(sampleIndex) * curveCount),
-                    Right = (int)(math.ceil(sampleIndex) * curveCount),
+                    Left = (int)math.floor(sampleIndex) * curveCount,
+                    Right = (int)math.ceil(sampleIndex) * curveCount,
                     Weight = sampleIndex - math.floor(sampleIndex)
                 };
             }
@@ -474,7 +481,7 @@ namespace Unity.Animation
             ref var bindings = ref clip.Bindings;
             var keyframe = ClipKeyframe.Create(ref clip, time);
 
-            for (int i = 0, count = bindings.TranslationBindings.Length, curveIndex = bindings.TranslationSamplesOffset; i < count; ++i, curveIndex += 3)
+            for (int i = 0, count = bindings.TranslationBindings.Length, curveIndex = bindings.TranslationSamplesOffset; i < count; ++i, curveIndex += BindingSet.TranslationKeyFloatCount)
             {
                 var index = clipInstance.TranslationBindingMap[i];
                 Assert.IsTrue(index != -1);
@@ -484,7 +491,7 @@ namespace Unity.Animation
                 stream.SetLocalToParentTranslation(index, math.lerp(leftKey, rightKey, keyframe.Weight));
             }
 
-            for (int i = 0, count = bindings.RotationBindings.Length, curveIndex = bindings.RotationSamplesOffset; i < count; ++i, curveIndex += 4)
+            for (int i = 0, count = bindings.RotationBindings.Length, curveIndex = bindings.RotationSamplesOffset; i < count; ++i, curveIndex += BindingSet.RotationKeyFloatCount)
             {
                 var index = clipInstance.RotationBindingMap[i];
                 Assert.IsTrue(index != -1);
@@ -494,7 +501,7 @@ namespace Unity.Animation
                 stream.SetLocalToParentRotation(index, mathex.lerp(leftKey, rightKey, keyframe.Weight));
             }
 
-            for (int i = 0, count = bindings.ScaleBindings.Length, curveIndex = bindings.ScaleSamplesOffset; i < count; ++i, curveIndex += 3)
+            for (int i = 0, count = bindings.ScaleBindings.Length, curveIndex = bindings.ScaleSamplesOffset; i < count; ++i, curveIndex += BindingSet.ScaleKeyFloatCount)
             {
                 var index = clipInstance.ScaleBindingMap[i];
                 Assert.IsTrue(index != -1);
@@ -504,7 +511,7 @@ namespace Unity.Animation
                 stream.SetLocalToParentScale(index, math.lerp(leftKey, rightKey, keyframe.Weight));
             }
 
-            for (int i = 0, count = bindings.FloatBindings.Length, curveIndex = bindings.FloatSamplesOffset; i < count; ++i, ++curveIndex)
+            for (int i = 0, count = bindings.FloatBindings.Length, curveIndex = bindings.FloatSamplesOffset; i < count; ++i, curveIndex += BindingSet.FloatKeyFloatCount)
             {
                 var index = clipInstance.FloatBindingMap[i];
                 Assert.IsTrue(index != -1);
@@ -515,7 +522,7 @@ namespace Unity.Animation
             }
 
             // TODO: Find the algorithm we want. Right now take the left most key.
-            for (int i = 0, count = bindings.IntBindings.Length, curveIndex = bindings.IntSamplesOffset; i < count; ++i, ++curveIndex)
+            for (int i = 0, count = bindings.IntBindings.Length, curveIndex = bindings.IntSamplesOffset; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
             {
                 var index = clipInstance.IntBindingMap[i];
                 Assert.IsTrue(index != -1);
@@ -527,7 +534,20 @@ namespace Unity.Animation
             }
         }
 
+        internal static float AdjustLastFrameValue(float beforeLastValue, float atDurationValue, float lastFrameError)
+        {
+            return lastFrameError < 1.0f ? math.lerp(beforeLastValue, atDurationValue, 1.0f/(1.0f-lastFrameError)) : atDurationValue;
+        }
 
+        internal static float3 AdjustLastFrameValue(float3 beforeLastValue, float3 atDurationValue, float lastFrameError)
+        {
+            return lastFrameError < 1.0f ? math.lerp(beforeLastValue, atDurationValue, 1.0f/(1.0f-lastFrameError)) : atDurationValue;
+        }
+
+        internal static float4 AdjustLastFrameValue(float4 beforeLastValue, float4 atDurationValue, float lastFrameError)
+        {
+            return lastFrameError < 1.0f ? math.lerp(beforeLastValue, atDurationValue, 1.0f/(1.0f-lastFrameError)) : atDurationValue;
+        }
         static public void MixerBegin<TOutputDescriptor>(
             ref AnimationStream<TOutputDescriptor> output
             )

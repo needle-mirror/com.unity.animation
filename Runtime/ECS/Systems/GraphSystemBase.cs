@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 using Unity.Entities;
 using Unity.Jobs;
 using Unity.DataFlowGraph;
@@ -61,8 +63,13 @@ namespace Unity.Animation
             }
         }
 
+        const int k_SharedRigDefinitionsCount = 10;
+
         AnimationGraphSystemMainThread m_AnimationGraphSystemMainThread;
+
         NativeHashMap<int, SharedRigDefinition> m_SharedRigDefinitions;
+        List<SharedRigDefinition>               m_SharedValues;
+        List<int>                               m_SharedIndex;
 
         EntityQuery m_GraphInputRigQuery;
         EntityQuery m_GraphOutputRigQuery;
@@ -97,6 +104,10 @@ namespace Unity.Animation
             m_AnimationGraphSystemMainThread = World.GetOrCreateSystem<AnimationGraphSystemMainThread>();
             m_AnimationGraphSystemMainThread.Parent = this;
 
+            m_SharedRigDefinitions = new NativeHashMap<int, SharedRigDefinition>(k_SharedRigDefinitionsCount, Allocator.Persistent);
+            m_SharedValues = new List<SharedRigDefinition>(k_SharedRigDefinitionsCount);
+            m_SharedIndex = new List<int>(k_SharedRigDefinitionsCount);
+
             base.OnCreate();
         }
 
@@ -109,7 +120,7 @@ namespace Unity.Animation
 
             m_AnimationGraphSystemMainThread.Update();
 
-            ECSUtils.UpdateSharedComponentDataHashMap(ref m_SharedRigDefinitions, EntityManager, Allocator.Persistent);
+            ECSUtils.UpdateSharedComponentDataHashMap(ref m_SharedRigDefinitions, m_SharedValues, m_SharedIndex, EntityManager, Allocator.Persistent);
 
             var graphInputJob = new ConvertRigBuffersToGraphInput
             {
@@ -155,8 +166,7 @@ namespace Unity.Animation
         protected override void OnDestroy()
         {
             base.OnDestroy();
-            if (m_SharedRigDefinitions.IsCreated)
-                m_SharedRigDefinitions.Dispose();
+            m_SharedRigDefinitions.Dispose();
         }
 
         public void AddRef()

@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -156,6 +158,12 @@ namespace Unity.Animation
             }
         }
 
+        static unsafe uint ComputeHashCode<T>(ref BlobArray<T> array, uint seed = 0)
+            where T : struct
+        {
+            return math.hash(array.GetUnsafePtr(), array.Length * UnsafeUtility.SizeOf<T>(), seed);
+        }
+
         public static BlobAssetReference<RigDefinition> CreateRigDefinition(IAnimationChannel[] animationChannels)
         {
             return CreateRigDefinition(null, null, animationChannels);
@@ -216,6 +224,25 @@ namespace Unity.Animation
             var rigDefinitionAsset = blobBuilder.CreateBlobAssetReference<RigDefinition>(Allocator.Persistent);
 
             blobBuilder.Dispose();
+
+            uint hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.Ids);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.ParentIndexes, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.AxisIndexes, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.Axis, hashCode);
+
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.TranslationBindings, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.RotationBindings, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.ScaleBindings, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.FloatBindings, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.IntBindings, hashCode);
+
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.LocalTranslations, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.LocalRotations, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.LocalScales, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.Floats, hashCode);
+            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.Integers, hashCode);
+
+            rigDefinitionAsset.Value.m_HashCode = (int)hashCode;
 
             return rigDefinitionAsset;
         }

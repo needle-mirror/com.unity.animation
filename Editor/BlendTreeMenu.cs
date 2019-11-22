@@ -27,25 +27,5 @@ namespace Unity.Animation.Editor
             var blendTree = new BlendTree();
             AssetDatabase.CreateAsset(blendTree, path);
         }
-
-        [MenuItem("Animation/Blend Tree/Convert Blend Tree")]
-        public static void ConvertBlendTreeAsset()
-        {
-            var go = Selection.activeObject;
-            if (go == null)
-            {
-                EditorUtility.DisplayDialog("Error", "No GameObject selected.", "OK");
-                return;
-            }
-
-            var blendTree = go as BlendTree;
-            if(blendTree == null)
-            {
-                EditorUtility.DisplayDialog("Error", $"Selected Object is not a Blend Tree.", "OK");
-                return;
-            }
-
-            BlendTreeConversion.Convert(blendTree);
-        }
     }
 }

@@ -191,5 +191,57 @@ namespace Unity.Animation.Tests
             Assert.That(rig.Value.Bindings.RotationBindings.Length, Is.EqualTo(1));
             Assert.That(rig.Value.Bindings.ScaleBindings.Length, Is.EqualTo(1));
         }
+
+        [Test]
+        public void RigDefinitionWithSameDataHaveSameHashCode()
+        {
+            var animationChannel = new IAnimationChannel[] {
+                new LocalTranslationChannel {Id = "Root"},
+                new LocalTranslationChannel {Id = "Root"},
+                new LocalTranslationChannel {Id = "Root"},
+                new LocalRotationChannel {Id = "Root"},
+                new LocalScaleChannel {Id = "Root"},
+                new LocalRotationChannel {Id = "Root"},
+                new LocalTranslationChannel {Id = "Root"}
+            };
+
+            var skeletonNodes = new SkeletonNode[] {
+                new SkeletonNode {ParentIndex = -1, AxisIndex = -1, Id = "Root"}
+            };
+
+            var rig1 = RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannel);
+
+            var rig2 = RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannel);
+
+            Assert.That(rig1.Value.GetHashCode(), Is.EqualTo(rig2.Value.GetHashCode()));
+        }
+
+
+        [Test]
+        public void RigDefinitionWithDifferentDataHaveDifferentHashCode()
+        {
+            var animationChannel = new IAnimationChannel[] {
+                new LocalTranslationChannel {Id = "Root"},
+                new LocalTranslationChannel {Id = "Root"},
+                new LocalTranslationChannel {Id = "Root"},
+                new LocalRotationChannel {Id = "Root"},
+                new LocalScaleChannel {Id = "Root"},
+                new LocalRotationChannel {Id = "Root"},
+                new LocalTranslationChannel {Id = "Root"}
+            };
+
+            var skeletonNodes1 = new SkeletonNode[] {
+                new SkeletonNode {ParentIndex = -1, AxisIndex = -1, Id = "Root"}
+            };
+
+            var rig1 = RigBuilder.CreateRigDefinition(skeletonNodes1, null, animationChannel);
+
+            var skeletonNodes2 = new SkeletonNode[] {
+                new SkeletonNode {ParentIndex = -1, AxisIndex = -1, Id = "Root1"}
+            };
+            var rig2 = RigBuilder.CreateRigDefinition(skeletonNodes2, null, animationChannel);
+
+            Assert.That(rig1.Value.GetHashCode(), Is.Not.EqualTo(rig2.Value.GetHashCode()));
+        }
     }
 }

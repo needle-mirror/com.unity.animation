@@ -62,6 +62,8 @@ namespace Unity.Animation.Tests
         public void Setup()
         {
 #if UNITY_EDITOR
+            PlaymodeTestsEditorSetup.CreateStreamingAssetsDirectory();
+
             var constantRootClip1 = CreateConstantDenseClip(
                         new[] { ("Root", m_ClipRootLocalTranslation1) },
                         new[] { ("Root", m_ClipRootLocalRotation1) },

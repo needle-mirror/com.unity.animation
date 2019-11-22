@@ -62,7 +62,6 @@ namespace Unity.Animation.Tests
         protected readonly QuaternionAbsoluteEqualityComparer RotationComparer;
         protected readonly Float3AbsoluteEqualityComparer ScaleComparer;
 
-        protected World m_PreviousWorld;
         protected World World;
         protected EntityManager m_Manager;
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
@@ -97,8 +96,7 @@ namespace Unity.Animation.Tests
         [SetUp]
         protected virtual void SetUp()
         {
-            m_PreviousWorld = World.Active;
-            World = World.Active = new World("Test World");
+            World = new World("Test World");
 
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
@@ -128,9 +126,6 @@ namespace Unity.Animation.Tests
 
                 World.Dispose();
                 World = null;
-
-                World.Active = m_PreviousWorld;
-                m_PreviousWorld = null;
                 m_Manager = null;
             }
         }
@@ -346,51 +341,52 @@ namespace Unity.Animation.Tests
             return AnimationCurve.Linear(timeStart, valueStart, timeStop, valueEnd);
         }
 
-        protected static void AddTranslationLinearCurves(AnimationClip clip, LinearBinding<float3> binding)
+        protected static void AddTranslationLinearCurves(AnimationClip clip, LinearBinding<float3> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalPosition.x", GetLinearCurve(binding.ValueStart.x, binding.ValueEnd.x));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalPosition.y", GetLinearCurve(binding.ValueStart.y, binding.ValueEnd.y));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalPosition.z", GetLinearCurve(binding.ValueStart.z, binding.ValueEnd.z));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalPosition.x", GetLinearCurve(binding.ValueStart.x, binding.ValueEnd.x, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalPosition.y", GetLinearCurve(binding.ValueStart.y, binding.ValueEnd.y, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalPosition.z", GetLinearCurve(binding.ValueStart.z, binding.ValueEnd.z, timeStart, timeStop));
         }
 
-        protected static void AddRotationLinearCurves(AnimationClip clip, LinearBinding<quaternion> binding)
+        protected static void AddRotationLinearCurves(AnimationClip clip, LinearBinding<quaternion> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.x", GetLinearCurve(binding.ValueStart.value.x, binding.ValueEnd.value.x));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.y", GetLinearCurve(binding.ValueStart.value.y, binding.ValueEnd.value.y));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.z", GetLinearCurve(binding.ValueStart.value.z, binding.ValueEnd.value.z));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.w", GetLinearCurve(binding.ValueStart.value.w, binding.ValueEnd.value.w));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.x", GetLinearCurve(binding.ValueStart.value.x, binding.ValueEnd.value.x, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.y", GetLinearCurve(binding.ValueStart.value.y, binding.ValueEnd.value.y, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.z", GetLinearCurve(binding.ValueStart.value.z, binding.ValueEnd.value.z, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalRotation.w", GetLinearCurve(binding.ValueStart.value.w, binding.ValueEnd.value.w, timeStart, timeStop));
         }
 
-        protected static void AddScaleLinearCurves(AnimationClip clip, LinearBinding<float3> binding)
+        protected static void AddScaleLinearCurves(AnimationClip clip, LinearBinding<float3> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalScale.x", GetLinearCurve(binding.ValueStart.x, binding.ValueEnd.x));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalScale.y", GetLinearCurve(binding.ValueStart.y, binding.ValueEnd.y));
-            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalScale.z", GetLinearCurve(binding.ValueStart.z, binding.ValueEnd.z));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalScale.x", GetLinearCurve(binding.ValueStart.x, binding.ValueEnd.x, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalScale.y", GetLinearCurve(binding.ValueStart.y, binding.ValueEnd.y, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Transform), "m_LocalScale.z", GetLinearCurve(binding.ValueStart.z, binding.ValueEnd.z, timeStart, timeStop));
         }
 
-        protected static void AddFloatLinearCurves(AnimationClip clip, LinearBinding<float> binding)
+        protected static void AddFloatLinearCurves(AnimationClip clip, LinearBinding<float> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), binding.Path, GetLinearCurve(binding.ValueStart, binding.ValueEnd));
+            clip.SetCurve(binding.Path, typeof(Transform), binding.Path, GetLinearCurve(binding.ValueStart, binding.ValueEnd, timeStart, timeStop));
         }
 
-        protected static void AddIntergerLinearCurves(AnimationClip clip, LinearBinding<int> binding)
+        protected static void AddIntegerLinearCurves(AnimationClip clip, LinearBinding<int> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), binding.Path, GetLinearCurve((float)binding.ValueStart, (float)binding.ValueEnd));
+            clip.SetCurve(binding.Path, typeof(Transform), binding.Path, GetLinearCurve((float)binding.ValueStart, (float)binding.ValueEnd, timeStart, timeStop));
         }
 
         protected static BlobAssetReference<Clip> CreateLinearDenseClip(
             LinearBinding<float3>[] translations,
             LinearBinding<quaternion>[] rotations,
-            LinearBinding<float3>[] scales)
+            LinearBinding<float3>[] scales,
+            float timeStart = 0, float timeStop = 1.0f)
         {
             var clip = new AnimationClip();
 
             for (var i = 0; i < translations.Length; ++i)
-                AddTranslationLinearCurves(clip, translations[i]);
+                AddTranslationLinearCurves(clip, translations[i],timeStart,timeStop);
             for (var i = 0; i < rotations.Length; ++i)
-                AddRotationLinearCurves(clip, rotations[i]);
+                AddRotationLinearCurves(clip, rotations[i],timeStart,timeStop);
             for (var i = 0; i < scales.Length; ++i)
-                AddScaleLinearCurves(clip, scales[i]);
+                AddScaleLinearCurves(clip, scales[i],timeStart,timeStop);
 
             return ClipBuilder.AnimationClipToDenseClip(clip);
         }
@@ -400,20 +396,21 @@ namespace Unity.Animation.Tests
             LinearBinding<quaternion>[] rotations,
             LinearBinding<float3>[] scales,
             LinearBinding<float>[] floats,
-            LinearBinding<int>[] integers)
+            LinearBinding<int>[] integers,
+            float timeStart = 0, float timeStop = 1.0f)
         {
             var clip = new AnimationClip();
 
             for (var i = 0; i < translations.Length; ++i)
-                AddTranslationLinearCurves(clip, translations[i]);
+                AddTranslationLinearCurves(clip, translations[i],timeStart,timeStop);
             for (var i = 0; i < rotations.Length; ++i)
-                AddRotationLinearCurves(clip, rotations[i]);
+                AddRotationLinearCurves(clip, rotations[i],timeStart,timeStop);
             for (var i = 0; i < scales.Length; ++i)
-                AddScaleLinearCurves(clip, scales[i]);
+                AddScaleLinearCurves(clip, scales[i],timeStart,timeStop);
             for (var i = 0; i < floats.Length; ++i)
-                AddFloatLinearCurves(clip, floats[i]);
+                AddFloatLinearCurves(clip, floats[i],timeStart,timeStop);
             for (var i = 0; i < integers.Length; ++i)
-                AddIntergerLinearCurves(clip, integers[i]);
+                AddIntegerLinearCurves(clip, integers[i],timeStart,timeStop);
 
             return ClipBuilder.AnimationClipToDenseClip(clip);
         }

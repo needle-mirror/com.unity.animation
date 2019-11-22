@@ -11,5 +11,6 @@ namespace Unity.Animation
         public float SampleRate;
 
         public int FrameCount => (int)math.ceil(Duration * SampleRate);
+        public float LastFrameError => FrameCount - Duration * SampleRate;
     }
 }

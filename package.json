@@ -1,22 +1,24 @@
 {
   "name": "com.unity.animation",
   "displayName": "Animation",
-  "version": "0.2.13-preview",
+  "version": "0.2.16-preview.5",
   "unity": "2019.3",
+  "unityRelease": "0b11",
   "description": "The Animation package brings a new animation system to Unity, entirely in C# and with performance in mind. It aligns with our DOTS coding style.",
   "dependencies": {
     "com.unity.mathematics": "1.1.0",
-    "com.unity.entities": "0.1.1-preview",
-    "com.unity.collections": "0.1.1-preview",
-    "com.unity.jobs": "0.1.1-preview",
-    "com.unity.burst": "1.1.3-preview.3",
-    "com.unity.test-framework": "1.0.16",
-    "com.unity.dataflowgraph": "0.11.5-preview",
-    "com.unity.test-framework.performance": "1.2.3-preview"
+    "com.unity.entities": "0.2.0-preview.18",
+    "com.unity.collections": "0.2.0-preview.13",
+    "com.unity.jobs": "0.2.0-preview.13",
+    "com.unity.rendering.hybrid": "0.2.0-preview.18",
+    "com.unity.burst": "1.2.0-preview.9",
+    "com.unity.test-framework": "1.1.3",
+    "com.unity.dataflowgraph": "0.11.9-preview",
+    "com.unity.test-framework.performance": "1.3.0-preview"
   },
   "repository": {
     "type": "git",
-    "url": "git@github.cds.internal.unity3d.com:unity/Unity.Animation.git",
-    "revision": "86d379197bab301ce614c73ce954778ea1228fbb"
+    "url": "git@github.com:Unity-Technologies/Unity.Animation.git",
+    "revision": "82a6427401fb20c50bec7694fb72f8cac7b65d0f"
   }
 }
