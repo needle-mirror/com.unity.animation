@@ -1,16 +1,19 @@
 using Unity.Burst;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Time", description:"Computes looping time and cycle count given a duration and unbound time")]
     public class TimeLoopNode
         : NodeDefinition<TimeLoopNode.Data, TimeLoopNode.SimPorts, TimeLoopNode.KernelData, TimeLoopNode.KernelDefs, TimeLoopNode.Kernel>
-            , IMsgHandler<float>
+        , IMsgHandler<float>
     {
         public struct SimPorts : ISimulationPortDefinition
         {
+            [PortDefinition(description:"Duration")]
             public MessageInput<TimeLoopNode, float> Duration;
         }
 
@@ -18,9 +21,13 @@ namespace Unity.Animation
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Unbound time")]
             public DataInput<TimeLoopNode, float> InputTime;
+            [PortDefinition(description:"Time (computed from normalized time mutiplied by duration)")]
             public DataOutput<TimeLoopNode, float> OutputTime;
-            public DataOutput<TimeLoopNode, float> Cycle;
+            [PortDefinition(description:"Number of duration cycles")]
+            public DataOutput<TimeLoopNode, int> Cycle;
+            [PortDefinition(description:"Normalized time")]
             public DataOutput<TimeLoopNode, float> NormalizedTime;
         }
 
@@ -57,7 +64,7 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileTimeLoop = k_ProfileTimeLoop;

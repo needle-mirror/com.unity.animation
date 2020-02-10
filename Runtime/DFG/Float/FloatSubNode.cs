@@ -1,9 +1,11 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(isHidden:true)]
     public class FloatSubNode
         : NodeDefinition<FloatSubNode.Data, FloatSubNode.SimPorts, FloatSubNode.KernelData, FloatSubNode.KernelDefs, FloatSubNode.Kernel>
     {
@@ -41,7 +43,7 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileFloatSub = k_ProfileFloatSub;

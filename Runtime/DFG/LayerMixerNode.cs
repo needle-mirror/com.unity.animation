@@ -1,8 +1,13 @@
+using System.Runtime.CompilerServices;
+
 using Unity.Collections;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Jobs;
 
 namespace Unity.Animation
 {
@@ -12,209 +17,225 @@ namespace Unity.Animation
         Additive,
     }
 
+    [NodeDefinition(category:"Animation Core/Mixers", description:"Blends animation streams based on an ordered layer approach. Each layer can blend in either override or additive mode. Weight masks can be built using the WeightBuilderNode.")]
+    [PortGroupDefinition(portGroupSizeDescription:"Number of layers", groupIndex:1, minInstance:2, maxInstance:-1, simulationPortToDrive:"LayerCount")]
     public class LayerMixerNode
         : NodeDefinition<LayerMixerNode.Data, LayerMixerNode.SimPorts, LayerMixerNode.KernelData, LayerMixerNode.KernelDefs, LayerMixerNode.Kernel>
-        , IMsgHandler<BlobAssetReference<RigDefinition>>
+        , IMsgHandler<Rig>
         , IMsgHandler<BlendingMode>
-        , IMsgHandler<float>
-        , IMsgHandler<NativeBitSet>
+        , IMsgHandler<ushort>
+        , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<LayerMixerNode, BlobAssetReference<RigDefinition>>   RigDefinition;
-
-            public MessageInput<LayerMixerNode, BlendingMode>                        BlendModeInput0;
-            public MessageInput<LayerMixerNode, BlendingMode>                        BlendModeInput1;
-            public MessageInput<LayerMixerNode, BlendingMode>                        BlendModeInput2;
-            public MessageInput<LayerMixerNode, BlendingMode>                        BlendModeInput3;
-
-            public MessageInput<LayerMixerNode, float>                               WeightInput0;
-            public MessageInput<LayerMixerNode, float>                               WeightInput1;
-            public MessageInput<LayerMixerNode, float>                               WeightInput2;
-            public MessageInput<LayerMixerNode, float>                               WeightInput3;
-
-            public MessageInput<LayerMixerNode, NativeBitSet>                        MaskInput0;
-            public MessageInput<LayerMixerNode, NativeBitSet>                        MaskInput1;
-            public MessageInput<LayerMixerNode, NativeBitSet>                        MaskInput2;
-            public MessageInput<LayerMixerNode, NativeBitSet>                        MaskInput3;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<LayerMixerNode, Rig> Rig;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<LayerMixerNode, ushort> LayerCount;
+            [PortDefinition(displayName:"Blending Mode", description:"Type of blending to apply", portGroupIndex:1, isStatic:true)]
+            public PortArray<MessageInput<LayerMixerNode, BlendingMode>> BlendingModes;
         }
 
-        static readonly ProfilerMarker k_ProfileLayerMixPose = new ProfilerMarker("Animation.LayerMixPose");
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.LayerMixPose");
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            public DataInput<LayerMixerNode, Buffer<float>>   Input0;
-            public DataInput<LayerMixerNode, Buffer<float>>   Input1;
-            public DataInput<LayerMixerNode, Buffer<float>>   Input2;
-            public DataInput<LayerMixerNode, Buffer<float>>   Input3;
+            [PortDefinition(displayName:"Input", description:"Animation stream to blend", portGroupIndex:1)]
+            public PortArray<DataInput<LayerMixerNode, Buffer<AnimatedData>>> Inputs;
+            [PortDefinition(displayName:"Weight", description:"Layer weight", portGroupIndex:1, defaultValue:1f)]
+            public PortArray<DataInput<LayerMixerNode, float>> Weights;
+            [PortDefinition(displayName:"Weight Mask", description:"Channel specific weights which are also modulated by the layer weight", portGroupIndex:1)]
+            public PortArray<DataInput<LayerMixerNode, Buffer<WeightData>>> WeightMasks;
 
-            public DataOutput<LayerMixerNode, Buffer<float>>  Output;
+            [PortDefinition(description:"Resulting animation stream")]
+            public DataOutput<LayerMixerNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
         {
+            public GraphValue<Buffer<AnimatedData>> GraphValue;
         }
 
-        public struct KernelData : IKernelData
+        public unsafe struct KernelData : IKernelData
         {
             // Assets.
             public BlobAssetReference<RigDefinition>    RigDefinition;
 
-            public float                                WeightInput0;
-            public float                                WeightInput1;
-            public float                                WeightInput2;
-            public float                                WeightInput3;
+            public UnsafeList*                          BlendingModes;
 
-            public BlendingMode                         BlendingModeInput0;
-            public BlendingMode                         BlendingModeInput1;
-            public BlendingMode                         BlendingModeInput2;
-            public BlendingMode                         BlendingModeInput3;
+            public int                                  LayerCount;
 
-            public NativeBitSet                         MaskInput0;
-            public NativeBitSet                         MaskInput1;
-            public NativeBitSet                         MaskInput2;
-            public NativeBitSet                         MaskInput3;
+            public ProfilerMarker                       ProfilerMarker;
 
-            public ProfilerMarker                       ProfileLayerMixPose;
+            public JobHandle                            ResizeListJob;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public unsafe void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-                data.ProfileLayerMixPose.Begin();
+                var inputArray = context.Resolve(ports.Inputs);
+                var weightArray = context.Resolve(ports.Weights);
+                var weightMaskArray = context.Resolve(ports.WeightMasks);
 
-                var outputStream = AnimationStreamProvider.Create(data.RigDefinition, context.Resolve(ref ports.Output));
+                if(inputArray.Length != data.LayerCount)
+                    throw new System.InvalidOperationException($"LayerMixerNode: Inputs Port array length mismatch. Expecting '{data.LayerCount}' but was '{inputArray.Length}'.");
+
+                if(weightArray.Length != data.LayerCount)
+                    throw new System.InvalidOperationException($"LayerMixerNode: Weights Port array length mismatch. Expecting '{data.LayerCount}' but was '{weightArray.Length}'.");
+
+                if(weightMaskArray.Length != data.LayerCount)
+                    throw new System.InvalidOperationException($"LayerMixerNode: WeightMasks Port array length mismatch. Expecting '{data.LayerCount}' but was '{weightArray.Length}'.");
+
+                data.ProfilerMarker.Begin();
+
+                var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
                 AnimationStreamUtils.SetDefaultValues(ref outputStream);
 
-                // TODO: clean up write mask here before processing layers.
-                var inputStream0 = AnimationStreamProvider.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input0));
-                if (data.WeightInput0 > 0 && !inputStream0.IsNull)
+                int expectedWeightDataSize = Core.WeightDataSize(data.RigDefinition);
+                for (int i = 0; i < inputArray.Length; ++i)
                 {
-                    if (data.BlendingModeInput0 == BlendingMode.Override)
-                        Core.BlendOverrideLayer(ref outputStream, ref inputStream0, data.WeightInput0, data.MaskInput0);
-                    else
-                        Core.BlendAdditiveLayer(ref outputStream, ref inputStream0, data.WeightInput0, data.MaskInput0);
+                    var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition, inputArray[i].ToNative(context));
+                    if (weightArray[i] > 0 && !inputStream.IsNull)
+                    {
+                        var weightMasks = weightMaskArray[i].ToNative(context);
+                        if(weightMasks.Length == expectedWeightDataSize)
+                        {
+                            if (ItemAt<BlendingMode>(data.BlendingModes, i) == BlendingMode.Override)
+                                Core.BlendOverrideLayer(ref outputStream, ref inputStream, weightArray[i], weightMasks);
+                            else
+                                Core.BlendAdditiveLayer(ref outputStream, ref inputStream, weightArray[i], weightMasks);
+                        }
+                        else
+                        {
+                            if (ItemAt<BlendingMode>(data.BlendingModes, i) == BlendingMode.Override)
+                                Core.BlendOverrideLayer(ref outputStream, ref inputStream, weightArray[i]);
+                            else
+                                Core.BlendAdditiveLayer(ref outputStream, ref inputStream, weightArray[i]);
+                        }
+                    }
                 }
 
-                var inputStream1 = AnimationStreamProvider.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input1));
-                if (data.WeightInput1 > 0 && !inputStream1.IsNull)
-                {
-                    if(data.BlendingModeInput1 == BlendingMode.Override)
-                        Core.BlendOverrideLayer(ref outputStream, ref inputStream1, data.WeightInput1, data.MaskInput1);
-                    else
-                        Core.BlendAdditiveLayer(ref outputStream, ref inputStream1, data.WeightInput1, data.MaskInput1);
-                }
-
-                var inputStream2 = AnimationStreamProvider.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input2));
-                if (data.WeightInput2 > 0 && !inputStream2.IsNull)
-                {
-                    if(data.BlendingModeInput2 == BlendingMode.Override)
-                        Core.BlendOverrideLayer(ref outputStream, ref inputStream2, data.WeightInput2, data.MaskInput2);
-                    else
-                        Core.BlendAdditiveLayer(ref outputStream, ref inputStream2, data.WeightInput2, data.MaskInput2);
-                }
-
-                var inputStream3 = AnimationStreamProvider.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input3));
-                if (data.WeightInput3 > 0 && !inputStream3.IsNull)
-                {
-                    if(data.BlendingModeInput3 == BlendingMode.Override)
-                        Core.BlendOverrideLayer(ref outputStream, ref inputStream3, data.WeightInput3, data.MaskInput3);
-                    else
-                        Core.BlendAdditiveLayer(ref outputStream, ref inputStream3, data.WeightInput3, data.MaskInput3);
-                }
-
-                data.ProfileLayerMixPose.End();
+                data.ProfilerMarker.End();
             }
         }
 
-        public override void Init(InitContext ctx)
+        internal static unsafe ref T ItemAt<T>(UnsafeList* list, int index)
+            where T : struct
         {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileLayerMixPose = k_ProfileLayerMixPose;
+            return ref Unsafe.AsRef<T>((byte*)list->Ptr + index * Unsafe.SizeOf<T>());
         }
 
-        public override void Destroy(NodeHandle handle)
+        protected unsafe override void Init(InitContext ctx)
+        {
+            ref var kData = ref GetKernelData(ctx.Handle);
+            kData.ProfilerMarker = k_ProfilerMarker;
+
+            kData.BlendingModes = UnsafeList.Create(Unsafe.SizeOf<BlendingMode>(), UnsafeUtility.AlignOf<BlendingMode>(), 0, Allocator.Persistent);
+
+            // Since the kernel is double buffered we need to wait until all kernel evaluation finish
+            // before we can change allocation
+            // (A GraphValue on _any_ DataOutput port from this node will do).
+            GetNodeData(ctx.Handle).GraphValue = Set.CreateGraphValue<Buffer<AnimatedData>>(ctx.Handle, (OutputPortID) KernelPorts.Output);
+        }
+        protected unsafe override void Destroy(NodeHandle handle)
         {
             ref var kData = ref GetKernelData(handle);
 
-            if (kData.MaskInput0.IsCreated)
-                kData.MaskInput0.Dispose();
+            DisposeKernelMemory(ref kData);
 
-            if(kData.MaskInput1.IsCreated)
-                kData.MaskInput1.Dispose();
-
-            if(kData.MaskInput2.IsCreated)
-                kData.MaskInput2.Dispose();
-
-            if(kData.MaskInput3.IsCreated)
-                kData.MaskInput3.Dispose();
+            Set.ReleaseGraphValue(GetNodeData(handle).GraphValue);
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigBindings)
+        protected unsafe void ResizeKernelMemory(ref KernelData kData)
         {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.RigDefinition = rigBindings;
+            kData.ResizeListJob.Complete();
 
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<float>.SizeRequest(rigBindings.Value.Bindings.CurveCount));
-
-            kData.MaskInput0 = new NativeBitSet(rigBindings.Value.Bindings.BindingCount, Allocator.Persistent);
-            kData.MaskInput1 = new NativeBitSet(rigBindings.Value.Bindings.BindingCount, Allocator.Persistent);
-            kData.MaskInput2 = new NativeBitSet(rigBindings.Value.Bindings.BindingCount, Allocator.Persistent);
-            kData.MaskInput3 = new NativeBitSet(rigBindings.Value.Bindings.BindingCount, Allocator.Persistent);
-
-            // By default all channels are blended
-            kData.MaskInput0.Set();
-            kData.MaskInput1.Set();
-            kData.MaskInput2.Set();
-            kData.MaskInput3.Set();
+            Set.GetGraphValueResolver(out var safeToResize);
+            var resizeJob1 = new ResizeBlendingModeJob
+            {
+                List = kData.BlendingModes,
+                Options = NativeArrayOptions.ClearMemory,
+                Length = kData.LayerCount
+            };
+            kData.ResizeListJob = resizeJob1.Schedule(safeToResize);
+            Set.InjectDependencyFromConsumer(kData.ResizeListJob);
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlendingMode blendingMode)
+        protected unsafe void DisposeKernelMemory(ref KernelData kData)
         {
-            if(ctx.Port == SimulationPorts.BlendModeInput0)
-                GetKernelData(ctx.Handle).BlendingModeInput0 = blendingMode;
-            else if(ctx.Port ==  SimulationPorts.BlendModeInput1)
-                GetKernelData(ctx.Handle).BlendingModeInput1 = blendingMode;
-            else if(ctx.Port ==  SimulationPorts.BlendModeInput2)
-                GetKernelData(ctx.Handle).BlendingModeInput2 = blendingMode;
-            else if(ctx.Port == SimulationPorts.BlendModeInput3)
-                GetKernelData(ctx.Handle).BlendingModeInput3 = blendingMode;
+            kData.ResizeListJob.Complete();
+
+            Set.GetGraphValueResolver(out var safeToDispose);
+            var disposeJob = kData.BlendingModes->Dispose(safeToDispose);
+            Set.InjectDependencyFromConsumer(disposeJob);
         }
 
-        public void HandleMessage(in MessageContext ctx, in float weight)
-        {
-            if(ctx.Port == SimulationPorts.WeightInput0)
-                GetKernelData(ctx.Handle).WeightInput0 = weight;
-            else if(ctx.Port == SimulationPorts.WeightInput1)
-                GetKernelData(ctx.Handle).WeightInput1 = weight;
-            else if(ctx.Port == SimulationPorts.WeightInput2)
-                GetKernelData(ctx.Handle).WeightInput2 = weight;
-            else if(ctx.Port == SimulationPorts.WeightInput3)
-                GetKernelData(ctx.Handle).WeightInput3 = weight;
-        }
-        public void HandleMessage(in MessageContext ctx, in NativeBitSet mask)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
 
-            if (kData.RigDefinition == default)
-                throw new System.NullReferenceException($"Cannot set mask if RigDefinition is null");
+            kData.RigDefinition = rig;
 
-            if (kData.RigDefinition.Value.Bindings.BindingCount != mask.Length)
-                throw new System.ArgumentException($"mask length '{mask.Length}' has to match RigDefinition binding count '{kData.RigDefinition.Value.Bindings.BindingCount}'", "mask");
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
 
-            if(ctx.Port == SimulationPorts.MaskInput0)
-                kData.MaskInput0 = mask.Copy();
-            else if(ctx.Port == SimulationPorts.MaskInput1)
-                kData.MaskInput1 = mask.Copy();
-            else if(ctx.Port == SimulationPorts.MaskInput2)
-                kData.MaskInput2 = mask.Copy();
-            else if(ctx.Port == SimulationPorts.MaskInput3)
-                kData.MaskInput3 = mask.Copy();
+            ResizeKernelMemory(ref kData);
+        }
 
+        public unsafe void HandleMessage(in MessageContext ctx, in BlendingMode blendingMode)
+        {
+            ref var kData = ref GetKernelData(ctx.Handle);
+            if (ctx.ArrayIndex >= kData.LayerCount)
+                throw new System.ArgumentOutOfRangeException($"LayerMixerNode: BlendingModes port array index '{ctx.ArrayIndex}' was out of bounds, LayerMixer only has '{kData.LayerCount}' layer.");
+
+            kData.ResizeListJob.Complete();
+
+            ItemAt<BlendingMode>(kData.BlendingModes, ctx.ArrayIndex) = blendingMode;
+        }
+
+        public unsafe void HandleMessage(in MessageContext ctx, in ushort layerCount)
+        {
+            ref var kData = ref GetKernelData(ctx.Handle);
+            ref var data = ref GetNodeData(ctx.Handle);
+
+            if(layerCount != kData.LayerCount)
+            {
+                kData.LayerCount = layerCount;
+
+                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.SimulationPorts.BlendingModes, layerCount);
+                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.Inputs, layerCount);
+                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.Weights, layerCount);
+                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.WeightMasks, layerCount);
+
+                ResizeKernelMemory(ref kData);
+            }
         }
 
         internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
+
+        [BurstCompile]
+        unsafe struct ResizeBlendingModeJob : IJob
+        {
+            [NativeDisableUnsafePtrRestriction]
+            public UnsafeList* List;
+            public NativeArrayOptions Options;
+            public int Length;
+
+            public void Execute()
+            {
+                if (List->Allocator == Allocator.Invalid)
+                    List->Allocator = Allocator.Persistent;
+
+                List->Resize<BlendingMode>(Length, Options);
+            }
+        }
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

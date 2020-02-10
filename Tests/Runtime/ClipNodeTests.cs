@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.DataFlowGraph;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -21,14 +21,15 @@ namespace Unity.Animation.Tests
         private float m_IKWeight => 1.0f;
         private int m_DefaultType => 10;
 
-        private BlobAssetReference<RigDefinition> m_Rig;
-        private BlobAssetReference<ClipInstance> m_ConstantRootClip;
-        private BlobAssetReference<ClipInstance> m_ConstantHierarchyClip;
-        private BlobAssetReference<ClipInstance> m_ConstantPartialClip;
-        private BlobAssetReference<ClipInstance> m_LinearRootClip;
-        private BlobAssetReference<ClipInstance> m_LinearHierarchyClip;
-        private BlobAssetReference<ClipInstance> m_LinearHierarchyNoRootClip;
-        private BlobAssetReference<ClipInstance> m_LinearPartialClip;
+        private Rig m_Rig;
+        private BlobAssetReference<Clip> m_ConstantRootClip;
+        private BlobAssetReference<Clip> m_ConstantHierarchyClip;
+        private BlobAssetReference<Clip> m_ConstantPartialClip;
+        private BlobAssetReference<Clip> m_LinearRootClip;
+        private BlobAssetReference<Clip> m_LinearHierarchyClip;
+        private BlobAssetReference<Clip> m_LinearHierarchyNoRootClip;
+        private BlobAssetReference<Clip> m_LinearPartialClip;
+        private BlobAssetReference<Clip> m_ConstantSOAClip;
 
         private static BlobAssetReference<RigDefinition> CreateTestRigDefinition()
         {
@@ -36,7 +37,9 @@ namespace Unity.Animation.Tests
             {
                 new SkeletonNode { ParentIndex = -1, Id = "Root", AxisIndex = -1 },
                 new SkeletonNode { ParentIndex = 0, Id = "Child1", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 1, Id = "Child2", AxisIndex = -1 }
+                new SkeletonNode { ParentIndex = 1, Id = "Child2", AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 2, Id = "Child3", AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 3, Id = "Child4", AxisIndex = -1 },
             };
 
             var channels = new IAnimationChannel[]
@@ -144,6 +147,15 @@ namespace Unity.Animation.Tests
                 var blobPath = "ClipNodeTestsLinearPartialClip.blob";
                 BlobFile.WriteBlobAsset(ref denseClip, blobPath);
             }
+            {
+                var denseClip = CreateConstantDenseClip(
+                        new[] { ("Root", m_ClipRootLocalTranslation), ("Child1", m_ClipRootLocalTranslation), ("Child2", m_ClipRootLocalTranslation), ("Child3", m_ClipRootLocalTranslation), ("Child4", m_ClipRootLocalTranslation)},
+                        new[] { ("Root", m_ClipRootLocalRotation), ("Child1", m_ClipRootLocalRotation), ("Child2", m_ClipRootLocalRotation), ("Child3", m_ClipRootLocalRotation), ("Child4", m_ClipRootLocalRotation) },
+                        new[] { ("Root", m_ClipRootLocalScale), ("Child1", m_ClipRootLocalScale), ("Child2", m_ClipRootLocalScale), ("Child3", m_ClipRootLocalScale),("Child4", m_ClipRootLocalScale) });
+
+                var blobPath = "ClipNodeTestsDenseClipSOA.blob";
+                BlobFile.WriteBlobAsset(ref denseClip, blobPath);
+            }
 #endif
         }
 
@@ -153,63 +165,151 @@ namespace Unity.Animation.Tests
             base.OneTimeSetUp();
 
             // Create rig
-            m_Rig = CreateTestRigDefinition();
+            m_Rig = new Rig { Value = CreateTestRigDefinition() };
 
             // Constant root clip
             {
                 var path = "ClipNodeTestsDenseClip1.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
-
-                m_ConstantRootClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                m_ConstantRootClip = BlobFile.ReadBlobAsset<Clip>(path);
+                ClipManager.Instance.GetClipFor(m_Rig, m_ConstantRootClip);
             }
 
             // Constant hierarchy clip
             {
                 var path = "ClipNodeTestsDenseClip2.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_ConstantHierarchyClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_ConstantHierarchyClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_ConstantHierarchyClip);
             }
 
             // Constant partial clip
             {
                 var path = "ClipNodeTestsConstantPartial.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_ConstantPartialClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_ConstantPartialClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_ConstantPartialClip);
             }
 
             // Linear root clip
             {
                 var path = "ClipNodeTestsLinearRootClip.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_LinearRootClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_LinearRootClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_LinearRootClip);
             }
 
             // Linear hierarchy clip
             {
                 var path = "ClipNodeTestsLinearHierarchyClip.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_LinearHierarchyClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_LinearHierarchyClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_LinearHierarchyClip);
             }
 
             // Linear hierarchy with no root anim clip
             {
                 var path = "ClipNodeTestsLinearHierarchyNoRootClip.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_LinearHierarchyNoRootClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_LinearHierarchyNoRootClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_LinearHierarchyNoRootClip);
             }
 
             // Linear partial clip
             {
                 var path = "ClipNodeTestsLinearPartialClip.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_LinearPartialClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_LinearPartialClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_LinearPartialClip);
             }
+
+            // SOA clip
+            {
+                var path = "ClipNodeTestsDenseClipSOA.blob";
+                m_ConstantSOAClip = BlobFile.ReadBlobAsset<Clip>(path);
+
+                ClipManager.Instance.GetClipFor(m_Rig, m_ConstantSOAClip);
+            }
+        }
+
+        struct TestDataClipNode
+        {
+            public Entity Entity;
+            public NodeHandle<ClipNode> ClipNode;
+        }
+
+        TestDataClipNode CreateClipNodeGraph(float time, in Rig rig, BlobAssetReference<Clip> clip)
+        {
+            var entity = m_Manager.CreateEntity();
+            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+
+            var set = Set;
+            var clipNode = CreateNode<ClipNode>();
+            var entityNode = CreateComponentNode(entity);
+
+            set.Connect(clipNode, ClipNode.KernelPorts.Output, entityNode);
+
+            set.SendMessage(clipNode, ClipNode.SimulationPorts.Rig, rig);
+            set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, clip);
+            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+
+            return new TestDataClipNode { Entity = entity, ClipNode = clipNode };
+        }
+
+        struct TestDataUberClipNode
+        {
+            public Entity Entity;
+            public NodeHandle<UberClipNode> UberClipNode;
+        }
+
+        TestDataUberClipNode CreateUberClipNodeGraph(float time, in Rig rig, BlobAssetReference<Clip> clip, ClipConfiguration config)
+        {
+            var entity = m_Manager.CreateEntity();
+            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+
+            var set = Set;
+            var uberNode = CreateNode<UberClipNode>();
+            var entityNode = CreateComponentNode(entity);
+
+            set.Connect(uberNode, UberClipNode.KernelPorts.Output, entityNode);
+
+            set.SendMessage(uberNode, UberClipNode.SimulationPorts.Rig, rig);
+            set.SendMessage(uberNode, UberClipNode.SimulationPorts.Clip, clip);
+            Set.SendMessage(uberNode, UberClipNode.SimulationPorts.Configuration, config);
+            set.SetData(uberNode, UberClipNode.KernelPorts.Time, time);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+
+            return new TestDataUberClipNode { Entity = entity, UberClipNode = uberNode };
+        }
+
+        struct TestDataClipPlayerNode
+        {
+            public Entity Entity;
+            public NodeHandle<ClipPlayerNode> ClipPlayerNode;
+        }
+
+        TestDataClipPlayerNode CreateClipPlayerNodeGraph(float deltaTime, float speed, in Rig rig, BlobAssetReference<Clip> clip, ClipConfiguration config)
+        {
+            var entity = m_Manager.CreateEntity();
+            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+
+            var set = Set;
+            var clipPlayerNode = CreateNode<ClipPlayerNode>();
+            var entityNode = CreateComponentNode(entity);
+
+            set.Connect(clipPlayerNode, ClipPlayerNode.KernelPorts.Output, entityNode);
+
+            Set.SendMessage(clipPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, config);
+            set.SendMessage(clipPlayerNode, ClipPlayerNode.SimulationPorts.Rig,rig);
+            set.SendMessage(clipPlayerNode, ClipPlayerNode.SimulationPorts.Clip, clip);
+            set.SetData(clipPlayerNode, ClipPlayerNode.KernelPorts.Speed, speed);
+            set.SetData(clipPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, deltaTime);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+
+            return new TestDataClipPlayerNode { Entity = entity, ClipPlayerNode = clipPlayerNode };
         }
 
         [Test]
@@ -219,27 +319,17 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play at end")]
         public void CanPlayConstantClip(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_ConstantRootClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_ConstantRootClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
-            var localRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[0].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[0].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
-            Assert.That(localTranslation, Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotation, Is.EqualTo(m_ClipRootLocalRotation).Using(RotationComparer));
-            Assert.That(localScale, Is.EqualTo(m_ClipRootLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(m_ClipRootLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(m_ClipRootLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -249,33 +339,22 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play at end")]
         public void CanPlayConstantClipWithPartialBindings(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_ConstantPartialClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_ConstantPartialClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[0].Value;
-            var ikWeight = m_Manager.GetBuffer<AnimatedFloat>(entity)[0].Value;
-            var type = m_Manager.GetBuffer<AnimatedInt>(entity)[0].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedLocalTranslation = new float3(m_ClipRootLocalTranslation.x, 0.0f, 0.0f);
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
 
             var expectedLocalScale = new float3(m_ClipRootLocalScale.x, 1.0f, 1.0f);
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
 
-            Assert.That(ikWeight, Is.EqualTo(m_IKWeight).Within(1).Ulps);
-            Assert.That(type, Is.EqualTo(m_DefaultType));
+            Assert.That(streamECS.GetFloat(0), Is.EqualTo(m_IKWeight).Within(1).Ulps);
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(m_DefaultType));
         }
 
         [Test]
@@ -285,27 +364,17 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play at end")]
         public void CanPlayConstantClipWithHierarchy(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_ConstantHierarchyClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
-            Assert.That(childLocalTranslation, Is.EqualTo(m_ClipChildLocalTranslation).Using(TranslationComparer));
-            Assert.That(childLocalRotation, Is.EqualTo(m_ClipChildLocalRotation).Using(RotationComparer));
-            Assert.That(childLocalScale, Is.EqualTo(m_ClipChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(m_ClipChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(m_ClipChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(m_ClipChildLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -316,32 +385,22 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play at end")]
         public void CanPlayLinearClip(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_LinearRootClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_LinearRootClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
-            var localRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[0].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[0].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedLocalTranslation = math.lerp(float3.zero, m_ClipRootLocalTranslation, time);
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
 
             var expectedLocalRotation = mathex.lerp(quaternion.identity, m_ClipRootLocalRotation, time);
-            Assert.That(localRotation, Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
 
             var expectedLocalScale = math.lerp(float3.zero, m_ClipRootLocalScale, time);
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -352,28 +411,20 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play at end")]
         public void CanPlayLinearClipWithPartialBindings(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_LinearPartialClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_LinearPartialClip);
             m_AnimationGraphSystem.Update();
 
             // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[0].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedLocalTranslation = new float3(math.lerp(0.0f, m_ClipRootLocalTranslation.x, time), 0.0f, 0.0f);
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
 
             var expectedLocalScale = new float3(math.lerp(0.0f, m_ClipRootLocalScale.x, time), 1.0f, 1.0f);
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -384,32 +435,43 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play at end")]
         public void CanPlayLinearClipWithHierarchy(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_LinearHierarchyClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, time);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, time);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, time);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+        }
+
+        [Test]
+        public void CanPlayClipWithMoreThan4TransformHierarchy()
+        {
+            var data = CreateClipNodeGraph(0.5f, m_Rig, m_ConstantSOAClip);
+            m_AnimationGraphSystem.Update();
+
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
+
+            for(int i=0;i<m_Rig.Value.Value.Skeleton.BoneCount; i++)
+            {
+                Assert.That(streamECS.GetLocalToParentTranslation(i), Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer));
+
+                Assert.That(streamECS.GetLocalToParentRotation(i), Is.EqualTo(m_ClipRootLocalRotation).Using(RotationComparer));
+
+                Assert.That(streamECS.GetLocalToParentScale(i), Is.EqualTo(m_ClipRootLocalScale).Using(ScaleComparer));
+            }
         }
 
         [Test]
@@ -420,34 +482,24 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f * ClipNodeTests.m_LinearHierarchyNoRootClipDuration, Description = "Play at end")]
         public void CanPlayLinearClipWithHierarchyWithDurationNotA60FPSMutliple(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_LinearHierarchyNoRootClip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateClipNodeGraph(time, m_Rig, m_LinearHierarchyNoRootClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
-            var interpolationTime = time / m_LinearHierarchyNoRootClip.Value.Clip.Duration;
+            var interpolationTime = time / m_LinearHierarchyNoRootClip.Value.Duration;
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, interpolationTime);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, interpolationTime);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, interpolationTime);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -458,72 +510,56 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f * ClipNodeTests.m_LinearHierarchyNoRootClipDuration, Description = "Play at end")]
         public void CanPlayBakedClip(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var bakedClip = UberClipNode.Bake(m_LinearHierarchyNoRootClip, new ClipConfiguration());
-            var bakedClipInstance = ClipInstance.Create(m_Rig, bakedClip);
-
-            var set = Set;
-
-            var bakedClipNode = CreateNode<UberClipNode>();
-            set.SendMessage(bakedClipNode, UberClipNode.SimulationPorts.ClipInstance, bakedClipInstance);
-            set.SetData(bakedClipNode, UberClipNode.KernelPorts.Time, time);
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(bakedClipNode, UberClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var bakedClip = UberClipNode.Bake(m_Rig, m_LinearHierarchyNoRootClip, new ClipConfiguration());
+            var data = CreateClipNodeGraph(time, m_Rig, bakedClip);
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
-            var interpolationTime = time / bakedClipInstance.Value.Clip.Duration;
+            var interpolationTime = time / bakedClip.Value.Duration;
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, interpolationTime);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, interpolationTime);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, interpolationTime);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
+
+        [Test(Description = "Bake handles clips with only one of translation or rotation channels, but not both")]
+        public void CanBakePartialClip()
+        {
+            Assert.DoesNotThrow(() => UberClipNode.Bake(m_Rig, m_LinearPartialClip, new ClipConfiguration() { MotionID = "Root" }));
+        }
+
 
         [Test]
         [TestCase(0.999f * ClipNodeTests.m_LinearHierarchyNoRootClipDuration, Description = "Play near the very end")]
         [TestCase(1.0f * ClipNodeTests.m_LinearHierarchyNoRootClipDuration, Description = "Play at end")]
         public void CanPlayBakedLoopTransformClip(float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var bakedClip = UberClipNode.Bake(m_LinearHierarchyNoRootClip, new ClipConfiguration { Mask = (int)ClipConfigurationMask.LoopValues });
-            var bakedClipInstance = ClipInstance.Create(m_Rig, bakedClip);
-
-            var set = Set;
-
-            var bakedClipNode = CreateNode<UberClipNode>();
-            set.SendMessage(bakedClipNode, UberClipNode.SimulationPorts.ClipInstance, bakedClipInstance);
-            set.SetData(bakedClipNode, UberClipNode.KernelPorts.Time, time);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(bakedClipNode, UberClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var bakedClip = UberClipNode.Bake(m_Rig, m_LinearHierarchyNoRootClip, new ClipConfiguration { Mask = ClipConfigurationMask.LoopValues });
+            var data = CreateClipNodeGraph(time, m_Rig, bakedClip);
             m_AnimationGraphSystem.Update();
 
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
-            var interpolationTime = time / bakedClipInstance.Value.Clip.Duration;
+            var interpolationTime = time / bakedClip.Value.Duration;
 
             // stop values should be equal to start values
             var expectedChildLocalTranslation = float3.zero;
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = quaternion.identity;
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
         }
 
         [Test]
@@ -538,41 +574,28 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, 2.1f, Description = "From the end to more than double the clip length")]
         public void CanLoopClip(float startTime, float nextTime)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipLoopNode = CreateNode<UberClipNode>();
-            Set.SendMessage(clipLoopNode,UberClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.LoopTime });
-            set.SendMessage(clipLoopNode, UberClipNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SetData(clipLoopNode, UberClipNode.KernelPorts.Time, startTime);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipLoopNode, UberClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateUberClipNodeGraph(startTime, m_Rig, m_LinearHierarchyClip, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
+            m_AnimationGraphSystem.Update();
+            Set.SetData(data.UberClipNode, UberClipNode.KernelPorts.Time, nextTime);
             m_AnimationGraphSystem.Update();
 
-            set.SetData(clipLoopNode, UberClipNode.KernelPorts.Time, nextTime);
-
-            m_AnimationGraphSystem.Update();
-
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             // Get new time within clip length.
-            var clipLength = m_LinearHierarchyClip.Value.Clip.Duration;
+            var clipLength = m_LinearHierarchyClip.Value.Duration;
             var currentTime = math.fmod(nextTime,clipLength);
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, currentTime);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, currentTime);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, currentTime);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -584,33 +607,22 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f, Description = "Play clip at 100%")]
         public void CanEvaluateNormalizedTimeClip(float normalizedTime)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var normalizedTimeClipNode = CreateNode<UberClipNode>();
-            Set.SendMessage(normalizedTimeClipNode,UberClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.NormalizedTime });
-            set.SendMessage(normalizedTimeClipNode, UberClipNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SetData(normalizedTimeClipNode, UberClipNode.KernelPorts.Time, normalizedTime);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(normalizedTimeClipNode, UberClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
-
+            var data = CreateUberClipNodeGraph(normalizedTime, m_Rig, m_LinearHierarchyClip, new ClipConfiguration { Mask = ClipConfigurationMask.NormalizedTime });
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, normalizedTime);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, normalizedTime);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, normalizedTime);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -620,40 +632,28 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f/15.0f, 0.1f,  Description = "Play clip with delta time = 1/15 and speed 10%")]
         public void CanEvaluateClipLoopPlayer(float deltaTime, float speed)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipLoopPlayerNode = CreateNode<ClipPlayerNode>();
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration{ Mask = (int)ClipConfigurationMask.LoopTime });
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Speed, speed);
-            set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, deltaTime);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var data = CreateClipPlayerNodeGraph(deltaTime, speed, m_Rig, m_LinearHierarchyClip, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
 
             var currentTime = 0.0f;
-
             for (var frameIter = 0; frameIter < 5; frameIter++)
             {
                 m_AnimationGraphSystem.Update();
                 currentTime += deltaTime * speed;
             }
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, currentTime);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, currentTime);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, currentTime);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -663,21 +663,9 @@ namespace Unity.Animation.Tests
         [TestCase(1.0f/15.0f, 0.1f, 0.7f,  Description = "Play clip at time = 0.7s")]
         public void CanSetTimeOnClipLoopPlayer(float deltaTime, float speed, float time)
         {
-            var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-
-            var set = Set;
-            var clipLoopPlayerNode = CreateNode<ClipPlayerNode>();
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.LoopTime });
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Speed, speed);
-            set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, deltaTime);
-
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var data = CreateClipPlayerNodeGraph(deltaTime, speed, m_Rig, m_LinearHierarchyClip, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
 
             var currentTime = 0.0f;
-
             for (var frameIter = 0; frameIter < 5; frameIter++)
             {
                 m_AnimationGraphSystem.Update();
@@ -685,26 +673,27 @@ namespace Unity.Animation.Tests
             }
 
             // override time at this point
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Time, time);
+            Set.SendMessage(data.ClipPlayerNode, ClipPlayerNode.SimulationPorts.Time, time);
             currentTime = time;
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var childLocalTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var childLocalRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var childLocalScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
+            var streamECS = AnimationStream.Create(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+                );
 
             var expectedChildLocalTranslation = math.lerp(float3.zero, m_ClipChildLocalTranslation, currentTime);
-            Assert.That(childLocalTranslation, Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation).Using(TranslationComparer));
 
             var expectedChildLocalRotation = mathex.lerp(quaternion.identity, m_ClipChildLocalRotation, currentTime);
-            Assert.That(childLocalRotation, Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation).Using(RotationComparer));
 
             var expectedChildLocalScale = math.lerp(float3.zero, m_ClipChildLocalScale, currentTime);
-            Assert.That(childLocalScale, Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
 
+        [Ignore("TODO Fix race condition in layerMixer")]
         [Test]
         public void CanInstantiateAndDeleteClipLoopPlayer()
         {
@@ -714,22 +703,26 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var layerMixerNode = CreateNode<LayerMixerNode>();
+            var entityNode = CreateComponentNode(entity);
 
-            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.WeightInput0, 1f);
-            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.RigDefinition, m_Rig);
+            set.Connect(layerMixerNode, LayerMixerNode.KernelPorts.Output, entityNode);
+
+            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.LayerCount, (ushort)1 );
+            set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.Weights, 0, 1f);
 
             var clipLoopPlayerNode = Set.Create<ClipPlayerNode>();
             var deltaTimeNode = Set.Create<DeltaTimeNode>();
 
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.LoopTime });
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Speed, 1.0f);
+            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
+            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Clip, m_LinearHierarchyClip);
+            set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Speed, 1.0f);
 
             set.Connect(deltaTimeNode, DeltaTimeNode.KernelPorts.DeltaTime, clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime);
-            set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Input0);
+            set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 0);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(layerMixerNode, LayerMixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -741,12 +734,13 @@ namespace Unity.Animation.Tests
             clipLoopPlayerNode = Set.Create<ClipPlayerNode>();
             deltaTimeNode = Set.Create<DeltaTimeNode>();
 
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.LoopTime });
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
-            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Speed, 1.0f);
+            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
+            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Clip, m_LinearHierarchyClip);
+            set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Speed, 1.0f);
 
             set.Connect(deltaTimeNode, DeltaTimeNode.KernelPorts.DeltaTime, clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime);
-            set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Input0);
+            set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 0);
 
             m_AnimationGraphSystem.Update();
 

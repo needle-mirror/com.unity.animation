@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.DataFlowGraph;
 using UnityEngine.TestTools;
 
 namespace Unity.Animation.Tests
@@ -44,8 +45,8 @@ namespace Unity.Animation.Tests
         const float k_DefaultFloatValue = 2f;
         const int k_DefaultIntValue = 5;
 
-        BlobAssetReference<RigDefinition> m_Rig;
-        BlobAssetReference<ClipInstance> m_ConstantHierarchyClip;
+        Rig m_Rig;
+        BlobAssetReference<Clip> m_ConstantHierarchyClip;
 
         const int k_RootId = 0;
         const int k_Child1Id = 1;
@@ -92,60 +93,68 @@ namespace Unity.Animation.Tests
             base.OneTimeSetUp();
 
             // Create rig
-            m_Rig = CreateTestRigDefinition();
+            m_Rig = new Rig { Value = CreateTestRigDefinition() };
 
             // Constant hierarchy clip
             {
                 var path = "AnimationStreamTestsConstantHierarchyClip.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
-                m_ConstantHierarchyClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                m_ConstantHierarchyClip = BlobFile.ReadBlobAsset<Clip>(path);
+                ClipManager.Instance.GetClipFor(m_Rig, m_ConstantHierarchyClip);
             }
         }
 
-        protected Entity CreateAndEvaluateSimpleClipGraph(float time, BlobAssetReference<ClipInstance> clip)
+        struct TestData
+        {
+            public Entity Entity;
+            public GraphValue<Buffer<AnimatedData>> Buffer;
+        }
+
+        TestData CreateAndEvaluateSimpleClipGraph(float time, in Rig rig, BlobAssetReference<Clip> clip)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
 
-            var set = Set;
             var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, clip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
+            var entityNode = CreateComponentNode(entity);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            Set.Connect(clipNode, ClipNode.KernelPorts.Output, entityNode);
+
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Rig, rig);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, clip);
+            Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+
+            var data = new TestData { Entity = entity, Buffer = CreateGraphValue(clipNode, ClipNode.KernelPorts.Output) };
 
             m_AnimationGraphSystem.Update();
 
-            return entity;
+            return data;
         }
 
         [Test]
         public void CanReadLocalToParentValues()
         {
-            var entity = CreateAndEvaluateSimpleClipGraph(0.0f, m_ConstantHierarchyClip);
-            var streamECS = AnimationStreamProvider.CreateReadOnly(
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
+
+            var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
-                m_Manager.GetBuffer<AnimatedLocalTranslation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalRotation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalScale>(entity),
-                m_Manager.GetBuffer<AnimatedFloat>(entity),
-                m_Manager.GetBuffer<AnimatedInt>(entity)
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
                 );
 
             Assert.IsFalse(streamECS.IsNull);
-            Assert.That(streamECS.GetLocalToParentTranslation(k_RootId), Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(k_RootId), Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer), "LocalToParentTranslation doesn't match for root using ECS buffer");
             Assert.That(streamECS.GetLocalToParentRotation(k_RootId), Is.EqualTo(m_ClipRootLocalRotation).Using(RotationComparer));
             Assert.That(streamECS.GetLocalToParentScale(k_RootId), Is.EqualTo(m_ClipRootLocalScale).Using(ScaleComparer));
             Assert.That(streamECS.GetLocalToParentTranslation(k_Child1Id), Is.EqualTo(m_ClipChildLocalTranslation).Using(TranslationComparer));
             Assert.That(streamECS.GetLocalToParentRotation(k_Child1Id), Is.EqualTo(m_ClipChildLocalRotation).Using(RotationComparer));
             Assert.That(streamECS.GetLocalToParentScale(k_Child1Id), Is.EqualTo(m_ClipChildLocalScale).Using(ScaleComparer));
 
-            var readWriteBuffer = GetGraphValueTempNativeBuffer(m_Manager.GetComponentData<GraphOutput>(entity).Buffer);
-            var graphStream = AnimationStreamProvider.CreateReadOnly(m_Rig, readWriteBuffer);
+            var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
+            var graphStream = AnimationStream.CreateReadOnly(m_Rig, readWriteBuffer);
 
             Assert.IsFalse(graphStream.IsNull);
-            Assert.That(graphStream.GetLocalToParentTranslation(k_RootId), Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer));
+            Assert.That(graphStream.GetLocalToParentTranslation(k_RootId), Is.EqualTo(m_ClipRootLocalTranslation).Using(TranslationComparer), "LocalToParentTranslation doesn't match for root using GraphValue");
             Assert.That(graphStream.GetLocalToParentRotation(k_RootId), Is.EqualTo(m_ClipRootLocalRotation).Using(RotationComparer));
             Assert.That(graphStream.GetLocalToParentScale(k_RootId), Is.EqualTo(m_ClipRootLocalScale).Using(ScaleComparer));
             Assert.That(graphStream.GetLocalToParentTranslation(k_Child1Id), Is.EqualTo(m_ClipChildLocalTranslation).Using(TranslationComparer));
@@ -158,7 +167,7 @@ namespace Unity.Animation.Tests
         [Test]
         public void CanWriteLocalToParentValues()
         {
-            var entity = CreateAndEvaluateSimpleClipGraph(0.0f, m_ConstantHierarchyClip);
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
             float3 newRootLocalTranslation = new float3(30f, 10f, 2f);
             quaternion newRootLocalRotation = quaternion.RotateY(math.radians(45));
@@ -168,13 +177,9 @@ namespace Unity.Animation.Tests
             quaternion newChildLocalRotation = quaternion.RotateZ(math.radians(20));
             float3 newChildLocalScale = new float3(2f, 2f, 1f);
 
-            var streamECS = AnimationStreamProvider.Create(
+            var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
-                m_Manager.GetBuffer<AnimatedLocalTranslation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalRotation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalScale>(entity),
-                m_Manager.GetBuffer<AnimatedFloat>(entity),
-                m_Manager.GetBuffer<AnimatedInt>(entity)
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
                 );
 
             Assert.IsFalse(streamECS.IsNull);
@@ -191,9 +196,9 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentRotation(k_Child1Id), Is.EqualTo(newChildLocalRotation).Using(RotationComparer));
             Assert.That(streamECS.GetLocalToParentScale(k_Child1Id), Is.EqualTo(newChildLocalScale).Using(ScaleComparer));
 
-            var readWriteBuffer = GetGraphValueTempNativeBuffer(m_Manager.GetComponentData<GraphOutput>(entity).Buffer);
+            var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
 
-            var graphStream = AnimationStreamProvider.Create(m_Rig, readWriteBuffer);
+            var graphStream = AnimationStream.Create(m_Rig, readWriteBuffer);
             Assert.IsFalse(graphStream.IsNull);
             graphStream.SetLocalToParentTranslation(k_RootId, newRootLocalTranslation);
             graphStream.SetLocalToParentRotation(k_RootId, newRootLocalRotation);
@@ -213,7 +218,7 @@ namespace Unity.Animation.Tests
 
 
         [Test]
-        public void CanReadLocalToRigValues()
+        public void CanReadLocalToRootValues()
         {
             // For this test we must lower the precision because Decompose is not precise enough
             float kTranslationTolerance = 1e-4f;
@@ -222,38 +227,34 @@ namespace Unity.Animation.Tests
             var translationComparer = new Float3AbsoluteEqualityComparer(kTranslationTolerance);
             var rotationComparer = new QuaternionAbsoluteEqualityComparer(kRotationTolerance);
 
-            var entity = CreateAndEvaluateSimpleClipGraph(0.0f, m_ConstantHierarchyClip);
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
             float4x4 rootLocalTx = float4x4.TRS(m_ClipRootLocalTranslation, m_ClipRootLocalRotation, m_ClipRootLocalScale);
             float4x4 childLocalTx = float4x4.TRS(m_ClipChildLocalTranslation, m_ClipChildLocalRotation, m_ClipChildLocalScale);
             float4x4 childTx = math.mul(rootLocalTx, childLocalTx);
             Decompose(childTx, out float3 childTRef, out quaternion childRRef, out float3 _);
 
-            var streamECS = AnimationStreamProvider.CreateReadOnly(
+            var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
-                m_Manager.GetBuffer<AnimatedLocalTranslation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalRotation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalScale>(entity),
-                m_Manager.GetBuffer<AnimatedFloat>(entity),
-                m_Manager.GetBuffer<AnimatedInt>(entity)
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
                 );
 
             Assert.IsFalse(streamECS.IsNull);
-            Assert.That(streamECS.GetLocalToRigTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(translationComparer));
-            Assert.That(streamECS.GetLocalToRigRotation(k_Child1Id), Is.EqualTo(childRRef).Using(rotationComparer));
+            Assert.That(streamECS.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(translationComparer));
+            Assert.That(streamECS.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(childRRef).Using(rotationComparer));
 
-            streamECS.GetLocalToRigTR(k_Child1Id, out float3 childT, out quaternion childR);
+            streamECS.GetLocalToRootTR(k_Child1Id, out float3 childT, out quaternion childR);
             Assert.That(childT, Is.EqualTo(childTRef).Using(translationComparer));
             Assert.That(childR, Is.EqualTo(childRRef).Using(rotationComparer));
 
-            var readWriteBuffer = GetGraphValueTempNativeBuffer(m_Manager.GetComponentData<GraphOutput>(entity).Buffer);
-            var graphStream = AnimationStreamProvider.CreateReadOnly(m_Rig, readWriteBuffer);
+            var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
+            var graphStream = AnimationStream.CreateReadOnly(m_Rig, readWriteBuffer);
 
             Assert.IsFalse(graphStream.IsNull);
-            Assert.That(graphStream.GetLocalToRigTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(translationComparer));
-            Assert.That(graphStream.GetLocalToRigRotation(k_Child1Id), Is.EqualTo(childRRef).Using(rotationComparer));
+            Assert.That(graphStream.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(translationComparer));
+            Assert.That(graphStream.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(childRRef).Using(rotationComparer));
 
-            graphStream.GetLocalToRigTR(k_Child1Id, out childT, out childR);
+            graphStream.GetLocalToRootTR(k_Child1Id, out childT, out childR);
             Assert.That(childT, Is.EqualTo(childTRef).Using(translationComparer));
             Assert.That(childR, Is.EqualTo(childRRef).Using(rotationComparer));
 
@@ -261,9 +262,9 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-        public void CanWriteLocalToRigValues()
+        public void CanWriteLocalToRootValues()
         {
-            var entity = CreateAndEvaluateSimpleClipGraph(0.0f, m_ConstantHierarchyClip);
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
             float3 newRootTranslation = new float3(5f, 3f, 2f);
             quaternion newRootRotation = quaternion.RotateY(math.radians(45));
@@ -275,71 +276,67 @@ namespace Unity.Animation.Tests
 
             float4x4 localTx = math.mul(math.inverse(rootTx), childTx);
 
-            var streamECS = AnimationStreamProvider.Create(
+            var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
-                m_Manager.GetBuffer<AnimatedLocalTranslation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalRotation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalScale>(entity),
-                m_Manager.GetBuffer<AnimatedFloat>(entity),
-                m_Manager.GetBuffer<AnimatedInt>(entity)
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
                 );
 
             Assert.IsFalse(streamECS.IsNull);
 
             // Set child Tx in rig space
-            streamECS.SetLocalToRigTranslation(k_Child1Id, newChildTranslation);
-            streamECS.SetLocalToRigRotation(k_Child1Id, newChildRotation);
+            streamECS.SetLocalToRootTranslation(k_Child1Id, newChildTranslation);
+            streamECS.SetLocalToRootRotation(k_Child1Id, newChildRotation);
 
-            streamECS.GetLocalToRigTR(k_Child1Id, out float3 outTranslation, out quaternion outRotation);
+            streamECS.GetLocalToRootTR(k_Child1Id, out float3 outTranslation, out quaternion outRotation);
             Assert.That(outTranslation, Is.EqualTo(newChildTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newChildRotation).Using(RotationComparer));
-            Assert.That(streamECS.GetLocalToRigTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
-            Assert.That(streamECS.GetLocalToRigRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
 
             // Set root Tx in rig space
-            streamECS.SetLocalToRigTranslation(k_RootId, newRootTranslation);
-            streamECS.SetLocalToRigRotation(k_RootId, newRootRotation);
+            streamECS.SetLocalToRootTranslation(k_RootId, newRootTranslation);
+            streamECS.SetLocalToRootRotation(k_RootId, newRootRotation);
 
-            streamECS.GetLocalToRigTR(k_RootId, out outTranslation, out outRotation);
+            streamECS.GetLocalToRootTR(k_RootId, out outTranslation, out outRotation);
             Assert.That(outTranslation, Is.EqualTo(newRootTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newRootRotation).Using(RotationComparer));
-            Assert.That(streamECS.GetLocalToRigTranslation(k_RootId), Is.EqualTo(newRootTranslation).Using(TranslationComparer));
-            Assert.That(streamECS.GetLocalToRigRotation(k_RootId), Is.EqualTo(newRootRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToRootTranslation(k_RootId), Is.EqualTo(newRootTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToRootRotation(k_RootId), Is.EqualTo(newRootRotation).Using(RotationComparer));
 
             // Since root has moved, reset child to wanted TR
-            streamECS.SetLocalToRigTR(k_Child1Id, newChildTranslation, newChildRotation);
+            streamECS.SetLocalToRootTR(k_Child1Id, newChildTranslation, newChildRotation);
 
             // Test localTx between root and child
             Assert.That(streamECS.GetLocalToParentTranslation(k_Child1Id), Is.EqualTo(new float3(localTx.c3.x, localTx.c3.y, localTx.c3.z)).Using(TranslationComparer));
             Assert.That(streamECS.GetLocalToParentRotation(k_Child1Id), Is.EqualTo(new quaternion(localTx)).Using(RotationComparer));
 
-            var readWriteBuffer = GetGraphValueTempNativeBuffer(m_Manager.GetComponentData<GraphOutput>(entity).Buffer);
+            var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
 
-            var graphStream = AnimationStreamProvider.Create(m_Rig, readWriteBuffer);
+            var graphStream = AnimationStream.Create(m_Rig, readWriteBuffer);
             Assert.IsFalse(graphStream.IsNull);
 
             // Set child Tx in rig space
-            graphStream.SetLocalToRigTranslation(k_Child1Id, newChildTranslation);
-            graphStream.SetLocalToRigRotation(k_Child1Id, newChildRotation);
+            graphStream.SetLocalToRootTranslation(k_Child1Id, newChildTranslation);
+            graphStream.SetLocalToRootRotation(k_Child1Id, newChildRotation);
 
-            graphStream.GetLocalToRigTR(k_Child1Id, out outTranslation, out outRotation);
+            graphStream.GetLocalToRootTR(k_Child1Id, out outTranslation, out outRotation);
             Assert.That(outTranslation, Is.EqualTo(newChildTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newChildRotation).Using(RotationComparer));
-            Assert.That(graphStream.GetLocalToRigTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
-            Assert.That(graphStream.GetLocalToRigRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
+            Assert.That(graphStream.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
+            Assert.That(graphStream.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
 
             // Set root Tx in rig space
-            graphStream.SetLocalToRigTranslation(k_RootId, newRootTranslation);
-            graphStream.SetLocalToRigRotation(k_RootId, newRootRotation);
+            graphStream.SetLocalToRootTranslation(k_RootId, newRootTranslation);
+            graphStream.SetLocalToRootRotation(k_RootId, newRootRotation);
 
-            graphStream.GetLocalToRigTR(k_RootId, out outTranslation, out outRotation);
+            graphStream.GetLocalToRootTR(k_RootId, out outTranslation, out outRotation);
             Assert.That(outTranslation, Is.EqualTo(newRootTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newRootRotation).Using(RotationComparer));
-            Assert.That(graphStream.GetLocalToRigTranslation(k_RootId), Is.EqualTo(newRootTranslation).Using(TranslationComparer));
-            Assert.That(graphStream.GetLocalToRigRotation(k_RootId), Is.EqualTo(newRootRotation).Using(RotationComparer));
+            Assert.That(graphStream.GetLocalToRootTranslation(k_RootId), Is.EqualTo(newRootTranslation).Using(TranslationComparer));
+            Assert.That(graphStream.GetLocalToRootRotation(k_RootId), Is.EqualTo(newRootRotation).Using(RotationComparer));
 
             // Since root has moved, reset child to wanted TR
-            graphStream.SetLocalToRigTR(k_Child1Id, newChildTranslation, newChildRotation);
+            graphStream.SetLocalToRootTR(k_Child1Id, newChildTranslation, newChildRotation);
 
             // Test localTx between root and child
             Assert.That(graphStream.GetLocalToParentTranslation(k_Child1Id), Is.EqualTo(new float3(localTx.c3.x, localTx.c3.y, localTx.c3.z)).Using(TranslationComparer));
@@ -351,17 +348,13 @@ namespace Unity.Animation.Tests
         [Test]
         public void CanReadWriteFloats()
         {
-            var entity = CreateAndEvaluateSimpleClipGraph(0.0f, m_ConstantHierarchyClip);
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
             const float k_NewFloat = 10f;
 
-            var streamECS = AnimationStreamProvider.Create(
+            var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
-                m_Manager.GetBuffer<AnimatedLocalTranslation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalRotation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalScale>(entity),
-                m_Manager.GetBuffer<AnimatedFloat>(entity),
-                m_Manager.GetBuffer<AnimatedInt>(entity)
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
                 );
 
             Assert.IsFalse(streamECS.IsNull);
@@ -369,9 +362,9 @@ namespace Unity.Animation.Tests
             streamECS.SetFloat(k_FloatId, k_NewFloat);
             Assert.That(streamECS.GetFloat(k_FloatId), Is.EqualTo(k_NewFloat));
 
-            var readWriteBuffer = GetGraphValueTempNativeBuffer(m_Manager.GetComponentData<GraphOutput>(entity).Buffer);
+            var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
 
-            var graphStream = AnimationStreamProvider.Create(m_Rig, readWriteBuffer);
+            var graphStream = AnimationStream.Create(m_Rig, readWriteBuffer);
             Assert.IsFalse(graphStream.IsNull);
 
             Assert.IsFalse(graphStream.IsNull);
@@ -385,17 +378,13 @@ namespace Unity.Animation.Tests
         [Test]
         public void CanReadWriteInts()
         {
-            var entity = CreateAndEvaluateSimpleClipGraph(0.0f, m_ConstantHierarchyClip);
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
             const int k_NewInt = 20;
 
-            var streamECS = AnimationStreamProvider.Create(
+            var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
-                m_Manager.GetBuffer<AnimatedLocalTranslation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalRotation>(entity),
-                m_Manager.GetBuffer<AnimatedLocalScale>(entity),
-                m_Manager.GetBuffer<AnimatedFloat>(entity),
-                m_Manager.GetBuffer<AnimatedInt>(entity)
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
                 );
 
             Assert.IsFalse(streamECS.IsNull);
@@ -403,9 +392,9 @@ namespace Unity.Animation.Tests
             streamECS.SetInt(k_IntId, k_NewInt);
             Assert.That(streamECS.GetInt(k_IntId), Is.EqualTo(k_NewInt));
 
-            var readWriteBuffer = GetGraphValueTempNativeBuffer(m_Manager.GetComponentData<GraphOutput>(entity).Buffer);
+            var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
 
-            var graphStream = AnimationStreamProvider.Create(m_Rig, readWriteBuffer);
+            var graphStream = AnimationStream.Create(m_Rig, readWriteBuffer);
 
             Assert.IsFalse(graphStream.IsNull);
             Assert.That(graphStream.GetInt(k_IntId), Is.EqualTo(k_DefaultIntValue));

@@ -55,8 +55,8 @@ namespace Unity.Animation.Tests
         [OneTimeTearDown]
         protected void OneTimeTearDown()
         {
-            m_SourceRig.Release();
-            m_DestinationRig.Release();
+            m_SourceRig.Dispose();
+            m_DestinationRig.Dispose();
         }
 
 

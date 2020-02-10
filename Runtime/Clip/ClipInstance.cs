@@ -1,7 +1,5 @@
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -46,14 +44,9 @@ namespace Unity.Animation
             var floatBindings = CreateInstanceBindings(ref blobBuilder, ref sourceClip, (ref BindingSet set) => ref set.FloatBindings, ref FloatBindingMap);
             var intBindings = CreateInstanceBindings(ref blobBuilder, ref sourceClip, (ref BindingSet set) => ref set.IntBindings, ref IntBindingMap);
 
-            int instanceCurveCount =
-                translationBindings.Length * BindingSet.TranslationKeyFloatCount +
-                rotationBindings.Length * BindingSet.RotationKeyFloatCount +
-                scaleBindings.Length * BindingSet.ScaleKeyFloatCount +
-                floatBindings.Length * BindingSet.FloatKeyFloatCount +
-                intBindings.Length * BindingSet.IntKeyFloatCount;
+            Clip.Bindings = Clip.CreateBindingSet(translationBindings.Length, rotationBindings.Length, scaleBindings.Length, floatBindings.Length, intBindings.Length);
 
-            int sampleCount = instanceCurveCount * (Clip.FrameCount + 1);
+            int sampleCount = Clip.Bindings.CurveCount * (Clip.FrameCount + 1);
             if (sampleCount == 0)
                 return;
 
@@ -61,30 +54,29 @@ namespace Unity.Animation
             ref var sourceClipBindingSet = ref sourceClip.Bindings;
 
             // Translation bindings and curves.
-            var instanceCurveOffset = 0;
-            instanceCurveOffset = FillCurvesForBindings(ref sample, BindingSet.TranslationKeyFloatCount,
+            FillCurvesForBindings(ref sample, BindingSet.TranslationKeyFloatCount,
                 ref sourceClip, ref sourceClipBindingSet.TranslationBindings, sourceClipBindingSet.TranslationSamplesOffset,
-                ref translationBindings, instanceCurveOffset, instanceCurveCount);
-
-            // Rotation bindings and curves.
-            instanceCurveOffset = FillCurvesForBindings(ref sample, BindingSet.RotationKeyFloatCount,
-                ref sourceClip, ref sourceClipBindingSet.RotationBindings, sourceClipBindingSet.RotationSamplesOffset,
-                ref rotationBindings, instanceCurveOffset, instanceCurveCount);
+                ref translationBindings, Clip.Bindings.TranslationSamplesOffset, Clip.Bindings.CurveCount);
 
             // Scale bindings and curves.
-            instanceCurveOffset = FillCurvesForBindings(ref sample, BindingSet.ScaleKeyFloatCount,
+            FillCurvesForBindings(ref sample, BindingSet.ScaleKeyFloatCount,
                 ref sourceClip, ref sourceClipBindingSet.ScaleBindings, sourceClipBindingSet.ScaleSamplesOffset,
-                ref scaleBindings, instanceCurveOffset, instanceCurveCount);
+                ref scaleBindings, Clip.Bindings.ScaleSamplesOffset, Clip.Bindings.CurveCount);
 
             // Float bindings and curves.
-            instanceCurveOffset = FillCurvesForBindings(ref sample, BindingSet.FloatKeyFloatCount,
+            FillCurvesForBindings(ref sample, BindingSet.FloatKeyFloatCount,
                 ref sourceClip, ref sourceClipBindingSet.FloatBindings, sourceClipBindingSet.FloatSamplesOffset,
-                ref floatBindings, instanceCurveOffset, instanceCurveCount);
+                ref floatBindings, Clip.Bindings.FloatSamplesOffset, Clip.Bindings.CurveCount);
 
             // Int bindings and curves.
-            instanceCurveOffset = FillCurvesForBindings(ref sample, BindingSet.IntKeyFloatCount,
+            FillCurvesForBindings(ref sample, BindingSet.IntKeyFloatCount,
                 ref sourceClip, ref sourceClipBindingSet.IntBindings, sourceClipBindingSet.IntSamplesOffset,
-                ref intBindings, instanceCurveOffset, instanceCurveCount);
+                ref intBindings, Clip.Bindings.IntSamplesOffset, Clip.Bindings.CurveCount);
+
+            // Rotation bindings and curves.
+            FillCurvesForBindings(ref sample, BindingSet.RotationKeyFloatCount,
+                ref sourceClip, ref sourceClipBindingSet.RotationBindings, sourceClipBindingSet.RotationSamplesOffset,
+                ref rotationBindings, Clip.Bindings.RotationSamplesOffset, Clip.Bindings.CurveCount);
         }
 
         private delegate ref BlobArray<StringHash> GetBindings(ref BindingSet set);
@@ -123,7 +115,7 @@ namespace Unity.Animation
             return instanceBindings;
         }
 
-        private int FillCurvesForBindings(
+        private void FillCurvesForBindings(
             ref BlobBuilderArray<float> samples,
             int keyFloatCount,
             ref Clip sourceClip,
@@ -148,8 +140,6 @@ namespace Unity.Animation
 
                 instanceCurveOffset += keyFloatCount;
             }
-
-            return instanceCurveOffset;
         }
 
         private void CopyCurve(ref BlobBuilderArray<float> destSamples, int destCurveIndex, int destCurveCount,
@@ -161,8 +151,8 @@ namespace Unity.Animation
             {
                 for (var keyIter = 0; keyIter < keyFloatCount; keyIter++)
                 {
-                    destSamples[frameIter * destCurveCount + destCurveIndex + keyIter] =
-                        sourceClip.Samples[frameIter * sourceCurveCount + sourceCurveIndex + keyIter];
+                    var v = sourceClip.Samples[frameIter * sourceCurveCount + sourceCurveIndex + keyIter];
+                    destSamples[frameIter * destCurveCount + destCurveIndex + keyIter] = v;
                 }
             }
         }

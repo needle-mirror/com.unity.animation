@@ -8,24 +8,5 @@ namespace Unity.Animation.Tests
     // and we can't figure out how to make it works again.
     public abstract class AnimationPlayModeTestsFixture : AnimationTestsFixture
     {
-        [SetUp]
-        protected override void SetUp()
-        {
-            World = new World("Test World");
-
-            m_Manager = World.EntityManager;
-            m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
-
-            m_AnimationGraphSystem = World.GetOrCreateSystem<AnimationGraphSystem>();
-            m_AnimationGraphSystem.AddRef();
-        }
-
-        [TearDown]
-        protected override void TearDown()
-        {
-            DestroyNodesAndGraphBuffers();
-            m_AnimationGraphSystem.RemoveRef();
-            World.Dispose();
-        }
     }
 }

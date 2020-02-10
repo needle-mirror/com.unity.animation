@@ -1,24 +1,38 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+   [NodeDefinition(category:"Animation Core", description:"Evaluates a clip based on the clip configuration mask", isHidden:true)]
    public class ConfigurableClipNode
         : NodeDefinition<ConfigurableClipNode.Data, ConfigurableClipNode.SimPorts, ConfigurableClipNode.KernelData, ConfigurableClipNode.KernelDefs, ConfigurableClipNode.Kernel>
-            , IMsgHandler<BlobAssetReference<ClipInstance>>
-            , IMsgHandler<ClipConfiguration>
+        , IMsgHandler<Rig>
+        , IMsgHandler<BlobAssetReference<Clip>>
+        , IMsgHandler<ClipConfiguration>
+        , IMsgHandler<bool>
+        , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<ConfigurableClipNode, BlobAssetReference<ClipInstance>> ClipInstance;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<ConfigurableClipNode, Rig> Rig;
+            [PortDefinition(description:"Clip to sample")]
+            public MessageInput<ConfigurableClipNode, BlobAssetReference<Clip>> Clip;
+            [PortDefinition(description:"Clip configuration data")]
             public MessageInput<ConfigurableClipNode, ClipConfiguration> Configuration;
+            [PortDefinition(description:"Is this an additive clip", defaultValue:false)]
+            public MessageInput<ConfigurableClipNode, bool> Additive;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Unbound time")]
             public DataInput<ConfigurableClipNode, float> Time;
-            public DataOutput<ConfigurableClipNode, Buffer<float>> Output;
+
+            [PortDefinition(description:"Resulting animation stream")]
+            public DataOutput<ConfigurableClipNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
@@ -36,12 +50,15 @@ namespace Unity.Animation
 
             internal NodeHandle<NormalizedTimeNode> NormalizedTimeNode;
             internal NodeHandle<TimeLoopNode> LoopTimeNode;
-            internal NodeHandle<DeltaNode> DeltaNode;
+            internal NodeHandle<DeltaPoseNode> DeltaNode;
             internal NodeHandle<LoopNode> LoopNode;
 
             internal NodeHandle<CycleRootMotionNode> CycleRootMotionNode;
 
-            public BlobAssetReference<ClipInstance> ClipInstance;
+            public BlobAssetReference<RigDefinition>    RigDefinition;
+            public BlobAssetReference<Clip>             Clip;
+            public bool                                 IsAdditive;
+
             internal ClipConfiguration Configuration;
         }
 
@@ -52,43 +69,30 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-
             }
         }
 
-        static bool NeedsNormalizedTime(Data nodeData)
-        {
-            return (nodeData.Configuration.Mask & (int)ClipConfigurationMask.NormalizedTime) != 0;
-        }
+        static bool NeedsNormalizedTime(in Data nodeData) =>
+            (nodeData.Configuration.Mask & ClipConfigurationMask.NormalizedTime) != 0;
 
-        static bool NeedsLoopTime(Data nodeData)
-        {
-            return (nodeData.Configuration.Mask & (int)(ClipConfigurationMask.LoopTime | ClipConfigurationMask.LoopValues | ClipConfigurationMask.CycleRootMotion)) != 0;
-        }
+        static bool NeedsLoopTime(in Data nodeData) =>
+            (nodeData.Configuration.Mask & (ClipConfigurationMask.LoopTime | ClipConfigurationMask.LoopValues | ClipConfigurationMask.CycleRootMotion)) != 0;
 
-        static bool NeedsLoopTransform(Data nodeData)
-        {
-            return (nodeData.Configuration.Mask & (int)(ClipConfigurationMask.LoopValues)) != 0;
-        }
+        static bool NeedsLoopTransform(in Data nodeData) =>
+            (nodeData.Configuration.Mask & (ClipConfigurationMask.LoopValues)) != 0;
 
-        static bool NeedsStartStopClip(Data nodeData)
-        {
-            return (nodeData.Configuration.Mask & (int)(ClipConfigurationMask.LoopValues | ClipConfigurationMask.CycleRootMotion)) != 0;
-        }
+        static bool NeedsStartStopClip(in Data nodeData) =>
+            (nodeData.Configuration.Mask & (ClipConfigurationMask.LoopValues | ClipConfigurationMask.CycleRootMotion)) != 0;
 
-        static bool NeedsCycleRootMotion(Data nodeData)
-        {
-            return (nodeData.Configuration.Mask & (int)(ClipConfigurationMask.CycleRootMotion)) != 0;
-        }
+        static bool NeedsCycleRootMotion(in Data nodeData) =>
+            (nodeData.Configuration.Mask & (ClipConfigurationMask.CycleRootMotion)) != 0;
 
-        static bool NeedsInPlace(Data nodeData)
-        {
-            return nodeData.Configuration.MotionID != 0;
-        }
+        static bool NeedsInPlace(in Data nodeData) =>
+            nodeData.Configuration.MotionID != 0;
 
         void BuildNodes(ref Data data)
         {
-            if (data.ClipInstance == BlobAssetReference<ClipInstance>.Null)
+            if (data.Clip == BlobAssetReference<Clip>.Null || data.RigDefinition == BlobAssetReference<RigDefinition>.Null)
                 return;
 
             var normalizedTime = NeedsNormalizedTime(data);
@@ -119,7 +123,7 @@ namespace Unity.Animation
 
             if (loopTransform)
             {
-                data.DeltaNode = Set.Create<DeltaNode>();
+                data.DeltaNode = Set.Create<DeltaPoseNode>();
                 data.LoopNode = Set.Create<LoopNode>();
             }
 
@@ -182,18 +186,18 @@ namespace Unity.Animation
             {
                 if (inPlace)
                 {
-                    Set.Connect(data.StartInPlaceNode, InPlaceMotionNode.KernelPorts.Output, data.DeltaNode, DeltaNode.KernelPorts.Subtract);
-                    Set.Connect(data.StopInPlaceNode, InPlaceMotionNode.KernelPorts.Output, data.DeltaNode, DeltaNode.KernelPorts.Input);
+                    Set.Connect(data.StartInPlaceNode, InPlaceMotionNode.KernelPorts.Output, data.DeltaNode, DeltaPoseNode.KernelPorts.Subtract);
+                    Set.Connect(data.StopInPlaceNode, InPlaceMotionNode.KernelPorts.Output, data.DeltaNode, DeltaPoseNode.KernelPorts.Input);
                     Set.Connect(data.InPlaceNode, InPlaceMotionNode.KernelPorts.Output, data.LoopNode, LoopNode.KernelPorts.Input);
                 }
                 else
                 {
-                    Set.Connect(data.StartClipNode, ClipNode.KernelPorts.Output, data.DeltaNode, DeltaNode.KernelPorts.Subtract);
-                    Set.Connect(data.StopClipNode, ClipNode.KernelPorts.Output, data.DeltaNode, DeltaNode.KernelPorts.Input);
+                    Set.Connect(data.StartClipNode, ClipNode.KernelPorts.Output, data.DeltaNode, DeltaPoseNode.KernelPorts.Subtract);
+                    Set.Connect(data.StopClipNode, ClipNode.KernelPorts.Output, data.DeltaNode, DeltaPoseNode.KernelPorts.Input);
                     Set.Connect(data.ClipNode, ClipNode.KernelPorts.Output, data.LoopNode, LoopNode.KernelPorts.Input);
                 }
 
-                Set.Connect(data.DeltaNode, DeltaNode.KernelPorts.Output, data.LoopNode, LoopNode.KernelPorts.Delta);
+                Set.Connect(data.DeltaNode, DeltaPoseNode.KernelPorts.Output, data.LoopNode, LoopNode.KernelPorts.Delta);
                 Set.Connect(data.LoopTimeNode, TimeLoopNode.KernelPorts.NormalizedTime, data.LoopNode, LoopNode.KernelPorts.NormalizedTime);
 
                 if (cycleRoot)
@@ -260,125 +264,160 @@ namespace Unity.Animation
             }
 
             // send messages
-            Set.SendMessage(data.ClipNode, ClipNode.SimulationPorts.ClipInstance, data.ClipInstance);
-            Set.SendMessage(data.OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize,  data.ClipInstance.Value.RigDefinition.Value.Bindings.CurveCount);
+            Set.SendMessage(data.ClipNode, ClipNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
+            Set.SendMessage(data.ClipNode, ClipNode.SimulationPorts.Clip, data.Clip);
+            Set.SendMessage(data.ClipNode, ClipNode.SimulationPorts.Additive, data.IsAdditive);
+            Set.SendMessage(data.OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize,  data.RigDefinition.Value.Bindings.StreamSize);
 
             if (loopTransform)
             {
-                Set.SendMessage(data.DeltaNode, DeltaNode.SimulationPorts.RigDefinition,  data.ClipInstance.Value.RigDefinition);
-                Set.SendMessage(data.LoopNode, LoopNode.SimulationPorts.RigDefinition,  data.ClipInstance.Value.RigDefinition);
-                Set.SendMessage(data.LoopNode, LoopNode.SimulationPorts.SkipRoot, inPlace ? 1 : 0);
+                Set.SendMessage(data.DeltaNode, DeltaPoseNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
+                Set.SendMessage(data.LoopNode, LoopNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
+
+                Set.SetData(data.LoopNode, LoopNode.KernelPorts.RootWeightMultiplier, inPlace ? 0 : 1);
             }
 
             if (startStopClip)
             {
-                Set.SendMessage(data.StartClipNode, ClipNode.SimulationPorts.ClipInstance,  data.ClipInstance);
-                Set.SendMessage(data.StopClipNode, ClipNode.SimulationPorts.ClipInstance,  data.ClipInstance);
+                Set.SendMessage(data.StartClipNode, ClipNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
+                Set.SendMessage(data.StartClipNode, ClipNode.SimulationPorts.Clip, data.Clip);
+                Set.SendMessage(data.StartClipNode, ClipNode.SimulationPorts.Additive, data.IsAdditive);
+                Set.SendMessage(data.StopClipNode, ClipNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
+                Set.SendMessage(data.StopClipNode, ClipNode.SimulationPorts.Clip, data.Clip);
+                Set.SendMessage(data.StopClipNode, ClipNode.SimulationPorts.Additive, data.IsAdditive);
 
                 Set.SetData(data.StartClipNode, ClipNode.KernelPorts.Time, 0);
-                Set.SetData(data.StopClipNode, ClipNode.KernelPorts.Time,  data.ClipInstance.Value.Clip.Duration);
+                Set.SetData(data.StopClipNode, ClipNode.KernelPorts.Time, data.Clip.Value.Duration);
             }
 
             if (inPlace)
             {
-                Set.SendMessage(data.InPlaceNode, InPlaceMotionNode.SimulationPorts.RigDefinition,  data.ClipInstance.Value.RigDefinition);
+                Set.SendMessage(data.InPlaceNode, InPlaceMotionNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
                 Set.SendMessage(data.InPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration,  data.Configuration);
 
                 if (startStopClip)
                 {
-                    Set.SendMessage(data.StartInPlaceNode, InPlaceMotionNode.SimulationPorts.RigDefinition,  data.ClipInstance.Value.RigDefinition);
-                    Set.SendMessage(data.StopInPlaceNode, InPlaceMotionNode.SimulationPorts.RigDefinition,  data.ClipInstance.Value.RigDefinition);
+                    Set.SendMessage(data.StartInPlaceNode, InPlaceMotionNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
+                    Set.SendMessage(data.StopInPlaceNode, InPlaceMotionNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
 
-                    Set.SendMessage(data.StartInPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration,  data.Configuration);
-                    Set.SendMessage(data.StopInPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration,  data.Configuration);
+                    Set.SendMessage(data.StartInPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration, data.Configuration);
+                    Set.SendMessage(data.StopInPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration, data.Configuration);
                 }
             }
 
             if (cycleRoot)
             {
-                Set.SendMessage(data.CycleRootMotionNode, CycleRootMotionNode.SimulationPorts.RigDefinition,  data.ClipInstance.Value.RigDefinition);
+                Set.SendMessage(data.CycleRootMotionNode, CycleRootMotionNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
             }
         }
 
-       void ClearNodes(Data data)
-       {
-           if (Set.Exists(data.ClipNode))
-               Set.Destroy(data.ClipNode);
+        void ClearNodes(Data data)
+        {
+            if (Set.Exists(data.ClipNode))
+                Set.Destroy(data.ClipNode);
 
-           if (Set.Exists(data.StartClipNode))
-               Set.Destroy(data.StartClipNode);
+            if (Set.Exists(data.StartClipNode))
+                Set.Destroy(data.StartClipNode);
 
-           if (Set.Exists(data.StopClipNode))
-               Set.Destroy(data.StopClipNode);
+            if (Set.Exists(data.StopClipNode))
+                Set.Destroy(data.StopClipNode);
 
-           if(Set.Exists(data.NormalizedTimeNode))
-               Set.Destroy(data.NormalizedTimeNode);
+            if(Set.Exists(data.NormalizedTimeNode))
+                Set.Destroy(data.NormalizedTimeNode);
 
-           if(Set.Exists(data.LoopTimeNode))
-               Set.Destroy(data.LoopTimeNode);
+            if(Set.Exists(data.LoopTimeNode))
+                Set.Destroy(data.LoopTimeNode);
 
-           if(Set.Exists(data.DeltaNode))
-               Set.Destroy(data.DeltaNode);
+            if(Set.Exists(data.DeltaNode))
+                Set.Destroy(data.DeltaNode);
 
-           if(Set.Exists(data.LoopNode))
-               Set.Destroy(data.LoopNode);
+            if(Set.Exists(data.LoopNode))
+                Set.Destroy(data.LoopNode);
 
-           if(Set.Exists(data.InPlaceNode))
-               Set.Destroy(data.InPlaceNode);
+            if(Set.Exists(data.InPlaceNode))
+                Set.Destroy(data.InPlaceNode);
 
-           if(Set.Exists(data.StartInPlaceNode))
-               Set.Destroy(data.StartInPlaceNode);
+            if(Set.Exists(data.StartInPlaceNode))
+                Set.Destroy(data.StartInPlaceNode);
 
-           if(Set.Exists(data.StopInPlaceNode))
-               Set.Destroy(data.StopInPlaceNode);
+            if(Set.Exists(data.StopInPlaceNode))
+                Set.Destroy(data.StopInPlaceNode);
 
-           if(Set.Exists(data.CycleRootMotionNode))
-               Set.Destroy(data.CycleRootMotionNode);
-       }
+            if(Set.Exists(data.CycleRootMotionNode))
+                Set.Destroy(data.CycleRootMotionNode);
+        }
 
-       public override void Init(InitContext ctx)
-       {
-           ref var data = ref GetNodeData(ctx.Handle);
+        protected override void Init(InitContext ctx)
+        {
+            ref var data = ref GetNodeData(ctx.Handle);
 
-           data.TimeNode = Set.Create<KernelPassThroughNodeFloat>();
-           data.OutputNode = Set.Create<KernelPassThroughNodeBufferFloat>();
+            data.TimeNode = Set.Create<KernelPassThroughNodeFloat>();
+            data.OutputNode = Set.Create<KernelPassThroughNodeBufferFloat>();
+            data.IsAdditive = false;
 
-           BuildNodes(ref data);
+            BuildNodes(ref data);
 
-           ctx.ForwardInput(KernelPorts.Time, data.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
-           ctx.ForwardOutput(KernelPorts.Output, data.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
-       }
+            ctx.ForwardInput(KernelPorts.Time, data.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
+            ctx.ForwardOutput(KernelPorts.Output, data.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
+        }
 
-       public override void Destroy(NodeHandle handle)
-       {
-           ref var nodeData = ref GetNodeData(handle);
+        protected override void Destroy(NodeHandle handle)
+        {
+            ref var nodeData = ref GetNodeData(handle);
 
-           Set.Destroy(nodeData.TimeNode);
-           Set.Destroy(nodeData.OutputNode);
+            Set.Destroy(nodeData.TimeNode);
+            Set.Destroy(nodeData.OutputNode);
 
-           ClearNodes(nodeData);
-       }
+            ClearNodes(nodeData);
+        }
 
-       public void HandleMessage(in MessageContext ctx, in BlobAssetReference<ClipInstance> clipInstance)
-       {
-           ref var nodeData = ref GetNodeData(ctx.Handle);
-           nodeData.ClipInstance = clipInstance;
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
+        {
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+            nodeData.RigDefinition = rig;
 
-           ClearNodes(nodeData);
-           BuildNodes(ref nodeData);
-       }
+            ClearNodes(nodeData);
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
 
-       public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
-       {
-           ref var nodeData = ref GetNodeData(ctx.Handle);
+            BuildNodes(ref nodeData);
+        }
 
-           nodeData.Configuration = msg;
+        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+        {
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+            nodeData.Clip = clip;
 
-           ClearNodes(nodeData);
-           BuildNodes(ref nodeData);
-       }
+            ClearNodes(nodeData);
+            BuildNodes(ref nodeData);
+        }
 
-       internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
-       internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
+        public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+        {
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+
+            nodeData.Configuration = msg;
+
+            ClearNodes(nodeData);
+            BuildNodes(ref nodeData);
+        }
+
+        public void HandleMessage(in MessageContext ctx, in bool msg)
+        {
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+            nodeData.IsAdditive = msg;
+
+            ClearNodes(nodeData);
+            BuildNodes(ref nodeData);
+        }
+
+        internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
+        internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

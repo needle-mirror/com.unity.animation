@@ -6,7 +6,7 @@ namespace Unity.Animation.Tests
 {
     public class RigEntityBuilderTests : AnimationTestsFixture
     {
-        void CheckEntityHasRigComponentTypeAndBufferResized(Entity entity, ComponentType[] rigComponentTypes, int bufferLength)
+        void CheckEntityHasRigComponentTypeAndBufferResized(Entity entity, BlobAssetReference<RigDefinition> rigDefinition, ComponentType[] rigComponentTypes, int bufferLength)
         {
             foreach (var componentType in rigComponentTypes)
             {
@@ -14,10 +14,8 @@ namespace Unity.Animation.Tests
             }
 
             var rigBuffer = new RigEntityBuilder.RigBuffers(m_Manager, entity);
-            Assert.That(rigBuffer.LocalTranslations.Length, Is.EqualTo(bufferLength));
-            Assert.That(rigBuffer.LocalRotations.Length, Is.EqualTo(bufferLength));
-            Assert.That(rigBuffer.LocalScales.Length, Is.EqualTo(bufferLength));
-            Assert.That(rigBuffer.Masks.Length, Is.EqualTo(bufferLength * 3));  // translation + rotation + scale bindings
+            
+            Assert.That(rigBuffer.Data.Length, Is.EqualTo(rigDefinition.Value.Bindings.StreamSize));
             Assert.That(rigBuffer.GlobalMatrices.Length, Is.EqualTo(bufferLength));
         }
 
@@ -32,7 +30,7 @@ namespace Unity.Animation.Tests
 
             var prefab = RigEntityBuilder.CreatePrefabEntity(m_Manager, rigDefinition);
 
-            CheckEntityHasRigComponentTypeAndBufferResized(prefab, RigEntityBuilder.RigPrefabComponentTypes, skeletonNodes.Length);
+            CheckEntityHasRigComponentTypeAndBufferResized(prefab, rigDefinition, RigEntityBuilder.RigPrefabComponentTypes, skeletonNodes.Length);
         }
 
         [Test]
@@ -54,7 +52,7 @@ namespace Unity.Animation.Tests
             m_Manager.Instantiate(prefab, entities);
 
             foreach (var entity in entities)
-                CheckEntityHasRigComponentTypeAndBufferResized(entity, RigEntityBuilder.RigComponentTypes, skeletonNodes.Length);
+                CheckEntityHasRigComponentTypeAndBufferResized(entity, rigDefinition, RigEntityBuilder.RigComponentTypes, skeletonNodes.Length);
         }
     }
 }

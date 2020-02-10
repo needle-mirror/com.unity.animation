@@ -19,9 +19,9 @@ namespace Unity.Animation.Tests
         private float m_ClipChildFloat => 10.0f;
         private int m_ClipChildInteger => 20;
 
-        private BlobAssetReference<RigDefinition> m_Rig;
-        private BlobAssetReference<ClipInstance> m_ConstantHierarchyClip;
-        private BlobAssetReference<ClipInstance> m_LinearHierarchyClip;
+        private Rig m_Rig;
+        private BlobAssetReference<Clip> m_ConstantHierarchyClip;
+        private BlobAssetReference<Clip> m_LinearHierarchyClip;
 
         private static BlobAssetReference<RigDefinition> CreateTestRigDefinition()
         {
@@ -32,10 +32,10 @@ namespace Unity.Animation.Tests
             };
 
             var animationChannel = new IAnimationChannel[] {
-                new FloatChannel {Id = "Root"},
-                new FloatChannel {Id = "Child1"},
-                new IntChannel {Id = "Root"},
-                new IntChannel {Id = "Child1"},
+                new FloatChannel {Id = "Root", DefaultValue = 1000.0f},
+                new FloatChannel {Id = "Child1", DefaultValue = 1000.0f},
+                new IntChannel {Id = "Root", DefaultValue = 1000},
+                new IntChannel {Id = "Child1", DefaultValue = 1000},
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannel);
@@ -98,26 +98,25 @@ namespace Unity.Animation.Tests
             base.OneTimeSetUp();
 
             // Create rig
-            m_Rig = CreateTestRigDefinition();
+            m_Rig = new Rig { Value = CreateTestRigDefinition() };
 
             // Constant hierarchy clip
             {
                 var path = "DeltaNodeTestsDenseClip2.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_ConstantHierarchyClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_ConstantHierarchyClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_ConstantHierarchyClip);
             }
 
             // Linear hierarchy clip
             {
                 var path = "DeltaNodeTestsLinearHierarchyClip.blob";
-                var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                m_LinearHierarchyClip = BlobFile.ReadBlobAsset<Clip>(path);
 
-                m_LinearHierarchyClip = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                ClipManager.Instance.GetClipFor(m_Rig, m_LinearHierarchyClip);
             }
         }
 
-        [Test]
         [TestCase(0.0f)]
         [TestCase(0.5f)]
         [TestCase(1.0f)]
@@ -126,53 +125,50 @@ namespace Unity.Animation.Tests
             var entity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
 
-            var set = Set;
             var subClipNode = CreateNode<ClipNode>();
-            set.SendMessage(subClipNode, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip);
-            set.SetData(subClipNode, ClipNode.KernelPorts.Time, 0);
+            Set.SendMessage(subClipNode, ClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(subClipNode, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip);
+            Set.SetData(subClipNode, ClipNode.KernelPorts.Time, 0);
 
             var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, m_LinearHierarchyClip);
 
-            var deltaNode = CreateNode<DeltaNode>();
-            set.SendMessage(deltaNode, DeltaNode.SimulationPorts.RigDefinition, in m_Rig);
-            set.Connect(subClipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaNode.KernelPorts.Subtract);
-            set.Connect(clipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaNode.KernelPorts.Input);
+            var deltaNode = CreateNode<DeltaPoseNode>();
+            Set.SendMessage(deltaNode, DeltaPoseNode.SimulationPorts.Rig, new Rig(){ Value = m_Rig });
+            Set.Connect(subClipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaPoseNode.KernelPorts.Subtract);
+            Set.Connect(clipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaPoseNode.KernelPorts.Input);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(deltaNode, DeltaNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            Set.Connect(deltaNode, DeltaPoseNode.KernelPorts.Output, entityNode);
 
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+
+            Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
             m_AnimationGraphSystem.Update();
 
-            var localTranslationBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity).Reinterpret<float3>();
-            var localRotatioBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity).Reinterpret<quaternion>();
-            var localScaleBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(entity).Reinterpret<float3>();
-            var localFloatBuffer = m_Manager.GetBuffer<AnimatedFloat>(entity).Reinterpret<float>();
-            var localIntBuffer = m_Manager.GetBuffer<AnimatedInt>(entity).Reinterpret<int>();
-
-            Assert.AreEqual(m_Rig.Value.Bindings.TranslationBindings.Length, localTranslationBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.RotationBindings.Length, localRotatioBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.ScaleBindings.Length, localScaleBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.FloatBindings.Length, localFloatBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.IntBindings.Length, localIntBuffer.Length);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
             var expectedLocalTranslation = -m_ClipRootLocalTranslation + math.lerp(float3.zero, m_ClipRootLocalTranslation, time);
-            var expectedLocalRotation = math.mul(math.conjugate(m_ClipRootLocalRotation), mathex.lerp(quaternion.identity, m_ClipRootLocalRotation, time));
+            var expectedLocalRotation = mathex.mul(math.conjugate(m_ClipRootLocalRotation), mathex.lerp(quaternion.identity, m_ClipRootLocalRotation, time));
             var expectedLocalScale = -m_ClipRootLocalScale + math.lerp(float3.zero, m_ClipRootLocalScale, time);
+            var expectedFloat = -m_ClipRootFloat + math.lerp(0.0f, m_ClipRootFloat, time);
+            var expectedInt = -m_ClipRootInteger + math.lerp(0, m_ClipRootInteger, time);
 
-            Assert.That(localTranslationBuffer[0], Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotatioBuffer[0], Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
-            Assert.That(localScaleBuffer[0], Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetFloat(0), Is.EqualTo(expectedFloat).Within(1).Ulps);
 
-            // TODO@sonny we need to convert float and int curve to activate this
-            //Assert.That(localFloatBuffer[0], Is.EqualTo(-m_ClipRootFloat).Within(1).Ulps);
-            //Assert.That(localIntBuffer[0], Is.EqualTo(-m_ClipRootInteger));
+            // TODO@sonny we need to convert int curve to activate this
+            //Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
         }
 
 
-        [Test]
         [TestCase(0.0f)]
         [TestCase(0.5f)]
         [TestCase(1.0f)]
@@ -184,75 +180,67 @@ namespace Unity.Animation.Tests
             RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
             RigEntityBuilder.SetupRigEntity(anotherEntity, m_Manager, m_Rig);
 
-            var set = Set;
             var subClipNode = CreateNode<ClipNode>();
-            set.SendMessage(subClipNode, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip);
-            set.SetData(subClipNode, ClipNode.KernelPorts.Time, 0);
+            Set.SendMessage(subClipNode, ClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(subClipNode, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip);
+            Set.SetData(subClipNode, ClipNode.KernelPorts.Time, 0);
 
             var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_LinearHierarchyClip);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, m_LinearHierarchyClip);
 
-            var deltaNode = CreateNode<DeltaNode>();
-            set.SendMessage(deltaNode, DeltaNode.SimulationPorts.RigDefinition, in m_Rig);
-            set.Connect(subClipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaNode.KernelPorts.Subtract);
-            set.Connect(clipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaNode.KernelPorts.Input);
+            var deltaNode = CreateNode<DeltaPoseNode>();
+
+            Set.SendMessage(deltaNode, DeltaPoseNode.SimulationPorts.Rig, new Rig(){ Value = m_Rig });
+            Set.Connect(subClipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaPoseNode.KernelPorts.Subtract);
+            Set.Connect(clipNode, ClipNode.KernelPorts.Output, deltaNode, DeltaPoseNode.KernelPorts.Input);
 
             var layerMixerNode = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.RigDefinition, in m_Rig);
-            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.BlendModeInput1, BlendingMode.Additive);
-            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.WeightInput0, 1.0f);
-            set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.WeightInput1, 1.0f);
+            Set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.LayerCount, (ushort)2 );
+            Set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.BlendingModes, 1, BlendingMode.Additive);
+            Set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.Weights, 0, 1.0f);
+            Set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.Weights, 1, 1.0f);
 
-            set.Connect(subClipNode, ClipNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Input0);
-            set.Connect(deltaNode, DeltaNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Input1);
+            Set.Connect(subClipNode, ClipNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 0);
+            Set.Connect(deltaNode, DeltaPoseNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 1);
 
-            var output1 = new GraphOutput { Buffer = CreateGraphBuffer(layerMixerNode, LayerMixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output1);
+            var entityNode = CreateComponentNode(entity);
+            var anotherEntityNode = CreateComponentNode(anotherEntity);
 
-            var output2 = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(anotherEntity, output2);
+            Set.Connect(layerMixerNode, LayerMixerNode.KernelPorts.Output, entityNode);
+            Set.Connect(clipNode, ClipNode.KernelPorts.Output, anotherEntityNode);
 
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
+            Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphTag>(anotherEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localTranslationBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity).Reinterpret<float3>();
-            var localRotatioBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity).Reinterpret<quaternion>();
-            var localScaleBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(entity).Reinterpret<float3>();
-            var localFloatBuffer = m_Manager.GetBuffer<AnimatedFloat>(entity).Reinterpret<float>();
-            var localIntBuffer = m_Manager.GetBuffer<AnimatedInt>(entity).Reinterpret<int>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            Assert.AreEqual(m_Rig.Value.Bindings.TranslationBindings.Length, localTranslationBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.RotationBindings.Length, localRotatioBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.ScaleBindings.Length, localScaleBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.FloatBindings.Length, localFloatBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.IntBindings.Length, localIntBuffer.Length);
+            var anotherStreamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            var localTranslationAnotherBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(anotherEntity).Reinterpret<float3>();
-            var localRotatioAnotherBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(anotherEntity).Reinterpret<quaternion>();
-            var localScaleAnotherBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(anotherEntity).Reinterpret<float3>();
-            var localFloatAnotherBuffer = m_Manager.GetBuffer<AnimatedFloat>(anotherEntity).Reinterpret<float>();
-            var localIntAnotherBuffer = m_Manager.GetBuffer<AnimatedInt>(anotherEntity).Reinterpret<int>();
-
-            Assert.AreEqual(m_Rig.Value.Bindings.TranslationBindings.Length, localTranslationAnotherBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.RotationBindings.Length, localRotatioAnotherBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.ScaleBindings.Length, localScaleAnotherBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.FloatBindings.Length, localFloatAnotherBuffer.Length);
-            Assert.AreEqual(m_Rig.Value.Bindings.IntBindings.Length, localIntAnotherBuffer.Length);
-
-            for(int i=0;i<localTranslationAnotherBuffer.Length;i++)
+            for(int i = 0; i < m_Rig.Value.Value.Bindings.TranslationBindings.Length; i++)
             {
-                Assert.That(localTranslationBuffer[i], Is.EqualTo(localTranslationAnotherBuffer[i]).Using(TranslationComparer));
+                Assert.That(streamECS.GetLocalToParentTranslation(i), Is.EqualTo(anotherStreamECS.GetLocalToParentTranslation(i)).Using(TranslationComparer));
             }
 
-            for(int i=0;i<localRotatioAnotherBuffer.Length;i++)
+            for(int i = 0; i < m_Rig.Value.Value.Bindings.RotationBindings.Length; i++)
             {
-                Assert.That(localRotatioBuffer[i], Is.EqualTo(localRotatioAnotherBuffer[i]).Using(RotationComparer));
+                Assert.That(streamECS.GetLocalToParentRotation(i), Is.EqualTo(anotherStreamECS.GetLocalToParentRotation(i)).Using(RotationComparer));
             }
 
-            for(int i=0;i<localScaleAnotherBuffer.Length;i++)
+            for(int i = 0; i < m_Rig.Value.Value.Bindings.ScaleBindings.Length; i++)
             {
-                Assert.That(localScaleBuffer[i], Is.EqualTo(localScaleAnotherBuffer[i]).Using(ScaleComparer));
+                Assert.That(streamECS.GetLocalToParentScale(i), Is.EqualTo(anotherStreamECS.GetLocalToParentScale(i)).Using(ScaleComparer));
             }
         }
     }

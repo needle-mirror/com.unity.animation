@@ -1,24 +1,18 @@
 using Unity.Entities;
 using Unity.DataFlowGraph;
 
+using System;
+
 namespace Unity.Animation
 {
-    public interface IGraphInput : INodeMemoryInputTag, IComponentData
-    {
-        NodeHandle Node { get; set; }
-        InputPortID Port { get; set; }
-    }
-
     public interface IGraphOutput : ISystemStateComponentData
     {
-        GraphValue<Buffer<float>> Buffer { get; set; }
+        GraphValue<Buffer<AnimatedData>> Buffer { get; set; }
     }
 
-    // TODO : This should eventually be defined outside of the
-    // Dots.Animation package as it will be custom to user defined
-    // animation pipelines
+    [Obsolete("GraphOutput is obsolete, use DataFlowGraph Component nodes instead (RemovedAfter 2020-02-18)", false)]
     public struct GraphOutput : IGraphOutput
     {
-        public GraphValue<Buffer<float>> Buffer { get; set; }
+        public GraphValue<Buffer<AnimatedData>> Buffer { get; set; }
     }
 }

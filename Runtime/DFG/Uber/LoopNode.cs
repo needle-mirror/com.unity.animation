@@ -1,117 +1,43 @@
-using System;
 using Unity.Burst;
-using Unity.Entities;
 using Unity.DataFlowGraph;
-using UnityEngine;
-using Unity.Profiling;
+using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    public class LoopWeightNode
-        : NodeDefinition<LoopWeightNode.Data, LoopWeightNode.SimPorts, LoopWeightNode.KernelData, LoopWeightNode.KernelDefs, LoopWeightNode.Kernel>
-            , IMsgHandler<BlobAssetReference<RigDefinition>>
-            , IMsgHandler<int>
-    {
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.LoopWeightNode");
-        public struct SimPorts : ISimulationPortDefinition
-        {
-            public MessageInput<LoopWeightNode, BlobAssetReference<RigDefinition>> RigDefinition;
-            public MessageInput<LoopWeightNode, int> SkipRoot;
-        }
-
-        public struct KernelDefs : IKernelPortDefinition
-        {
-            public DataInput<LoopWeightNode, float> Weight;
-            public DataOutput<LoopWeightNode, Buffer<float>> Weights;
-        }
-
-        public struct Data : INodeData
-        {
-        }
-
-        public struct KernelData : IKernelData
-        {
-            public BlobAssetReference<RigDefinition> RigDefinition;
-            public int SkipRoot;
-            public ProfilerMarker ProfileMarker;
-        }
-
-        [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
-        {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
-            {
-                if (data.RigDefinition == BlobAssetReference<RigDefinition>.Null)
-                    return;
-
-                data.ProfileMarker.Begin();
-
-                var weight = context.Resolve(ports.Weight);
-                var weightArray = context.Resolve(ref ports.Weights);
-
-                var count = data.RigDefinition.Value.Bindings.BindingCount;
-
-                for (var iter = 0; iter < count; iter++)
-                {
-                    var isRoot = iter == data.RigDefinition.Value.Bindings.TranslationBindingIndex;
-                    isRoot |= iter == data.RigDefinition.Value.Bindings.RotationBindingIndex;
-                    isRoot |= iter == data.RigDefinition.Value.Bindings.ScaleBindingIndex;
-
-                    weightArray[iter] = data.SkipRoot != 0 && isRoot ? 0 : weight;
-                }
-
-                data.ProfileMarker.End();
-            }
-        }
-
-        public override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigDefinition)
-        {
-            ref var kernelData = ref GetKernelData(ctx.Handle);
-
-            kernelData.RigDefinition = rigDefinition;
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(rigDefinition.Value.Bindings.BindingCount));
-        }
-
-        public void HandleMessage(in MessageContext ctx, in int msg)
-        {
-            ref var kernelData = ref GetKernelData(ctx.Handle);
-            kernelData.SkipRoot = msg != 0 ? 1 : 0;
-        }
-    }
-
+    [NodeDefinition(isHidden:true)]
     public class LoopNode
         : NodeDefinition<LoopNode.Data, LoopNode.SimPorts, LoopNode.KernelData, LoopNode.KernelDefs, LoopNode.Kernel>
-            , IMsgHandler<BlobAssetReference<RigDefinition>>
-            , IMsgHandler<int>
+        , IMsgHandler<Rig>
+        , IMsgHandler<int>
+        , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<LoopNode, BlobAssetReference<RigDefinition>> RigDefinition;
+            public MessageInput<LoopNode, Rig> Rig;
             public MessageInput<LoopNode, int> SkipRoot;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
             public DataInput<LoopNode, float> NormalizedTime;
-            public DataInput<LoopNode, Buffer<float>> Input;
-            public DataInput<LoopNode, Buffer<float>> Delta;
-            public DataOutput<LoopNode, Buffer<float>> Output;
+            public DataInput<LoopNode, float> RootWeightMultiplier;
+            public DataInput<LoopNode, Buffer<AnimatedData>> Delta;
+
+            public DataInput<LoopNode, Buffer<AnimatedData>> Input;
+            public DataOutput<LoopNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
         {
-            public NodeHandle<SimPassThroughNode<BlobAssetReference<RigDefinition>>> RigDefinitionNode;
-            public NodeHandle<LoopWeightNode> LoopWeightNode;
+            public NodeHandle<SimPassThroughNode<Rig>> RigNode;
 
-            public NodeHandle<AddNode> AddNode;
-            public NodeHandle<InverseNode> InverseNode;
-            public NodeHandle<WeightNode> WeightNode;
+            public NodeHandle<KernelPassThroughNodeFloat> DefaultWeightNode;
+            public NodeHandle<WeightBuilderNode> WeightChannelsNode;
+            public NodeHandle<FloatMulNode> RootWeightNode;
+
+            public NodeHandle<AddPoseNode>     AddNode;
+            public NodeHandle<InversePoseNode> InverseNode;
+            public NodeHandle<WeightPoseNode>  WeightNode;
         }
 
         public struct KernelData : IKernelData
@@ -127,50 +53,75 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
 
-            nodeData.RigDefinitionNode = Set.Create<SimPassThroughNode<BlobAssetReference<RigDefinition>>>();
-            nodeData.LoopWeightNode = Set.Create<LoopWeightNode>();
-            nodeData.AddNode = Set.Create<AddNode>();
-            nodeData.WeightNode = Set.Create<WeightNode>();
-            nodeData.InverseNode = Set.Create<InverseNode>();
+            nodeData.RigNode = Set.Create<SimPassThroughNode<Rig>>();
+            nodeData.DefaultWeightNode = Set.Create<KernelPassThroughNodeFloat>();
+            nodeData.WeightChannelsNode = Set.Create<WeightBuilderNode>();
+            nodeData.RootWeightNode = Set.Create<FloatMulNode>();
+            nodeData.AddNode = Set.Create<AddPoseNode>();
+            nodeData.WeightNode = Set.Create<WeightPoseNode>();
+            nodeData.InverseNode = Set.Create<InversePoseNode>();
 
-            Set.Connect(nodeData.RigDefinitionNode, SimPassThroughNode<BlobAssetReference<RigDefinition>>.SimulationPorts.Output, nodeData.LoopWeightNode, LoopWeightNode.SimulationPorts.RigDefinition);
-            Set.Connect(nodeData.RigDefinitionNode, SimPassThroughNode<BlobAssetReference<RigDefinition>>.SimulationPorts.Output, nodeData.AddNode, AddNode.SimulationPorts.RigDefinition);
-            Set.Connect(nodeData.RigDefinitionNode, SimPassThroughNode<BlobAssetReference<RigDefinition>>.SimulationPorts.Output, nodeData.InverseNode, InverseNode.SimulationPorts.RigDefinition);
-            Set.Connect(nodeData.RigDefinitionNode, SimPassThroughNode<BlobAssetReference<RigDefinition>>.SimulationPorts.Output, nodeData.WeightNode, WeightNode.SimulationPorts.RigDefinition);
+            Set.Connect(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, nodeData.WeightChannelsNode, WeightBuilderNode.SimulationPorts.Rig);
+            Set.Connect(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, nodeData.AddNode, AddPoseNode.SimulationPorts.Rig);
+            Set.Connect(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, nodeData.InverseNode, InversePoseNode.SimulationPorts.Rig);
+            Set.Connect(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, nodeData.WeightNode, WeightPoseNode.SimulationPorts.Rig);
 
-            Set.Connect(nodeData.LoopWeightNode,LoopWeightNode.KernelPorts.Weights, nodeData.WeightNode, WeightNode.KernelPorts.Weights);
-            Set.Connect(nodeData.WeightNode,WeightNode.KernelPorts.Output, nodeData.InverseNode, InverseNode.KernelPorts.Input);
-            Set.Connect(nodeData.InverseNode,InverseNode.KernelPorts.Output, nodeData.AddNode, AddNode.KernelPorts.InputB);
+            ctx.ForwardInput(KernelPorts.NormalizedTime, nodeData.DefaultWeightNode, KernelPassThroughNodeFloat.KernelPorts.Input);
+            Set.Connect(nodeData.DefaultWeightNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.DefaultWeight);
 
-            ctx.ForwardInput(SimulationPorts.RigDefinition, nodeData.RigDefinitionNode, SimPassThroughNode<BlobAssetReference<RigDefinition>>.SimulationPorts.Input);
-            ctx.ForwardInput(SimulationPorts.SkipRoot, nodeData.LoopWeightNode, LoopWeightNode.SimulationPorts.SkipRoot);
-            ctx.ForwardInput(KernelPorts.NormalizedTime, nodeData.LoopWeightNode, LoopWeightNode.KernelPorts.Weight);
-            ctx.ForwardInput(KernelPorts.Input, nodeData.AddNode, AddNode.KernelPorts.InputA);
-            ctx.ForwardInput(KernelPorts.Delta, nodeData.WeightNode, WeightNode.KernelPorts.Input);
-            ctx.ForwardOutput(KernelPorts.Output, nodeData.AddNode, AddNode.KernelPorts.Output);
+            Set.Connect(nodeData.DefaultWeightNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.RootWeightNode, FloatMulNode.KernelPorts.InputA);
+            ctx.ForwardInput(KernelPorts.RootWeightMultiplier, nodeData.RootWeightNode, FloatMulNode.KernelPorts.InputB);
+
+            Set.SetPortArraySize(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 3);
+            Set.SetPortArraySize(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelWeights, 3);
+            for (var i = 0; i < 3; ++i)
+            {
+                Set.Connect(nodeData.RootWeightNode, FloatMulNode.KernelPorts.Output, nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelWeights, i);
+            }
+
+            ctx.ForwardInput(KernelPorts.Delta, nodeData.WeightNode, WeightPoseNode.KernelPorts.Input);
+            Set.Connect(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.Output, nodeData.WeightNode, WeightPoseNode.KernelPorts.WeightMasks);
+
+            Set.Connect(nodeData.WeightNode, WeightPoseNode.KernelPorts.Output, nodeData.InverseNode, InversePoseNode.KernelPorts.Input);
+
+            ctx.ForwardInput(KernelPorts.Input, nodeData.AddNode, AddPoseNode.KernelPorts.InputA);
+            Set.Connect(nodeData.InverseNode, InversePoseNode.KernelPorts.Output, nodeData.AddNode, AddPoseNode.KernelPorts.InputB);
+            ctx.ForwardOutput(KernelPorts.Output, nodeData.AddNode, AddPoseNode.KernelPorts.Output);
         }
 
-        public override void Destroy(NodeHandle handle)
+        protected override void Destroy(NodeHandle handle)
         {
             var nodeData = GetNodeData(handle);
 
-            Set.Destroy(nodeData.RigDefinitionNode);
-            Set.Destroy(nodeData.LoopWeightNode);
+            Set.Destroy(nodeData.RigNode);
+            Set.Destroy(nodeData.DefaultWeightNode);
+            Set.Destroy(nodeData.WeightChannelsNode);
+            Set.Destroy(nodeData.RootWeightNode);
             Set.Destroy(nodeData.AddNode);
             Set.Destroy(nodeData.InverseNode);
             Set.Destroy(nodeData.WeightNode);
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigDefinition)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+
+            Set.SendMessage(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Input, rig);
+
+            Set.SetData(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 0, rig.Value.Value.Bindings.TranslationBindingIndex);
+            Set.SetData(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 1, rig.Value.Value.Bindings.RotationBindingIndex);
+            Set.SetData(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 2, rig.Value.Value.Bindings.ScaleBindingIndex);
         }
 
         public void HandleMessage(in MessageContext ctx, in int msg)
         {
         }
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

@@ -1,9 +1,11 @@
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 using Unity.Burst;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(isHidden:true)]
     public class SimPassThroughNode<T>
         : NodeDefinition<SimPassThroughNode<T>.Data, SimPassThroughNode<T>.SimPorts>
         , IMsgHandler<T>
@@ -18,12 +20,13 @@ namespace Unity.Animation
         public struct Data : INodeData { }
 
         public void HandleMessage(in MessageContext ctx, in T msg) =>
-            EmitMessage(ctx.Handle, SimulationPorts.Output, msg);
+            ctx.EmitMessage(SimulationPorts.Output, msg);
     }
 
+    [NodeDefinition(isHidden:true)]
     public abstract class KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>
         : NodeDefinition<KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.Data, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelDefs, TKernel>
-        where TFinalNodeDefinition : INodeDefinition
+        where TFinalNodeDefinition : NodeDefinition
         where T : struct
         where TKernel : struct, IGraphKernel<KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelDefs>
     {
@@ -44,6 +47,7 @@ namespace Unity.Animation
     }
 
     // Until this is fixed in Burst, we must avoid IGraphKernel implementations which include any generics.
+    [NodeDefinition(isHidden:true)]
     public class KernelPassThroughNodeFloat : KernelPassThroughNode<KernelPassThroughNodeFloat, float, KernelPassThroughNodeFloat.Kernel>
     {
         static readonly ProfilerMarker k_ProfileKernelPassThrough = new ProfilerMarker("Animation.KernelPassThrough");
@@ -59,17 +63,18 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilePassThrough = k_ProfileKernelPassThrough;
         }
     }
 
+    [NodeDefinition(isHidden:true)]
     public abstract class KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>
         : NodeDefinition<KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.Data, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelDefs, TKernel>
         , IMsgHandler<int>
-        where TFinalNodeDefinition : INodeDefinition, IMsgHandler<int>
+        where TFinalNodeDefinition : NodeDefinition, IMsgHandler<int>
         where T : struct
         where TKernel : struct, IGraphKernel<KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelDefs>
     {
@@ -95,12 +100,14 @@ namespace Unity.Animation
 
         public void HandleMessage(in MessageContext ctx, in  int msg)
         {
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<float>.SizeRequest(msg));
+            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<T>.SizeRequest(msg));
         }
     }
 
+
     // Until this is fixed in Burst, we must avoid IGraphKernel implementations which include any generics.
-    public class KernelPassThroughNodeBufferFloat : KernelPassThroughNodeBuffer<KernelPassThroughNodeBufferFloat, float, KernelPassThroughNodeBufferFloat.Kernel>
+    [NodeDefinition(isHidden:true)]
+    public class KernelPassThroughNodeBufferFloat : KernelPassThroughNodeBuffer<KernelPassThroughNodeBufferFloat, AnimatedData, KernelPassThroughNodeBufferFloat.Kernel>
     {
         static readonly ProfilerMarker k_ProfileKernelPassThroughBuffer = new ProfilerMarker("Animation.KernelPassThroughBuffer");
 
@@ -115,11 +122,10 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilePassThrough = k_ProfileKernelPassThroughBuffer;
         }
     }
-
 }

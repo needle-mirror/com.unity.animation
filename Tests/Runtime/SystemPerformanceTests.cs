@@ -54,7 +54,7 @@ namespace Unity.Animation.PerformanceTests
             // Force and update to kick burst compilation
             m_RigComputeMatricesSystem.Update();
 
-            Set.RendererModel = DataFlowGraph.RenderExecutionModel.Islands;
+            Set.RendererModel = DataFlowGraph.NodeSet.RenderExecutionModel.Islands;
 
             // Force and update to kick burst compilation
             m_AnimationGraphSystem.Update();

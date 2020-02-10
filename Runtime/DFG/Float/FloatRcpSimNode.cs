@@ -1,8 +1,10 @@
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(isHidden:true)]
     public class FloatRcpSimNode
         : NodeDefinition<FloatRcpSimNode.Data, FloatRcpSimNode.SimPorts>
             , IMsgHandler<float>
@@ -19,7 +21,7 @@ namespace Unity.Animation
 
         public void HandleMessage(in MessageContext ctx, in float msg)
         {
-            EmitMessage(ctx.Handle, SimulationPorts.Output, math.rcp(msg));
+            ctx.EmitMessage(SimulationPorts.Output, math.rcp(msg));
         }
     }
 }

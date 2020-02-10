@@ -3,34 +3,14 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
-    public struct AnimatedLocalTranslation : IBufferElementData
-    {
-        public float3 Value;
-    }
-
-    public struct AnimatedLocalRotation : IBufferElementData
-    {
-        public quaternion Value;
-    }
-
-    public struct AnimatedLocalScale : IBufferElementData
-    {
-        public float3 Value;
-    }
-
-    public struct AnimatedFloat : IBufferElementData
+    public struct AnimatedData : IBufferElementData
     {
         public float Value;
     }
 
-    public struct AnimatedInt : IBufferElementData
+    public struct WeightData : IBufferElementData
     {
-        public int Value;
-    }
-
-    public struct AnimatedChannelMask: IBufferElementData
-    {
-        public byte Value;
+        public float Value;
     }
 
     public struct AnimatedLocalToWorld : IBufferElementData
@@ -38,7 +18,7 @@ namespace Unity.Animation
         public float4x4 Value;
     }
 
-    public struct AnimatedLocalToRig : IBufferElementData
+    public struct AnimatedLocalToRoot : IBufferElementData
     {
         public float4x4 Value;
     }

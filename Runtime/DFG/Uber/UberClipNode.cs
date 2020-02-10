@@ -3,61 +3,79 @@ using Unity.Collections;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Mathematics;
 
 namespace Unity.Animation
 {
-    public enum ClipConfigurationMask
+    [Serializable, Flags]
+    public enum ClipConfigurationMask : int
     {
-        NormalizedTime = 1 << 0,
-        LoopTime = 1 << 1,
-        LoopValues = 1 << 2,
-        CycleRootMotion = 1 << 3,
-        DeltaRootMotion = 1 << 4,
+        NormalizedTime         = 1 << 0,
+        LoopTime               = 1 << 1,
+        LoopValues             = 1 << 2,
+        CycleRootMotion        = 1 << 3,
+        DeltaRootMotion        = 1 << 4,
         RootMotionFromVelocity = 1 << 5,
-        BankPivot = 1 << 6
+        BankPivot              = 1 << 6
     }
 
+    [Serializable]
     public struct ClipConfiguration
     {
-        public int Mask;
+        public ClipConfigurationMask Mask;
         public StringHash MotionID;
     }
 
+    [NodeDefinition(category:"Animation Core", description:"Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden:true)]
     public class UberClipNode
         : NodeDefinition<UberClipNode.Data, UberClipNode.SimPorts, UberClipNode.KernelData, UberClipNode.KernelDefs, UberClipNode.Kernel>
-            , IMsgHandler<BlobAssetReference<ClipInstance>>
-            , IMsgHandler<ClipConfiguration>
-            , INormalizedTimeMotion
+        , IMsgHandler<Rig>
+        , IMsgHandler<BlobAssetReference<Clip>>
+        , IMsgHandler<ClipConfiguration>
+        , IMsgHandler<bool>
+        , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<UberClipNode, BlobAssetReference<ClipInstance>> ClipInstance;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<UberClipNode, Rig> Rig;
+            [PortDefinition(description:"Clip to sample")]
+            public MessageInput<UberClipNode, BlobAssetReference<Clip>> Clip;
+            [PortDefinition(description:"Clip configuration data")]
             public MessageInput<UberClipNode, ClipConfiguration> Configuration;
+            [PortDefinition(description:"Is this an additive clip", defaultValue:false)]
+            public MessageInput<UberClipNode, bool> Additive;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Unbound time")]
             public DataInput<UberClipNode, float> Time;
+            [PortDefinition(description:"Delta time")]
             public DataInput<UberClipNode, float> DeltaTime;
 
-            public DataOutput<UberClipNode, Buffer<float>> Output;
+            [PortDefinition(description:"Resulting animation stream")]
+            public DataOutput<UberClipNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
         {
-            internal NodeHandle<KernelPassThroughNodeFloat> TimeNode;
-            internal NodeHandle<KernelPassThroughNodeFloat> DeltaTimeNode;
-            internal NodeHandle<KernelPassThroughNodeBufferFloat> OutputNode;
+            internal NodeHandle<KernelPassThroughNodeFloat>         TimeNode;
+            internal NodeHandle<KernelPassThroughNodeFloat>         DeltaTimeNode;
+            internal NodeHandle<KernelPassThroughNodeBufferFloat>   OutputNode;
 
-            internal NodeHandle<NormalizedTimeNode> NormalizedDeltaTimeNode;
-            internal NodeHandle<FloatSubNode> PrevTimeNode;
-            internal NodeHandle<ConfigurableClipNode> PrevClipNode;
-            internal NodeHandle<ConfigurableClipNode> ClipNode;
-            internal NodeHandle<DeltaRootMotionNode> DeltaRootMotionNode;
-            internal NodeHandle<RootMotionFromVelocityNode> RootMotionFromVelocityNode;
+            internal NodeHandle<NormalizedTimeNode>             NormalizedDeltaTimeNode;
+            internal NodeHandle<FloatSubNode>                   PrevTimeNode;
+            internal NodeHandle<ConfigurableClipNode>           PrevClipNode;
+            internal NodeHandle<ConfigurableClipNode>           ClipNode;
+            internal NodeHandle<DeltaRootMotionNode>            DeltaRootMotionNode;
+            internal NodeHandle<RootMotionFromVelocityNode>     RootMotionFromVelocityNode;
 
-            internal BlobAssetReference<ClipInstance> ClipInstance;
+            public BlobAssetReference<RigDefinition> RigDefinition;
+            public BlobAssetReference<Clip>          Clip;
+            public bool                              IsAdditive;
+
             internal ClipConfiguration Configuration;
         }
 
@@ -71,16 +89,14 @@ namespace Unity.Animation
 
         void BuildNodes(ref Data nodeData)
         {
+            if (nodeData.Clip == BlobAssetReference<Clip>.Null || nodeData.RigDefinition == BlobAssetReference<RigDefinition>.Null)
+                return;
+
             var mask = nodeData.Configuration.Mask;
 
-            var normalizedTime = (mask & (int)ClipConfigurationMask.NormalizedTime) != 0;
-            var deltaRootMotion =  (mask & (int)ClipConfigurationMask.DeltaRootMotion) != 0;
-            var rootMotionFromVelocity = (mask & (int)ClipConfigurationMask.RootMotionFromVelocity) != 0;
-
-            if (nodeData.ClipInstance == BlobAssetReference<ClipInstance>.Null)
-            {
-                return;
-            }
+            var normalizedTime = (mask & ClipConfigurationMask.NormalizedTime) != 0;
+            var deltaRootMotion =  (mask & ClipConfigurationMask.DeltaRootMotion) != 0;
+            var rootMotionFromVelocity = (mask & ClipConfigurationMask.RootMotionFromVelocity) != 0;
 
             if (normalizedTime && rootMotionFromVelocity)
             {
@@ -108,7 +124,7 @@ namespace Unity.Animation
                 Set.Connect(nodeData.PrevTimeNode, FloatSubNode.KernelPorts.Output, nodeData.PrevClipNode, ConfigurableClipNode.KernelPorts.Time);
                 Set.Connect(nodeData.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Time);
 
-                Set.Connect(nodeData.PrevClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Prev);
+                Set.Connect(nodeData.PrevClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Previous);
                 Set.Connect(nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Current);
 
                 Set.Connect(nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
@@ -140,23 +156,27 @@ namespace Unity.Animation
 
             if (normalizedTime && rootMotionFromVelocity)
             {
-                 Set.SendMessage(nodeData.NormalizedDeltaTimeNode, NormalizedTimeNode.SimulationPorts.Duration, nodeData.ClipInstance.Value.Clip.Duration);
+                 Set.SendMessage(nodeData.NormalizedDeltaTimeNode, NormalizedTimeNode.SimulationPorts.Duration, nodeData.Clip.Value.Duration);
             }
 
             if (deltaRootMotion)
             {
                 Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Configuration, nodeData.Configuration);
-                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.ClipInstance, nodeData.ClipInstance);
-                Set.SendMessage(nodeData.DeltaRootMotionNode, DeltaRootMotionNode.SimulationPorts.RigDefinition, nodeData.ClipInstance.Value.RigDefinition);
+                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
+                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Clip, nodeData.Clip);
+                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Additive, nodeData.IsAdditive);
+                Set.SendMessage(nodeData.DeltaRootMotionNode, DeltaRootMotionNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
             }
             else if (rootMotionFromVelocity)
             {
-                Set.SendMessage(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.RigDefinition, nodeData.ClipInstance.Value.RigDefinition);
-                Set.SendMessage(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.SampleRate, nodeData.ClipInstance.Value.Clip.SampleRate);
+                Set.SendMessage(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
+                Set.SendMessage(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.SampleRate, nodeData.Clip.Value.SampleRate);
             }
 
-            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.ClipInstance, nodeData.ClipInstance);
-            Set.SendMessage(nodeData.OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize, nodeData.ClipInstance.Value.RigDefinition.Value.Bindings.CurveCount);
+            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
+            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Clip, nodeData.Clip);
+            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Additive, nodeData.IsAdditive);
+            Set.SendMessage(nodeData.OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize, nodeData.RigDefinition.Value.Bindings.StreamSize);
         }
 
         void ClearNodes(Data nodeData)
@@ -180,7 +200,7 @@ namespace Unity.Animation
                 Set.Destroy(nodeData.RootMotionFromVelocityNode);
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
 
@@ -195,7 +215,7 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
         }
 
-        public override void Destroy(NodeHandle handle)
+        protected override void Destroy(NodeHandle handle)
         {
             var nodeData = GetNodeData(handle);
 
@@ -206,11 +226,26 @@ namespace Unity.Animation
             ClearNodes(nodeData);
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<ClipInstance> clipInstance)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
+        {
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+            nodeData.RigDefinition = rig;
+
+            ClearNodes(nodeData);
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+            BuildNodes(ref nodeData);
+        }
+
+        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
 
-            nodeData.ClipInstance = clipInstance;
+            nodeData.Clip = clip;
 
             ClearNodes(nodeData);
             BuildNodes(ref nodeData);
@@ -226,26 +261,24 @@ namespace Unity.Animation
             BuildNodes(ref nodeData);
         }
 
-        public OutputPortID AnimationStreamOutputPort =>
-            (OutputPortID)KernelPorts.Output;
-
-        public float GetDuration(NodeHandle handle)
+        public void HandleMessage(in MessageContext ctx, in bool msg)
         {
-            var nodeData = GetNodeData(handle);
-            return nodeData.ClipInstance != BlobAssetReference<ClipInstance>.Null ? nodeData.ClipInstance.Value.Clip.Duration : 0;
-        }
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+            nodeData.IsAdditive = msg;
 
-        public InputPortID NormalizedTimeInputPort =>
-            (InputPortID)KernelPorts.Time;
+            ClearNodes(nodeData);
+            BuildNodes(ref nodeData);
+        }
 
         internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
         internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
 
-        static void UpdateFrame<T>(
+        static void UpdateFrame(
             ref ClipInstance clipInstance,
             ref BlobArray<float> samples,
-            ref AnimationStream<T> stream, int frameIndex)
-            where T : struct, IAnimationStreamDescriptor
+            ref AnimationStream stream,
+            int frameIndex
+            )
         {
             ref var clip = ref clipInstance.Clip;
             ref var bindings = ref clip.Bindings;
@@ -336,151 +369,128 @@ namespace Unity.Animation
                 Core.SetDataInSample<float>(ref samples, curveIndex + keyIndex, v);
             }
         }
-        public static BlobAssetReference<Clip> Bake(BlobAssetReference<ClipInstance> sourceClipInstance, ClipConfiguration clipConfiguration, float sampleRate = 60.0f)
+
+        public static BlobAssetReference<Clip> Bake(BlobAssetReference<RigDefinition> rig, BlobAssetReference<Clip> sourceClip, ClipConfiguration clipConfiguration, float sampleRate = 60.0f)
         {
-            using (var world = new World("BakeUberClipNodeWorld"))
-            {
-                // create the UberClipNode to resample
-                var animationSystem = world.GetOrCreateSystem<AnimationGraphSystem>();
-                animationSystem.AddRef();
-
-                var set = animationSystem.Set;
-                var entityManager = world.EntityManager;
-
-                var entity = entityManager.CreateEntity();
-                RigEntityBuilder.SetupRigEntity(entity, entityManager, sourceClipInstance.Value.RigDefinition);
-
-                var clipNode = set.Create<UberClipNode>();
-                set.SendMessage(clipNode, UberClipNode.SimulationPorts.Configuration, clipConfiguration);
-                set.SendMessage(clipNode, UberClipNode.SimulationPorts.ClipInstance, sourceClipInstance);
-
-                var output = new GraphOutput { Buffer = set.CreateGraphValue(clipNode, UberClipNode.KernelPorts.Output) };
-                entityManager.AddComponentData(entity, output);
-
-                // create the destination clip instance
-                var blobBuilder = new BlobBuilder(Allocator.Temp);
-                ref var clip = ref blobBuilder.ConstructRoot<Clip>();
-
-                clip.Duration = sourceClipInstance.Value.Clip.Duration;
-                clip.SampleRate = sampleRate;
-
-                var needsRoot = clipConfiguration.MotionID != 0;
-                var needsRootT = needsRoot && sourceClipInstance.Value.TranslationBindingMap[0] != 0;
-                var needsRootR = needsRoot && sourceClipInstance.Value.RotationBindingMap[0] != 0;
-
-                var curveCount = 0;
-
-                var translationBindingsCount = sourceClipInstance.Value.Clip.Bindings.TranslationBindings.Length + (needsRootT ? 1 : 0);
-
-                if (translationBindingsCount > 0)
-                {
-                    var translationBindings = blobBuilder.Allocate(ref clip.Bindings.TranslationBindings, translationBindingsCount);
-
-                    if (needsRootT)
-                    {
-                        translationBindings[0] = sourceClipInstance.Value.RigDefinition.Value.Bindings.TranslationBindings[0];
-                    }
-
-                    for (var iter = 0; iter < translationBindingsCount - (needsRootT ? 1 : 0); iter++)
-                    {
-                        translationBindings[iter + (needsRootT ? 1 : 0)] = sourceClipInstance.Value.Clip.Bindings.TranslationBindings[iter];
-                    }
-
-                    curveCount += translationBindingsCount * BindingSet.TranslationKeyFloatCount;
-                }
-
-                var rotationBindingsCount = sourceClipInstance.Value.Clip.Bindings.RotationBindings.Length + (needsRootR ? 1 : 0);
-
-                if (rotationBindingsCount > 0)
-                {
-                    var rotationBindings = blobBuilder.Allocate(ref clip.Bindings.RotationBindings, rotationBindingsCount);
-
-                    if (needsRootR)
-                    {
-                        rotationBindings[0] = sourceClipInstance.Value.RigDefinition.Value.Bindings.RotationBindings[0];
-                    }
-
-                    for (var iter = 0; iter < rotationBindingsCount - (needsRootR ? 1 : 0); iter++)
-                    {
-                        rotationBindings[iter + (needsRootR ? 1 : 0)] = sourceClipInstance.Value.Clip.Bindings.RotationBindings[iter];
-                    }
-
-
-                    curveCount += rotationBindingsCount * BindingSet.RotationKeyFloatCount;
-                }
-
-                var scaleBindingsCount = sourceClipInstance.Value.Clip.Bindings.ScaleBindings.Length;
-
-                if (scaleBindingsCount > 0)
-                {
-                    var scaleBindings = blobBuilder.Allocate(ref clip.Bindings.ScaleBindings, scaleBindingsCount);
-                    scaleBindings.CopyFrom(ref sourceClipInstance.Value.Clip.Bindings.ScaleBindings);
-
-                    curveCount += scaleBindingsCount * BindingSet.ScaleKeyFloatCount;
-                }
-
-                var floatBindingsCount = sourceClipInstance.Value.Clip.Bindings.FloatBindings.Length;
-
-                if (floatBindingsCount > 0)
-                {
-                    var floatBindings = blobBuilder.Allocate(ref clip.Bindings.FloatBindings, floatBindingsCount);
-                    floatBindings.CopyFrom(ref sourceClipInstance.Value.Clip.Bindings.FloatBindings);
-
-                    curveCount += floatBindingsCount * BindingSet.FloatKeyFloatCount;
-                }
-
-                var intBindingsCount = sourceClipInstance.Value.Clip.Bindings.IntBindings.Length;
-
-                if (intBindingsCount > 0)
-                {
-                    var intBindings = blobBuilder.Allocate(ref clip.Bindings.IntBindings, intBindingsCount);
-                    intBindings.CopyFrom(ref sourceClipInstance.Value.Clip.Bindings.IntBindings);
-
-                    curveCount += intBindingsCount * BindingSet.IntKeyFloatCount;
-                }
-
-                blobBuilder.Allocate(ref clip.Samples, curveCount * (clip.FrameCount + 1));
-
-                var clipRef = blobBuilder.CreateBlobAssetReference<Clip>(Allocator.Persistent);
-                blobBuilder.Dispose();
-
-                var clipInstance = ClipInstance.Create(sourceClipInstance.Value.RigDefinition, clipRef);
-
-                var deltaTime = 1.0f / clipInstance.Value.Clip.SampleRate;
-                set.SetData(clipNode, UberClipNode.KernelPorts.DeltaTime, deltaTime);
-
-                var frameCount = clipInstance.Value.Clip.FrameCount;
-
-                for (var frameIter = 0; frameIter <= frameCount; frameIter++)
-                {
-                    var time = frameIter < frameCount ? (float)frameIter / clipInstance.Value.Clip.SampleRate : clipInstance.Value.Clip.Duration;
-                    set.SetData(clipNode, UberClipNode.KernelPorts.Time, time);
-
-                    animationSystem.Update();
-
-                    var stream = AnimationStreamProvider.Create(
-                        sourceClipInstance.Value.RigDefinition,
-                        entityManager.GetBuffer<AnimatedLocalTranslation>(entity),
-                        entityManager.GetBuffer<AnimatedLocalRotation>(entity),
-                        entityManager.GetBuffer<AnimatedLocalScale>(entity),
-                        entityManager.GetBuffer<AnimatedFloat>(entity),
-                        entityManager.GetBuffer<AnimatedInt>(entity)
-                    );
-
-                    UpdateFrame(ref clipInstance.Value, ref clipRef.Value.Samples, ref stream, frameIter);
-                }
-
-                clipInstance.Dispose();
-
-                entityManager.RemoveComponent<GraphOutput>(entity);
-
-                set.ReleaseGraphValue(output.Buffer);
-                set.Destroy(clipNode);
-
-                animationSystem.RemoveRef();
-
-                return clipRef;
-            }
+            using (var set = new NodeSet())
+                return Bake(set, rig, sourceClip, clipConfiguration, sampleRate);
         }
+
+        public static BlobAssetReference<Clip> Bake(NodeSet set, BlobAssetReference<RigDefinition> rig, BlobAssetReference<Clip> sourceClip, ClipConfiguration clipConfiguration, float sampleRate = 60.0f)
+        {
+            if (set == null)
+                throw new ArgumentNullException(nameof(set));
+
+            var clipNode = set.Create<UberClipNode>();
+            set.SendMessage(clipNode, UberClipNode.SimulationPorts.Configuration, clipConfiguration);
+            set.SendMessage(clipNode, UberClipNode.SimulationPorts.Rig, new Rig { Value = rig });
+            set.SendMessage(clipNode, UberClipNode.SimulationPorts.Clip, sourceClip);
+
+            var graphValue = set.CreateGraphValue(clipNode, KernelPorts.Output);
+
+            var blobBuilder = new BlobBuilder(Allocator.Temp);
+            ref var clip = ref blobBuilder.ConstructRoot<Clip>();
+
+            clip.Duration = sourceClip.Value.Duration;
+            clip.SampleRate = sampleRate;
+
+            var sourceClipInstance = ClipInstance.Create(rig, sourceClip);
+
+            var needsRoot  = clipConfiguration.MotionID != 0;
+            var needsRootT = needsRoot && sourceClipInstance.Value.TranslationBindingMap.Length > 0 && sourceClipInstance.Value.TranslationBindingMap[0] != 0;
+            var needsRootR = needsRoot && sourceClipInstance.Value.RotationBindingMap.Length > 0 && sourceClipInstance.Value.RotationBindingMap[0] != 0;
+
+            var translationBindingsCount = sourceClipInstance.Value.Clip.Bindings.TranslationBindings.Length + (needsRootT ? 1 : 0);
+            if (translationBindingsCount > 0)
+            {
+                var translationBindings = blobBuilder.Allocate(ref clip.Bindings.TranslationBindings, translationBindingsCount);
+
+                if (needsRootT)
+                {
+                    translationBindings[0] = rig.Value.Bindings.TranslationBindings[0];
+                }
+
+                for (var iter = 0; iter < translationBindingsCount - (needsRootT ? 1 : 0); iter++)
+                {
+                    translationBindings[iter + (needsRootT ? 1 : 0)] = sourceClipInstance.Value.Clip.Bindings.TranslationBindings[iter];
+                }
+            }
+
+            var rotationBindingsCount = sourceClipInstance.Value.Clip.Bindings.RotationBindings.Length + (needsRootR ? 1 : 0);
+            if (rotationBindingsCount > 0)
+            {
+                var rotationBindings = blobBuilder.Allocate(ref clip.Bindings.RotationBindings, rotationBindingsCount);
+
+                if (needsRootR)
+                {
+                    rotationBindings[0] = rig.Value.Bindings.RotationBindings[0];
+                }
+
+                for (var iter = 0; iter < rotationBindingsCount - (needsRootR ? 1 : 0); iter++)
+                {
+                    rotationBindings[iter + (needsRootR ? 1 : 0)] = sourceClipInstance.Value.Clip.Bindings.RotationBindings[iter];
+                }
+            }
+
+            var scaleBindingsCount = sourceClipInstance.Value.Clip.Bindings.ScaleBindings.Length;
+            if (scaleBindingsCount > 0)
+            {
+                var scaleBindings = blobBuilder.Allocate(ref clip.Bindings.ScaleBindings, scaleBindingsCount);
+                scaleBindings.CopyFrom(ref sourceClipInstance.Value.Clip.Bindings.ScaleBindings);
+            }
+
+            var floatBindingsCount = sourceClipInstance.Value.Clip.Bindings.FloatBindings.Length;
+            if (floatBindingsCount > 0)
+            {
+                var floatBindings = blobBuilder.Allocate(ref clip.Bindings.FloatBindings, floatBindingsCount);
+                floatBindings.CopyFrom(ref sourceClipInstance.Value.Clip.Bindings.FloatBindings);
+            }
+
+            var intBindingsCount = sourceClipInstance.Value.Clip.Bindings.IntBindings.Length;
+            if (intBindingsCount > 0)
+            {
+                var intBindings = blobBuilder.Allocate(ref clip.Bindings.IntBindings, intBindingsCount);
+                intBindings.CopyFrom(ref sourceClipInstance.Value.Clip.Bindings.IntBindings);
+            }
+
+            clip.Bindings = clip.CreateBindingSet(translationBindingsCount, rotationBindingsCount, scaleBindingsCount, floatBindingsCount, intBindingsCount);
+
+            blobBuilder.Allocate(ref clip.Samples, clip.Bindings.CurveCount * (clip.FrameCount + 1));
+
+            var clipAsset = blobBuilder.CreateBlobAssetReference<Clip>(Allocator.Persistent);
+            blobBuilder.Dispose();
+
+            var clipInstance = ClipInstance.Create(rig, clipAsset);
+
+            var deltaTime = 1.0f / clipInstance.Value.Clip.SampleRate;
+            set.SetData(clipNode, KernelPorts.DeltaTime, deltaTime);
+
+            var frameCount = clipInstance.Value.Clip.FrameCount;
+
+            for (var frameIter = 0; frameIter <= frameCount; frameIter++)
+            {
+                var time = frameIter < frameCount ? (float)frameIter / clipInstance.Value.Clip.SampleRate : clipInstance.Value.Clip.Duration;
+                set.SetData(clipNode, KernelPorts.Time, time);
+
+                set.Update();
+                var buffer = DFGUtils.GetGraphValueTempNativeBuffer(set, graphValue);
+                var stream = AnimationStream.CreateReadOnly(rig, buffer);
+
+                UpdateFrame(ref clipInstance.Value, ref clipAsset.Value.Samples, ref stream, frameIter);
+            }
+
+            sourceClipInstance.Dispose();
+            clipInstance.Dispose();
+
+            set.ReleaseGraphValue(graphValue);
+            set.Destroy(clipNode);
+
+            clipAsset.Value.m_HashCode = (int)HashUtils.ComputeHash(ref clipAsset);
+
+            return clipAsset;
+        }
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

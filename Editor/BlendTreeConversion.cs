@@ -44,7 +44,6 @@ namespace Unity.Animation.Editor
             var blendTreeIndex = blendTreeResources.Length;
 
             blendTreeResources.Add( new BlendTree1DResource {
-                BlendParameter = blendTree.blendParameter,
                 MotionCount = blendTree.children.Length,
                 MotionStartIndex = blendTreeMotionData.Length
             });
@@ -54,23 +53,15 @@ namespace Unity.Animation.Editor
                 var motionData = new BlendTree1DMotionData {
                     MotionThreshold = blendTree.children[i].threshold,
                     MotionSpeed = blendTree.children[i].timeScale,
-                    MotionType = GetMotionType(blendTree.children[i].motion),
                 };
 
-                if(motionData.MotionType == MotionType.Clip)
+                var clip = ClipBuilder.AnimationClipToDenseClip(blendTree.children[i].motion as AnimationClip);
+                if(bakeOptions.NeedBaking)
                 {
-                    var clip = ClipBuilder.AnimationClipToDenseClip(blendTree.children[i].motion as AnimationClip);
-                    if(bakeOptions.NeedBaking)
-                    {
-                        var clipInstance = ClipInstance.Create(bakeOptions.RigDefinition, clip);
-
-                        clip = UberClipNode.Bake(clipInstance, bakeOptions.ClipConfiguration, bakeOptions.SampleRate);
-
-                        clipInstance.Release();
-                    }
-                    
-                    motionData.Motion.Clip = clip;
+                    clip = UberClipNode.Bake(bakeOptions.RigDefinition, clip, bakeOptions.ClipConfiguration, bakeOptions.SampleRate);
                 }
+                    
+                motionData.Motion.Clip = clip;
 
                 blendTreeMotionData.Add(motionData);
             }
@@ -92,8 +83,6 @@ namespace Unity.Animation.Editor
             var blendTreeIndex = blendTreeResources.Length;
 
             blendTreeResources.Add( new BlendTree2DResource {
-                BlendParameterX = blendTree.blendParameter,
-                BlendParameterY = blendTree.blendParameterY,
                 MotionCount = blendTree.children.Length,
                 MotionStartIndex = blendTreeMotionData.Length
             });
@@ -103,23 +92,15 @@ namespace Unity.Animation.Editor
                 var motionData = new BlendTree2DMotionData {
                     MotionPosition = blendTree.children[i].position,
                     MotionSpeed = blendTree.children[i].timeScale,
-                    MotionType = GetMotionType(blendTree.children[i].motion),
                 };
 
-                if(motionData.MotionType == MotionType.Clip)
+                var clip = ClipBuilder.AnimationClipToDenseClip(blendTree.children[i].motion as AnimationClip);
+                if(bakeOptions.NeedBaking)
                 {
-                    var clip = ClipBuilder.AnimationClipToDenseClip(blendTree.children[i].motion as AnimationClip);
-                    if(bakeOptions.NeedBaking)
-                    {
-                        var clipInstance = ClipInstance.Create(bakeOptions.RigDefinition, clip);
-
-                        clip = UberClipNode.Bake(clipInstance, bakeOptions.ClipConfiguration, bakeOptions.SampleRate);
-
-                        clipInstance.Release();
-                    }
-                    
-                    motionData.Motion.Clip = clip;
+                    clip = UberClipNode.Bake(bakeOptions.RigDefinition, clip, bakeOptions.ClipConfiguration, bakeOptions.SampleRate);
                 }
+                    
+                motionData.Motion.Clip = clip;
 
                 blendTreeMotionData.Add(motionData);
             }
@@ -148,18 +129,6 @@ namespace Unity.Animation.Editor
 
             if (bakeOptions.SampleRate < 0)
                 throw new System.ArgumentOutOfRangeException("bakeOptions.SampleRate", bakeOptions.SampleRate, "SampleRate cannot be negative.");
-        }
-
-        private static MotionType GetMotionType(UnityEngine.Motion motion)
-        {
-            var blendTree = motion as BlendTree;
-
-            if (blendTree != null)
-            {
-                return blendTree.blendType == BlendTreeType.Simple1D ? MotionType.BlendTree1D : MotionType.BlendTree2DSimpleDirectionnal;
-            }
-            else
-                return MotionType.Clip;
         }
     }
 }

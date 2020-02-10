@@ -1,45 +1,71 @@
 using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
 
-using UnityEngine;
-
-namespace Unity.Animation
+namespace Unity.Animation.Hybrid
 {
     public static class CurveConversion
     {
-        static Keyframe KeyframeConversion(UnityEngine.Keyframe inKey)
+        static (float, KeyframeData) KeyframeConversion(UnityEngine.Keyframe inKey)
         {
-            return new Keyframe
+            var key = new KeyframeData
             {
                 InTangent = inKey.inTangent,
                 OutTangent = inKey.outTangent,
                 Value = inKey.value,
-                Time = inKey.time
             };
+
+            return (inKey.time, key);
         }
 
-        public static KeyframeCurve ToKeyframeCurve(this AnimationCurve curve)
+        /// <summary>
+        /// Converts a UnityEngine AnimationCurve to a DOTS AnimationCurve.
+        /// </summary>
+        /// <param name="curve">The UnityEngine.AnimationCurve to convert to DOTS format.</param>
+        /// <returns>Returns a DOTS AnimationCurve.</returns>
+        public static Animation.AnimationCurve ToDotsAnimationCurve(this UnityEngine.AnimationCurve curve)
         {
-            // Allocate the keys
-            var keyframeCurve = new KeyframeCurve(curve.length, Allocator.Persistent);
+            var curveBlob = curve.ToAnimationCurveBlobAssetRef();
+            var dotsCurve = new AnimationCurve();
+            dotsCurve.SetAnimationCurveBlobAssetRef(curveBlob);
 
-            var len = curve.length;
-            for (int i = 0; i < len; i++)
+            return dotsCurve;
+        }
+
+        /// <summary>
+        /// Converts a UnityEngine AnimationCurve to a BlobAssetReference of an AnimationCurveBlob.
+        /// </summary>
+        /// <param name="curve">The UnityEngine.AnimationCurve to convert to DOTS format.</param>
+        /// <returns>Returns the BlobAssetReference of the AnimationCurveBlob.</returns>
+        public static BlobAssetReference<AnimationCurveBlob> ToAnimationCurveBlobAssetRef(this UnityEngine.AnimationCurve curve)
+        {
+            if (curve.length == 0)
             {
-                keyframeCurve[i] = KeyframeConversion(curve.keys[i]);
+                return BlobAssetReference<AnimationCurveBlob>.Null;
             }
 
-            return keyframeCurve;
+            var blobBuilder = new BlobBuilder(Allocator.Temp);
+            ref var curveBlob = ref blobBuilder.ConstructRoot<AnimationCurveBlob>();
+            FillKeyframeCurveBlob(curve, ref blobBuilder, ref curveBlob);
+
+            var outputClip = blobBuilder.CreateBlobAssetReference<AnimationCurveBlob>(Allocator.Persistent);
+
+            blobBuilder.Dispose();
+
+            return outputClip;
         }
 
-        public static BlobAssetReference<KeyframeCurveBlob> ToKeyframeCurveBlob(this AnimationCurve source)
+        static void FillKeyframeCurveBlob(UnityEngine.AnimationCurve sourceCurve, ref BlobBuilder blobBuilder, ref AnimationCurveBlob curveBlob)
         {
-            var keyframeCurve = source.ToKeyframeCurve();
-            var curveBlob = keyframeCurve.ToBlobAssetRef();
+            var times = blobBuilder.Allocate(ref curveBlob.KeyframesTime, sourceCurve.length);
+            var keyframes = blobBuilder.Allocate(ref curveBlob.KeyframesData, sourceCurve.length);
 
-            keyframeCurve.Dispose();
-            return curveBlob;
+            float length = sourceCurve.length;
+            for (var i = 0; i < length; ++i)
+            {
+                (var time, var key) = KeyframeConversion(sourceCurve.keys[i]);
+                times[i] = time;
+                keyframes[i] = key;
+            }
         }
     }
 }

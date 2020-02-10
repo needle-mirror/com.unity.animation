@@ -18,6 +18,9 @@ namespace Unity.Animation
         const int kMaxDrawMeshInstanceCount = 1023;
         Matrix4x4[] m_Matrices;
         Vector4[] m_Colors;
+        int m_ColorPropertyID;
+        BoneRendererUtils.BoneShape[] m_BoneShapes;
+        MaterialPropertyBlock m_PropertyBlock;
 
         static readonly ProfilerMarker k_Marker = new ProfilerMarker("BoneRendererRenderingSystemBase");
 
@@ -34,19 +37,20 @@ namespace Unity.Animation
 
             m_Matrices = new Matrix4x4[kMaxDrawMeshInstanceCount];
             m_Colors = new Vector4[kMaxDrawMeshInstanceCount];
+            m_ColorPropertyID = Shader.PropertyToID("_Color");
+            m_BoneShapes = (BoneRendererUtils.BoneShape[])Enum.GetValues(typeof(BoneRendererUtils.BoneShape));
+            m_PropertyBlock = new MaterialPropertyBlock();
         }
 
         protected override unsafe void OnUpdate()
         {
             k_Marker.Begin();
 
-            var boneShapes = (BoneRendererUtils.BoneShape[])Enum.GetValues(typeof(BoneRendererUtils.BoneShape));
-            var propertyBlock = new MaterialPropertyBlock();
             var boneWireMaterial = BoneRendererUtils.GetBoneWireMaterial();
             var boneFaceMaterial = BoneRendererUtils.GetBoneFaceMaterial();
 
             // Pack the rendering for each mesh to benefit from DrawInstanced.
-            foreach (var boneShape in boneShapes)
+            foreach (var boneShape in m_BoneShapes)
             {
                 m_Query.SetSharedComponentFilter(new BoneRenderer.BoneShape { Value = boneShape });
                 var chunks = m_Query.CreateArchetypeChunkArray(Allocator.TempJob);
@@ -60,7 +64,7 @@ namespace Unity.Animation
                 foreach (var chunk in chunks)
                 {
                     var boneColors = chunk.GetNativeArray(boneColorType);
-                    var boneRendererEntities = chunk.GetNativeArray(entityType); 
+                    var boneRendererEntities = chunk.GetNativeArray(entityType);
 
                     for (int i = 0; i != chunk.Count; i++)
                     {
@@ -86,9 +90,9 @@ namespace Unity.Animation
                                         copyCount
                                         );
 
-                                    propertyBlock.SetVectorArray("_Color", m_Colors);
-                                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneFaces, boneFaceMaterial, m_Matrices, kMaxDrawMeshInstanceCount, propertyBlock);
-                                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneWires, boneWireMaterial, m_Matrices, kMaxDrawMeshInstanceCount, propertyBlock);
+                                    m_PropertyBlock.SetVectorArray(m_ColorPropertyID, m_Colors);
+                                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneFaces, boneFaceMaterial, m_Matrices, kMaxDrawMeshInstanceCount, m_PropertyBlock);
+                                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneWires, boneWireMaterial, m_Matrices, kMaxDrawMeshInstanceCount, m_PropertyBlock);
 
                                     bufLen -= copyCount;
                                     destOffset = 0;
@@ -99,7 +103,7 @@ namespace Unity.Animation
                                     (float4x4*)matricesBuffer.GetUnsafePtr() + srcOffset,
                                     bufLen * UnsafeUtility.SizeOf<float4x4>()
                                     );
-                        
+
                                 UnsafeUtility.MemCpyReplicate(colorsPtr + destOffset,
                                     (float4*)boneColors.GetUnsafeReadOnlyPtr() + i,
                                     UnsafeUtility.SizeOf<float4>(),
@@ -116,9 +120,9 @@ namespace Unity.Animation
                 // Only do a draw call when there is something to draw.
                 if (destOffset > 0)
                 {
-                    propertyBlock.SetVectorArray("_Color", m_Colors);
-                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneFaces, boneFaceMaterial, m_Matrices, destOffset, propertyBlock);
-                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneWires, boneWireMaterial, m_Matrices, destOffset, propertyBlock);
+                    m_PropertyBlock.SetVectorArray(m_ColorPropertyID, m_Colors);
+                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneFaces, boneFaceMaterial, m_Matrices, destOffset, m_PropertyBlock);
+                    Graphics.DrawMeshInstanced(BoneRendererUtils.GetBoneMesh(boneShape), (int)BoneRendererUtils.SubMeshType.BoneWires, boneWireMaterial, m_Matrices, destOffset, m_PropertyBlock);
                 }
 
                 m_Query.ResetFilter();

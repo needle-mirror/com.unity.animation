@@ -13,8 +13,8 @@ namespace Unity.Animation.Tests
         static quaternion  m_StartRotation => new quaternion(0, 0, 0, 1);
         static quaternion  m_StopRotation => new quaternion(0, 1, 1, 1);
 
-        private BlobAssetReference<RigDefinition> m_Rig;
-        private BlobAssetReference<ClipInstance> m_Clip;
+        private Rig m_Rig;
+        private BlobAssetReference<Clip> m_Clip;
         private static BlobAssetReference<RigDefinition> CreateTestRigDefinition()
         {
             var skeletonNodes = new[]
@@ -61,13 +61,13 @@ namespace Unity.Animation.Tests
             base.OneTimeSetUp();
 
             // Create rig
-            m_Rig = CreateTestRigDefinition();
+            m_Rig = new Rig { Value = CreateTestRigDefinition() };
 
 
             var path = "MotionClip.blob";
-            var motionClip = BlobFile.ReadBlobAsset<Clip>(path);
+            m_Clip = BlobFile.ReadBlobAsset<Clip>(path);
 
-            m_Clip = ClipManager.Instance.GetClipFor(m_Rig, motionClip);
+            ClipManager.Instance.GetClipFor(m_Rig, m_Clip);
         }
 
         [Test]
@@ -76,20 +76,23 @@ namespace Unity.Animation.Tests
             var entity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
 
-            var set = Set;
             var clipNode = CreateNode<ClipNode>();
-            set.SendMessage(clipNode, ClipNode.SimulationPorts.ClipInstance, m_Clip);
-            set.SetData(clipNode, ClipNode.KernelPorts.Time, 1.0f);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, m_Clip);
+            Set.SetData(clipNode, ClipNode.KernelPorts.Time, 1.0f);
 
             var inPlaceNode = CreateNode<InPlaceMotionNode>();
 
-            set.SendMessage(inPlaceNode, InPlaceMotionNode.SimulationPorts.RigDefinition, m_Rig);
-            set.SendMessage(inPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration, new ClipConfiguration { MotionID = new StringHash("Motion") });
+            Set.SendMessage(inPlaceNode, InPlaceMotionNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(inPlaceNode, InPlaceMotionNode.SimulationPorts.Configuration, new ClipConfiguration { MotionID = new StringHash("Motion") });
 
-        set.Connect(clipNode,ClipNode.KernelPorts.Output,inPlaceNode,InPlaceMotionNode.KernelPorts.Input);
+            Set.Connect(clipNode,ClipNode.KernelPorts.Output,inPlaceNode,InPlaceMotionNode.KernelPorts.Input);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(inPlaceNode, InPlaceMotionNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+
+            Set.Connect(inPlaceNode, InPlaceMotionNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -97,20 +100,24 @@ namespace Unity.Animation.Tests
             var rotation = m_StopRotation;
             var projRotation = math.normalize(new quaternion(0, rotation.value.y / rotation.value.w, 0, 1));
 
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
+
             // validate projection of motion on root
-            var rootTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
+            var rootTranslation = streamECS.GetLocalToParentTranslation(0);
             Assert.That(rootTranslation, Is.EqualTo(new float3(translation.x,0, translation.z)).Using(TranslationComparer));
-            var rootRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[0].Value;
+            var rootRotation = streamECS.GetLocalToParentRotation(0);
             Assert.That(rootRotation, Is.EqualTo(projRotation).Using(RotationComparer));
 
             // validate that motion is now in place
-            var motionTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[2].Value;
+            var motionTranslation = streamECS.GetLocalToParentTranslation(2);
             Assert.That(motionTranslation, Is.EqualTo(new float3(0,translation.y,0)).Using(TranslationComparer));
-            var motionRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[2].Value;
-            Assert.That(motionRotation, Is.EqualTo(math.mul(math.conjugate(projRotation), rotation)).Using(RotationComparer));
+            var motionRotation = streamECS.GetLocalToParentRotation(2);
+            Assert.That(motionRotation, Is.EqualTo(mathex.mul(math.conjugate(projRotation), rotation)).Using(RotationComparer));
         }
 
-        [Test]
         [TestCase(0)]
         [TestCase(0.5f)]
         [TestCase(1)]
@@ -119,14 +126,16 @@ namespace Unity.Animation.Tests
             var entity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
 
-            var set = Set;
             var clipNode = CreateNode<ConfigurableClipNode>();
-            set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { MotionID = new StringHash("Motion") });
-            set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.ClipInstance, m_Clip);
-            set.SetData(clipNode, ConfigurableClipNode.KernelPorts.Time, time);
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { MotionID = new StringHash("Motion") });
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Clip, m_Clip);
+            Set.SetData(clipNode, ConfigurableClipNode.KernelPorts.Time, time);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ConfigurableClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -134,20 +143,24 @@ namespace Unity.Animation.Tests
             var rotation = math.normalize(new quaternion(math.normalize(m_StopRotation).value * time + math.normalize(m_StartRotation).value * (1f-time)));
             var projRotation = math.normalize(new quaternion(0, rotation.value.y / rotation.value.w, 0, 1));
 
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
+
             // validate projection of motion on root
-            var rootTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
+            var rootTranslation = streamECS.GetLocalToParentTranslation(0);
             Assert.That(rootTranslation, Is.EqualTo(new float3(translation.x,0, translation.z)).Using(TranslationComparer));
-            var rootRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[0].Value;
+            var rootRotation = streamECS.GetLocalToParentRotation(0);
             Assert.That(rootRotation, Is.EqualTo(projRotation).Using(RotationComparer));
 
             // validate that motion is now in place
-            var motionTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[2].Value;
+            var motionTranslation = streamECS.GetLocalToParentTranslation(2);
             Assert.That(motionTranslation, Is.EqualTo(new float3(0,translation.y,0)).Using(TranslationComparer));
-            var motionRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[2].Value;
-            Assert.That(motionRotation, Is.EqualTo(math.mul(math.conjugate(projRotation), rotation)).Using(RotationComparer));
+            var motionRotation = streamECS.GetLocalToParentRotation(2);
+            Assert.That(motionRotation, Is.EqualTo(mathex.mul(math.conjugate(projRotation), rotation)).Using(RotationComparer));
         }
 
-        [Test]
         [TestCase(-10)]
         [TestCase(-2.3f)]
         [TestCase(0)]
@@ -161,14 +174,16 @@ namespace Unity.Animation.Tests
             var entity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
 
-            var set = Set;
             var clipNode = CreateNode<ConfigurableClipNode>();
-            set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.CycleRootMotion, MotionID = new StringHash("Motion") });
-            set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.ClipInstance, m_Clip);
-            set.SetData(clipNode, ConfigurableClipNode.KernelPorts.Time, time);
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.CycleRootMotion, MotionID = new StringHash("Motion") });
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Clip, m_Clip);
+            Set.SetData(clipNode, ConfigurableClipNode.KernelPorts.Time, time);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(clipNode, ConfigurableClipNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -196,13 +211,19 @@ namespace Unity.Animation.Tests
             var stopX = cycle >= 0 ? new RigidTransform(stopRProj, stopTProj) : new RigidTransform(startRProj, startTProj);
 
             var x = new RigidTransform(rProj, tProj);
-            RigidTransform cycleX = mathex.rigidPow(math.mul(stopX, math.inverse(startX)), math.abs(cycle));
+            RigidTransform cycleX = mathex.rigidPow(math.mul(stopX, math.inverse(startX)), math.asuint(math.abs(cycle)));
             x = math.mul(cycleX, x);
 
+
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
+
             // validate
-            var rootTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
+            var rootTranslation = streamECS.GetLocalToParentTranslation(0);
             Assert.That(rootTranslation, Is.EqualTo(x.pos));
-            var rootRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[0].Value;
+            var rootRotation = streamECS.GetLocalToParentRotation(0);
             Assert.That(rootRotation, Is.EqualTo(x.rot).Using(RotationComparer));
         }
     }

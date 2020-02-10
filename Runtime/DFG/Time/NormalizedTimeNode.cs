@@ -1,15 +1,18 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Time", description:"Computes normalized time [0, 1] given an input time and duration")]
     public class NormalizedTimeNode
         : NodeDefinition<NormalizedTimeNode.Data, NormalizedTimeNode.SimPorts, NormalizedTimeNode.KernelData, NormalizedTimeNode.KernelDefs, NormalizedTimeNode.Kernel>
-            , IMsgHandler<float>
+        , IMsgHandler<float>
     {
         public struct SimPorts : ISimulationPortDefinition
         {
+            [PortDefinition(description:"Duration")]
             public MessageInput<NormalizedTimeNode, float> Duration;
         }
 
@@ -17,7 +20,9 @@ namespace Unity.Animation
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Unbound time")]
             public DataInput<NormalizedTimeNode, float> InputTime;
+            [PortDefinition(description:"Normalized time")]
             public DataOutput<NormalizedTimeNode, float> OutputTime;
         }
 
@@ -43,7 +48,7 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilerMarker = k_ProfileMarker;

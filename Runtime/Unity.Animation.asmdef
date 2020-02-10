@@ -6,7 +6,8 @@
         "Unity.Transforms",
         "Unity.Mathematics",
         "Unity.Burst",
-        "Unity.DataFlowGraph"
+        "Unity.DataFlowGraph",
+        "Unity.AnimationCurves"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -1,14 +1,32 @@
 using System.Collections.Generic;
 using NUnit.Framework;
-using Unity.Collections;
 using Unity.Entities;
-using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using UnityEngine;
 
 namespace Unity.Animation.Tests
 {
+    public class FloatAbsoluteEqualityComparer : IEqualityComparer<float>
+    {
+        private readonly float m_AllowedError;
+
+        public FloatAbsoluteEqualityComparer(float allowedError)
+        {
+            m_AllowedError = allowedError;
+        }
+
+        public bool Equals(float expected, float actual)
+        {
+            return math.abs(expected - actual) < m_AllowedError;
+        }
+
+        public int GetHashCode(float value)
+        {
+            return 0;
+        }
+    }
+
     public class Float3AbsoluteEqualityComparer : IEqualityComparer<float3>
     {
         private readonly float m_AllowedError;
@@ -42,7 +60,8 @@ namespace Unity.Animation.Tests
 
         public bool Equals(quaternion expected, quaternion actual)
         {
-            return math.abs(math.dot(expected, actual)) > (1f - m_AllowedError);
+            return (math.length(expected) == 0.0f && math.length(actual) == 0.0f) ||
+                math.abs(math.dot(expected, actual)) > (1f - m_AllowedError);
         }
 
         public int GetHashCode(quaternion value)
@@ -61,36 +80,56 @@ namespace Unity.Animation.Tests
         protected readonly Float3AbsoluteEqualityComparer TranslationComparer;
         protected readonly QuaternionAbsoluteEqualityComparer RotationComparer;
         protected readonly Float3AbsoluteEqualityComparer ScaleComparer;
+        protected readonly FloatAbsoluteEqualityComparer FloatComparer;
 
         protected World World;
         protected EntityManager m_Manager;
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
-        protected AnimationGraphSystem m_AnimationGraphSystem;
+        // NOTE: Using the PreAnimationGraphSystem for all tests
+        // if a two pass setup is eventually needed we'll have to
+        // consider upgrading our test fixture to handle this
+        protected PreAnimationGraphSystem m_AnimationGraphSystem;
         protected NodeSet Set => m_AnimationGraphSystem.Set;
 
+        private interface IDisposableGraphValue
+        {
+            void Dispose(NodeSet set);
+        }
+
+        private class DisposableGraphValue<T> : IDisposableGraphValue
+            where T : struct
+        {
+            public GraphValue<T> Value;
+
+            public void Dispose(NodeSet set)
+            {
+                set.ReleaseGraphValue(Value);
+            }
+        }
+
         List<NodeHandle> m_Nodes;
-        List<GraphValue<Buffer<float>>> m_GraphValueBuffers;
-        List<GraphValue<float>> m_GraphValues;
+        List<IDisposableGraphValue> m_GraphValues;
 
         public AnimationTestsFixture()
         {
             TranslationComparer = new Float3AbsoluteEqualityComparer(kTranslationTolerance);
             RotationComparer = new QuaternionAbsoluteEqualityComparer(kRotationTolerance);
             ScaleComparer = new Float3AbsoluteEqualityComparer(kScaleTolerance);
+            FloatComparer = new FloatAbsoluteEqualityComparer(kTranslationTolerance);
         }
 
         [OneTimeSetUp]
         protected virtual void OneTimeSetUp()
         {
             m_Nodes = new List<NodeHandle>(200);
-            m_GraphValueBuffers = new List<GraphValue<Buffer<float>>>(200);
-            m_GraphValues = new List<GraphValue<float>>(200);
+            m_GraphValues = new List<IDisposableGraphValue>(200);
         }
 
         [OneTimeTearDown]
         protected virtual void OneTimeTearDown()
         {
+            ClipManager.Instance.Clear();
         }
 
         [SetUp]
@@ -101,7 +140,7 @@ namespace Unity.Animation.Tests
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
-            m_AnimationGraphSystem = World.GetOrCreateSystem<AnimationGraphSystem>();
+            m_AnimationGraphSystem = World.GetOrCreateSystem<PreAnimationGraphSystem>();
             m_AnimationGraphSystem.AddRef();
         }
 
@@ -131,109 +170,44 @@ namespace Unity.Animation.Tests
         }
 
         protected NodeHandle<T> CreateNode<T>()
-            where T : INodeDefinition, new()
+            where T : NodeDefinition, new()
         {
             var node = Set.Create<T>();
             m_Nodes.Add(node);
             return node;
         }
 
-        protected GraphValue<Buffer<float>> CreateGraphBuffer<T>(NodeHandle<T> node, DataOutput<T, Buffer<float>> output)
-            where T : INodeDefinition
+        protected NodeHandle<ComponentNode> CreateComponentNode(Entity entity)
         {
-            var graphValue = Set.CreateGraphValue(node, output);
-            m_GraphValueBuffers.Add(graphValue);
-            return graphValue;
+            var node = Set.CreateComponentNode(entity);
+            m_Nodes.Add(node);
+            return node;
         }
 
-        struct GraphValueBufferGetSizeJob : IJob
+        protected GraphValue<TData> CreateGraphValue<TData, TDefinition>(NodeHandle<TDefinition> node, DataOutput<TDefinition, TData> output)
+            where TDefinition : NodeDefinition
+            where TData : struct
         {
-            public GraphValue<Buffer<float>> GraphValueBuffer;
-            public GraphValueResolver GraphValueResolver;
-            public NativeArray<int> Result;
-
-            public void Execute()
-            {
-                Result[0] = GraphValueResolver.Resolve(GraphValueBuffer).Length;
-            }
-        }
-
-        struct GraphValueBufferReadbackJob : IJob
-        {
-            public GraphValue<Buffer<float>> GraphValueBuffer;
-            public GraphValueResolver GraphValueResolver;
-            public NativeArray<float> Result;
-
-            public void Execute()
-            {
-                var buffer = GraphValueResolver.Resolve(GraphValueBuffer);
-                Result.CopyFrom(buffer);
-            }
-        }
-
-        protected NativeArray<float> GetGraphValueTempNativeBuffer(GraphValue<Buffer<float>> graphValueBuffer)
-        {
-            var resolver = Set.GetGraphValueResolver(out var valueResolverDeps);
-
-            int readbackSize;
-            using (var result = new NativeArray<int>(1, Allocator.TempJob))
-            {
-                var readbackSizeJob = new GraphValueBufferGetSizeJob()
-                {
-                    GraphValueBuffer = graphValueBuffer,
-                    GraphValueResolver = resolver,
-                    Result = result
-                };
-                var deps = readbackSizeJob.Schedule(valueResolverDeps);
-                Set.InjectDependencyFromConsumer(deps);
-                deps.Complete();
-                readbackSize = result[0];
-            }
-
-            using (var result = new NativeArray<float>(readbackSize, Allocator.TempJob))
-            {
-                var readbackJob = new GraphValueBufferReadbackJob()
-                {
-                    GraphValueBuffer = graphValueBuffer,
-                    GraphValueResolver = resolver,
-                    Result = result
-                };
-                var deps = readbackJob.Schedule(valueResolverDeps);
-                Set.InjectDependencyFromConsumer(deps);
-                deps.Complete();
-
-                return new NativeArray<float>(result, Allocator.Temp);
-            }
-        }
-
-        protected GraphValue<float> CreateGraphValue<T>(NodeHandle<T> node, DataOutput<T, float> output)
-            where T : INodeDefinition
-        {
-            var graphValue = Set.CreateGraphValue(node, output);
-            m_GraphValues.Add(graphValue);
-            return graphValue;
+            var gv = new DisposableGraphValue<TData> { Value = Set.CreateGraphValue(node, output) };
+            m_GraphValues.Add(gv);
+            return gv.Value;
         }
 
         protected void DestroyNodesAndGraphBuffers()
         {
-            var set = Set;
-
             for (var i = 0; i < m_Nodes.Count; ++i)
-                set.Destroy(m_Nodes[i]);
+                Set.Destroy(m_Nodes[i]);
             m_Nodes.Clear();
 
-            for (var i = 0; i < m_GraphValueBuffers.Count; ++i)
-                set.ReleaseGraphValue(m_GraphValueBuffers[i]);
-            m_GraphValueBuffers.Clear();
-
             for (var i = 0; i < m_GraphValues.Count; ++i)
-                set.ReleaseGraphValue(m_GraphValues[i]);
+                m_GraphValues[i].Dispose(Set);
             m_GraphValues.Clear();
         }
+
 #if UNITY_EDITOR
-        protected static AnimationCurve GetConstantCurve(float value)
+        protected static UnityEngine.AnimationCurve GetConstantCurve(float value)
         {
-            return AnimationCurve.Constant(0.0f, 1.0f, value);
+            return UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, value);
         }
 
         protected static void AddTranslationConstantCurves(AnimationClip clip, string relativePath, float3 tra)
@@ -260,12 +234,12 @@ namespace Unity.Animation.Tests
 
         protected static void AddFloatConstantCurves(AnimationClip clip, string relativePath, float value)
         {
-            clip.SetCurve(relativePath, typeof(Transform), relativePath+".f", GetConstantCurve(value));
+            clip.SetCurve(relativePath, typeof(Animator), relativePath, GetConstantCurve(value));
         }
 
         protected static void AddIntegerConstantCurves(AnimationClip clip, string relativePath, int value)
         {
-            clip.SetCurve(relativePath, typeof(Transform), relativePath+".i", GetConstantCurve((float)value));
+            clip.SetCurve(relativePath, typeof(UnityEngine.Animation), relativePath, GetConstantCurve((float)value));
         }
 
         protected static BlobAssetReference<Clip> CreateConstantDenseClip((string, float3)[] translations, (string, quaternion)[] rotations, (string, float3)[] scales)
@@ -336,9 +310,9 @@ namespace Unity.Animation.Tests
             public T ValueEnd;
         }
 
-        protected static AnimationCurve GetLinearCurve(float valueStart, float valueEnd, float timeStart = 0, float timeStop = 1.0f)
+        protected static UnityEngine.AnimationCurve GetLinearCurve(float valueStart, float valueEnd, float timeStart = 0, float timeStop = 1.0f)
         {
-            return AnimationCurve.Linear(timeStart, valueStart, timeStop, valueEnd);
+            return UnityEngine.AnimationCurve.Linear(timeStart, valueStart, timeStop, valueEnd);
         }
 
         protected static void AddTranslationLinearCurves(AnimationClip clip, LinearBinding<float3> binding, float timeStart = 0, float timeStop = 1.0f)
@@ -365,12 +339,12 @@ namespace Unity.Animation.Tests
 
         protected static void AddFloatLinearCurves(AnimationClip clip, LinearBinding<float> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), binding.Path, GetLinearCurve(binding.ValueStart, binding.ValueEnd, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Animator), binding.Path, GetLinearCurve(binding.ValueStart, binding.ValueEnd, timeStart, timeStop));
         }
 
         protected static void AddIntegerLinearCurves(AnimationClip clip, LinearBinding<int> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Transform), binding.Path, GetLinearCurve((float)binding.ValueStart, (float)binding.ValueEnd, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(UnityEngine.Animation), binding.Path, GetLinearCurve((float)binding.ValueStart, (float)binding.ValueEnd, timeStart, timeStop));
         }
 
         protected static BlobAssetReference<Clip> CreateLinearDenseClip(

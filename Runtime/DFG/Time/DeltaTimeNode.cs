@@ -1,10 +1,12 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 using UnityEngine;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Time", description:"Computes delta time")]
     public class DeltaTimeNode
         : NodeDefinition<DeltaTimeNode.Data, DeltaTimeNode.SimPorts, DeltaTimeNode.KernelData, DeltaTimeNode.KernelDefs, DeltaTimeNode.Kernel>
     {
@@ -16,6 +18,7 @@ namespace Unity.Animation
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Delta time")]
             public DataOutput<DeltaTimeNode, float> DeltaTime;
         }
 
@@ -45,15 +48,15 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileDeltaTime = k_ProfileDeltaTime;
         }
 
-        public override void OnUpdate(NodeHandle handle)
+        protected override void OnUpdate(in UpdateContext ctx)
         {
-            ref var kData = ref GetKernelData(handle);
+            ref var kData = ref GetKernelData(ctx.Handle);
             kData.DeltaTime = Time.deltaTime;
         }
     }

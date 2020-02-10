@@ -27,16 +27,15 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "Child2", DefaultValue = float3.zero },
             };
 
-            var rig = RigBuilder.CreateRigDefinition(channels);
+            var rig = new Rig { Value = RigBuilder.CreateRigDefinition(channels) };
 
-            var set = Set;
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, rig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, rig);
 
-            var otherRig = set.GetFunctionality(rigRemapper).ExposeKernelData(rigRemapper).SourceRigDefinition;
+            var otherRig = Set.GetDefinition(rigRemapper).ExposeKernelData(rigRemapper).SourceRigDefinition;
 
-            Assert.That(otherRig, Is.EqualTo(rig));
+            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
         }
 
         [Test]
@@ -49,16 +48,15 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "Child2", DefaultValue = float3.zero },
             };
 
-            var rig = RigBuilder.CreateRigDefinition(channels);
+            var rig = new Rig { Value = RigBuilder.CreateRigDefinition(channels) };
 
-            var set = Set;
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, rig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, rig);
 
-            var otherRig = set.GetFunctionality(rigRemapper).ExposeKernelData(rigRemapper).DestinationRigDefinition;
+            var otherRig = Set.GetDefinition(rigRemapper).ExposeKernelData(rigRemapper).DestinationRigDefinition;
 
-            Assert.That(otherRig, Is.EqualTo(rig));
+            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
         }
 
         [Test]
@@ -71,7 +69,7 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "Child2", DefaultValue = m_ExpectedSourceTranslation },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -79,7 +77,7 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "AnotherChild1", DefaultValue = float3.zero },
                 new LocalTranslationChannel { Id = "AnotherChild2", DefaultValue = float3.zero },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -94,32 +92,34 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(rigEntity).Reinterpret<float3>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting 3 translation channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 1 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 2 doesn't match source rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 3 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentTranslation(2), Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 3 doesn't match source rig default value");
         }
 
         [Test]
@@ -132,7 +132,7 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "Child2", DefaultValue = m_ExpectedSourceTranslation },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -140,7 +140,7 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "AnotherChild1", DefaultValue = m_ExpectedDestinationTranslation },
                 new LocalTranslationChannel { Id = "AnotherChild2", DefaultValue = float3.zero },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -154,32 +154,34 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(rigEntity).Reinterpret<float3>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting 3 translation channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 1 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedDestinationTranslation).Using(TranslationComparer), "Channel localTranslation 2 doesn't match destination rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 3 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(m_ExpectedDestinationTranslation).Using(TranslationComparer), "Channel localTranslation 2 doesn't match destination rig default value");
+            Assert.That(streamECS.GetLocalToParentTranslation(2), Is.EqualTo(m_ExpectedSourceTranslation).Using(TranslationComparer), "Channel localTranslation 3 doesn't match source rig default value");
         }
 
        [Test]
@@ -191,7 +193,7 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "Child", DefaultValue = m_ExpectedSourceTranslation },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -199,7 +201,7 @@ namespace Unity.Animation.Tests
                 new LocalTranslationChannel { Id = "AnotherChild", DefaultValue = float3.zero },
             };
 
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -219,29 +221,33 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(rigEntity).Reinterpret<float3>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer[1], Is.EqualTo(math.mul(rigRemapQuery.TranslationOffsets[1].Rotation,m_ExpectedSourceTranslation*rigRemapQuery.TranslationOffsets[1].Scale)).Using(TranslationComparer), "Channel localTranslation doesn't match source rig default value with rig offset");
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(math.mul(rigRemapQuery.TranslationOffsets[1].Rotation,m_ExpectedSourceTranslation*rigRemapQuery.TranslationOffsets[1].Scale)).Using(TranslationComparer), "Channel localTranslation doesn't match source rig default value with rig offset");
         }
 
         [Test]
@@ -254,7 +260,7 @@ namespace Unity.Animation.Tests
                 new LocalRotationChannel { Id = "Child2", DefaultValue = m_ExpectedSourceRotation },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -262,7 +268,7 @@ namespace Unity.Animation.Tests
                 new LocalRotationChannel { Id = "AnotherChild1", DefaultValue = quaternion.identity },
                 new LocalRotationChannel { Id = "AnotherChild2", DefaultValue = quaternion.identity },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -277,32 +283,34 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(rigEntity).Reinterpret<quaternion>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting 3 Rotation channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 1 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 2 doesn't match source rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 3 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentRotation(2), Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 3 doesn't match source rig default value");
         }
 
         [Test]
@@ -315,7 +323,7 @@ namespace Unity.Animation.Tests
                 new LocalRotationChannel { Id = "Child2", DefaultValue = m_ExpectedSourceRotation },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -323,7 +331,7 @@ namespace Unity.Animation.Tests
                 new LocalRotationChannel { Id = "AnotherChild1", DefaultValue = m_ExpectedDestinationRotation },
                 new LocalRotationChannel { Id = "AnotherChild2", DefaultValue = quaternion.identity },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -337,32 +345,34 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(rigEntity).Reinterpret<quaternion>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting 3 Rotation channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 1 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedDestinationRotation).Using(RotationComparer), "Channel localRotation 2 doesn't match destination rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 3 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(m_ExpectedDestinationRotation).Using(RotationComparer), "Channel localRotation 2 doesn't match destination rig default value");
+            Assert.That(streamECS.GetLocalToParentRotation(2), Is.EqualTo(m_ExpectedSourceRotation).Using(RotationComparer), "Channel localRotation 3 doesn't match source rig default value");
         }
 
         [Test]
@@ -374,7 +384,7 @@ namespace Unity.Animation.Tests
                 new LocalRotationChannel { Id = "Child", DefaultValue = m_ExpectedSourceRotation },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -382,7 +392,7 @@ namespace Unity.Animation.Tests
                 new LocalRotationChannel { Id = "AnotherChild", DefaultValue = quaternion.identity },
             };
 
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -403,29 +413,32 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(rigEntity).Reinterpret<quaternion>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer[1], Is.EqualTo(math.mul(rigRemapQuery.RotationOffsets[1].PreRotation,math.mul(m_ExpectedSourceRotation,rigRemapQuery.RotationOffsets[1].PostRotation))).Using(RotationComparer), "Channel localRotation doesn't match destination rig default value with rig rotation offset");
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(math.mul(rigRemapQuery.RotationOffsets[1].PreRotation,math.mul(m_ExpectedSourceRotation,rigRemapQuery.RotationOffsets[1].PostRotation))).Using(RotationComparer), "Channel localRotation doesn't match destination rig default value with rig rotation offset");
         }
 
         [Test]
@@ -438,7 +451,7 @@ namespace Unity.Animation.Tests
                 new LocalScaleChannel { Id = "Child2", DefaultValue = m_ExpectedSourceScale },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -446,7 +459,7 @@ namespace Unity.Animation.Tests
                 new LocalScaleChannel { Id = "AnotherChild1", DefaultValue = float3.zero },
                 new LocalScaleChannel { Id = "AnotherChild2", DefaultValue = float3.zero },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -461,32 +474,34 @@ namespace Unity.Animation.Tests
 
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(rigEntity).Reinterpret<float3>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting at least 3 channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 0 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 1 doesn't match source rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 0 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentScale(2), Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 2 doesn't match source rig default value");
         }
 
         [Test]
@@ -499,7 +514,7 @@ namespace Unity.Animation.Tests
                 new LocalScaleChannel { Id = "Child2", DefaultValue = m_ExpectedSourceScale },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -507,7 +522,7 @@ namespace Unity.Animation.Tests
                 new LocalScaleChannel { Id = "AnotherChild1", DefaultValue = m_ExpectedDestinationScale },
                 new LocalScaleChannel { Id = "AnotherChild2", DefaultValue = float3.zero },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -520,32 +535,34 @@ namespace Unity.Animation.Tests
             };
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(rigEntity).Reinterpret<float3>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting at least 3 channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 0 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedDestinationScale).Using(ScaleComparer), "Channel localScale 1 doesn't match destination rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 0 doesn't match source rig default value");
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(m_ExpectedDestinationScale).Using(ScaleComparer), "Channel localScale 1 doesn't match destination rig default value");
+            Assert.That(streamECS.GetLocalToParentScale(2), Is.EqualTo(m_ExpectedSourceScale).Using(ScaleComparer), "Channel localScale 2 doesn't match source rig default value");
         }
 
         [Test]
@@ -558,7 +575,7 @@ namespace Unity.Animation.Tests
                 new FloatChannel { Id = "Child2", DefaultValue = m_ExpectedSourceFloat },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -566,7 +583,7 @@ namespace Unity.Animation.Tests
                 new FloatChannel { Id = "AnotherChild1", DefaultValue = 0.0f },
                 new FloatChannel { Id = "AnotherChild2", DefaultValue = 0.0f },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -580,32 +597,34 @@ namespace Unity.Animation.Tests
             };
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedFloat>(rigEntity).Reinterpret<float>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting at least 3 channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceFloat), "Channel float 0 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedSourceFloat), "Channel float 1 doesn't match source rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceFloat), "Channel float 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetFloat(0), Is.EqualTo(m_ExpectedSourceFloat), "Channel float 0 doesn't match source rig default value");
+            Assert.That(streamECS.GetFloat(1), Is.EqualTo(m_ExpectedSourceFloat), "Channel float 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetFloat(2), Is.EqualTo(m_ExpectedSourceFloat), "Channel float 2 doesn't match source rig default value");
         }
 
         [Test]
@@ -618,7 +637,7 @@ namespace Unity.Animation.Tests
                 new FloatChannel { Id = "Child2", DefaultValue = m_ExpectedSourceFloat },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -626,7 +645,7 @@ namespace Unity.Animation.Tests
                 new FloatChannel { Id = "AnotherChild1", DefaultValue = m_ExpectedDestinationFloat },
                 new FloatChannel { Id = "AnotherChild2", DefaultValue = 0.0f },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -639,32 +658,34 @@ namespace Unity.Animation.Tests
             };
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedFloat>(rigEntity).Reinterpret<float>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting at least 3 channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceFloat), "Channel float 0 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedDestinationFloat), "Channel float 1 doesn't match destination rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceFloat), "Channel float 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetFloat(0), Is.EqualTo(m_ExpectedSourceFloat), "Channel float 0 doesn't match source rig default value");
+            Assert.That(streamECS.GetFloat(1), Is.EqualTo(m_ExpectedDestinationFloat), "Channel float 1 doesn't match destination rig default value");
+            Assert.That(streamECS.GetFloat(2), Is.EqualTo(m_ExpectedSourceFloat), "Channel float 2 doesn't match source rig default value");
         }
 
         [Test]
@@ -677,7 +698,7 @@ namespace Unity.Animation.Tests
                 new IntChannel { Id = "Child2", DefaultValue = m_ExpectedSourceInt },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -685,7 +706,7 @@ namespace Unity.Animation.Tests
                 new IntChannel { Id = "AnotherChild1", DefaultValue = 0 },
                 new IntChannel { Id = "AnotherChild2", DefaultValue = 0 },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -699,33 +720,34 @@ namespace Unity.Animation.Tests
             };
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedInt>(rigEntity).Reinterpret<int>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting at least 3 channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceInt), "Channel int 0 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedSourceInt), "Channel int 1 doesn't match source rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceInt), "Channel int 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(m_ExpectedSourceInt), "Channel int 0 doesn't match source rig default value");
+            Assert.That(streamECS.GetInt(1), Is.EqualTo(m_ExpectedSourceInt), "Channel int 1 doesn't match source rig default value");
+            Assert.That(streamECS.GetInt(2), Is.EqualTo(m_ExpectedSourceInt), "Channel int 2 doesn't match source rig default value");
         }
 
         [Test]
@@ -738,7 +760,7 @@ namespace Unity.Animation.Tests
                 new IntChannel { Id = "Child2", DefaultValue = m_ExpectedSourceInt },
             };
 
-            var sourceRig = RigBuilder.CreateRigDefinition(sourceChannels);
+            var sourceRig = new Rig { Value = RigBuilder.CreateRigDefinition(sourceChannels) };
 
             var destinationChannels = new IAnimationChannel[]
             {
@@ -746,7 +768,7 @@ namespace Unity.Animation.Tests
                 new IntChannel { Id = "AnotherChild1", DefaultValue = m_ExpectedDestinationInt },
                 new IntChannel { Id = "AnotherChild2", DefaultValue = 0 },
             };
-            var destinationRig = RigBuilder.CreateRigDefinition(destinationChannels);
+            var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
 
@@ -759,32 +781,34 @@ namespace Unity.Animation.Tests
             };
             var remapTable = rigRemapQuery.ToRigRemapTable(sourceRig, destinationRig);
 
-            var set = Set;
-
             // Here I'm using a layerMixer with no inputs connected
             // the expected result is to inject the default pose into Graph samples buffer
             var layerMixer = CreateNode<LayerMixerNode>();
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.RigDefinition, sourceRig);
+            Set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, sourceRig);
 
             var rigRemapper = CreateNode<RigRemapperNode>();
 
-            set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
+            Set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
 
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRigDefinition, sourceRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRigDefinition, destinationRig);
-            set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, destinationRig);
+            Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(rigRemapper, RigRemapperNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(rigEntity, output);
+            var entityNode = CreateComponentNode(rigEntity);
+            Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
-            var localBuffer = m_Manager.GetBuffer<AnimatedInt>(rigEntity).Reinterpret<int>();
+            var streamECS = AnimationStream.CreateReadOnly(
+                destinationRig,
+                m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
+                );
 
-            Assert.That(localBuffer.Length, Is.EqualTo(3), "Expecting at least 3 channels");
-            Assert.That(localBuffer[0], Is.EqualTo(m_ExpectedSourceInt), "Channel int 0 doesn't match source rig default value");
-            Assert.That(localBuffer[1], Is.EqualTo(m_ExpectedDestinationInt), "Channel int 1 doesn't match destination rig default value");
-            Assert.That(localBuffer[2], Is.EqualTo(m_ExpectedSourceInt), "Channel int 2 doesn't match source rig default value");
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(m_ExpectedSourceInt), "Channel int 0 doesn't match source rig default value");
+            Assert.That(streamECS.GetInt(1), Is.EqualTo(m_ExpectedDestinationInt), "Channel int 1 doesn't match destination rig default value");
+            Assert.That(streamECS.GetInt(2), Is.EqualTo(m_ExpectedSourceInt), "Channel int 2 doesn't match source rig default value");
         }
     }
 }

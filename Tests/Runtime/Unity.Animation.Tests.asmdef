@@ -10,7 +10,11 @@
         "Unity.Animation.Hybrid",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
-        "Unity.DataFlowGraph"
+        "Unity.DataFlowGraph",
+        "Unity.Collections",
+        "Unity.Burst",
+        "Unity.AnimationCurves",
+        "Unity.AnimationCurves.Hybrid"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

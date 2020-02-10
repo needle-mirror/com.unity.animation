@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -144,24 +144,57 @@ namespace Unity.Animation
             }
         }
 
-        static void InitializeDefaultValues<TChannel, TData>(ref BlobBuilder blobBuilder, List<TChannel> animationChannels, ref BlobArray<TData> defaultValues)
+        static unsafe void InitializeDefaultValues<TChannel, TData>(int index, ref BlobBuilderArray<float> arrayBuilder, List<TChannel> animationChannels)
             where TChannel : struct, IAnimationChannel<TData>
-            where TData : struct
+            where TData : unmanaged
         {
             if (animationChannels.Count == 0)
                 return;
 
-            var arrayBuilder = blobBuilder.Allocate(ref defaultValues, animationChannels.Count);
-            for(int i = 0; i < animationChannels.Count; i++)
+            TData* dataPtr = (TData*)((float*)arrayBuilder.GetUnsafePtr() + index);
+            for (int i = 0; i < animationChannels.Count; i++)
             {
-                arrayBuilder[i] = animationChannels[i].DefaultValue;
+                *(dataPtr + i) = animationChannels[i].DefaultValue;
             }
+
+            return;
         }
 
-        static unsafe uint ComputeHashCode<T>(ref BlobArray<T> array, uint seed = 0)
-            where T : struct
+        static unsafe void InitializeDefaultRotationValues(int index, ref BlobBuilderArray<float> arrayBuilder, List<LocalRotationChannel> rotationChannels)
         {
-            return math.hash(array.GetUnsafePtr(), array.Length * UnsafeUtility.SizeOf<T>(), seed);
+            if (rotationChannels.Count == 0)
+                return;
+
+            // Fill as SOA 4-wide quaternions
+            quaternion4* dataPtr = (quaternion4*)((float*)arrayBuilder.GetUnsafePtr() + index);
+            int length = rotationChannels.Count >> 2;
+            for (int i = 0; i < length; ++i)
+            {
+                int idx = i << 2;
+                *(dataPtr + i) = mathex.quaternion4(
+                    rotationChannels[idx + 0].DefaultValue,
+                    rotationChannels[idx + 1].DefaultValue,
+                    rotationChannels[idx + 2].DefaultValue,
+                    rotationChannels[idx + 3].DefaultValue
+                    );
+            }
+
+            // Fill remaining rotations
+            for (int i = length << 2; i < rotationChannels.Count; ++i)
+            {
+                int chunkIdx = i >> 2;
+                int subIdx = i & 0x3; // equivalent to % 4;
+
+                quaternion q = rotationChannels[i].DefaultValue;
+                ref quaternion4 q4 = ref UnsafeUtilityEx.AsRef<quaternion4>(dataPtr + chunkIdx);
+
+                q4.x[subIdx] = q.value.x;
+                q4.y[subIdx] = q.value.y;
+                q4.z[subIdx] = q.value.z;
+                q4.w[subIdx] = q.value.w;
+            }
+
+            return;
         }
 
         public static BlobAssetReference<RigDefinition> CreateRigDefinition(IAnimationChannel[] animationChannels)
@@ -210,39 +243,26 @@ namespace Unity.Animation
             InitializeAxes(ref blobBuilder, axes, ref rig.Skeleton.Axis);
 
             InitializeBindings(ref blobBuilder, translationChannels, ref rig.Bindings.TranslationBindings);
-            InitializeBindings(ref blobBuilder, rotationChannels, ref rig.Bindings.RotationBindings);
             InitializeBindings(ref blobBuilder, scaleChannels, ref rig.Bindings.ScaleBindings);
             InitializeBindings(ref blobBuilder, floatChannels, ref rig.Bindings.FloatBindings);
             InitializeBindings(ref blobBuilder, intChannels, ref rig.Bindings.IntBindings);
+            InitializeBindings(ref blobBuilder, rotationChannels, ref rig.Bindings.RotationBindings);
 
-            InitializeDefaultValues(ref blobBuilder, translationChannels, ref rig.DefaultValues.LocalTranslations);
-            InitializeDefaultValues(ref blobBuilder, rotationChannels, ref rig.DefaultValues.LocalRotations);
-            InitializeDefaultValues(ref blobBuilder, scaleChannels, ref rig.DefaultValues.LocalScales);
-            InitializeDefaultValues(ref blobBuilder, floatChannels, ref rig.DefaultValues.Floats);
-            InitializeDefaultValues(ref blobBuilder, intChannels, ref rig.DefaultValues.Integers);
+            rig.Bindings = rig.CreateBindingSet(translationChannels.Count, rotationChannels.Count, scaleChannels.Count, floatChannels.Count, intChannels.Count);
+
+            var arrayBuilder = blobBuilder.Allocate(ref rig.DefaultValues, rig.Bindings.StreamSize);
+
+            InitializeDefaultValues<LocalTranslationChannel, float3>(rig.Bindings.TranslationSamplesOffset, ref arrayBuilder, translationChannels);
+            InitializeDefaultValues<LocalScaleChannel, float3>(rig.Bindings.ScaleSamplesOffset, ref arrayBuilder, scaleChannels);
+            InitializeDefaultValues<FloatChannel, float>(rig.Bindings.FloatSamplesOffset, ref arrayBuilder, floatChannels);
+            InitializeDefaultValues<IntChannel, int>(rig.Bindings.IntSamplesOffset, ref arrayBuilder, intChannels);
+            InitializeDefaultRotationValues(rig.Bindings.RotationSamplesOffset, ref arrayBuilder, rotationChannels);
 
             var rigDefinitionAsset = blobBuilder.CreateBlobAssetReference<RigDefinition>(Allocator.Persistent);
 
             blobBuilder.Dispose();
 
-            uint hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.Ids);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.ParentIndexes, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.AxisIndexes, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Skeleton.Axis, hashCode);
-
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.TranslationBindings, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.RotationBindings, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.ScaleBindings, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.FloatBindings, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.Bindings.IntBindings, hashCode);
-
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.LocalTranslations, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.LocalRotations, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.LocalScales, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.Floats, hashCode);
-            hashCode = ComputeHashCode(ref rigDefinitionAsset.Value.DefaultValues.Integers, hashCode);
-
-            rigDefinitionAsset.Value.m_HashCode = (int)hashCode;
+            rigDefinitionAsset.Value.m_HashCode = (int)HashUtils.ComputeHash(ref rigDefinitionAsset);
 
             return rigDefinitionAsset;
         }

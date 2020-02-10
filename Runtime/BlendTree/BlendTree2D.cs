@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 using Unity.Entities;
 using Unity.Mathematics;
@@ -17,17 +17,15 @@ namespace Unity.Animation
         public float2                              MotionPosition;
         public float                               MotionSpeed;
         public Motion                              Motion;
-        public MotionType                          MotionType;
     }
 
-    public struct BlendTree2DSimpleDirectionnal
+    public struct BlendTree2DSimpleDirectional
     {
         public StringHash                       BlendParameterX;
         public StringHash                       BlendParameterY;
 
         public BlobArray<float2>                MotionPositions;
         public BlobArray<float>                 MotionSpeeds;
-        public BlobArray<MotionType>            MotionTypes;
         public BlobArray<Motion>                Motions;
     }
 }

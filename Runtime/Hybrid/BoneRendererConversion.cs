@@ -20,7 +20,7 @@ namespace Unity.Animation.Hybrid
                 else
                 {
                     var rigEntity = GetPrimaryEntity(boneRenderer.RigComponent);
-                    if (boneRenderer.RenderBones && DstEntityManager.HasComponent<RigDefinitionSetup>(rigEntity))
+                    if (boneRenderer.RenderBones && DstEntityManager.HasComponent<Rig>(rigEntity))
                     {
                         var transformIndices = new NativeList<int>(boneRenderer.Transforms.Length, Allocator.Temp);
                         for (int i = 0; i < boneRenderer.Transforms.Length; ++i)
@@ -37,7 +37,7 @@ namespace Unity.Animation.Hybrid
                             Size = boneRenderer.Size
                         };
 
-                        var rigDefinition = DstEntityManager.GetComponentData<RigDefinitionSetup>(rigEntity);
+                        var rigDefinition = DstEntityManager.GetComponentData<Rig>(rigEntity);
 
                         BoneRendererEntityBuilder.SetupBoneRendererEntities(
                             rigEntity,

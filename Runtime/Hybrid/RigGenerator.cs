@@ -8,12 +8,12 @@ namespace Unity.Animation.Hybrid
     {
         public static int FindTransformIndex(Transform transform, Transform[] transforms)
         {
-            if (transform == null)
+            if (transform == null || transforms == null)
                 return -1;
 
             for (int i = 0; i < transforms.Length; i++)
             {
-                if (transforms[i] == transform)
+                if (transforms[i].GetInstanceID() == transform.GetInstanceID())
                     return i;
             }
 

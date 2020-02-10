@@ -1,30 +1,37 @@
-using System;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Root Motion", description:"Computes root motion values from a baked clip. Used internally by the UberClipNode.")]
     public class RootMotionFromVelocityNode
         : NodeDefinition<RootMotionFromVelocityNode.Data, RootMotionFromVelocityNode.SimPorts, RootMotionFromVelocityNode.KernelData, RootMotionFromVelocityNode.KernelDefs, RootMotionFromVelocityNode.Kernel>
-            , IMsgHandler<BlobAssetReference<RigDefinition>>
-            , IMsgHandler<float>
+        , IMsgHandler<Rig>
+        , IMsgHandler<float>
+        , IRigContextHandler
     {
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.RootMotionFromVelocityNode");
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<RootMotionFromVelocityNode, BlobAssetReference<RigDefinition>> RigDefinition;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<RootMotionFromVelocityNode, Rig> Rig;
+            [PortDefinition(description:"Clip sample rate")]
             public MessageInput<RootMotionFromVelocityNode, float> SampleRate;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"The current delta time")]
             public DataInput<RootMotionFromVelocityNode, float> DeltaTime;
-            public DataInput<RootMotionFromVelocityNode, Buffer<float>> Input;
-            public DataOutput<RootMotionFromVelocityNode, Buffer<float>> Output;
+            [PortDefinition(description:"The current animation stream")]
+            public DataInput<RootMotionFromVelocityNode, Buffer<AnimatedData>> Input;
+            [PortDefinition(description:"Resulting animation stream with updated root motion values")]
+            public DataOutput<RootMotionFromVelocityNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
@@ -50,8 +57,8 @@ namespace Unity.Animation
                 data.ProfileMarker.Begin();
 
                 // Fill the destination stream with default values.
-                var inputStream = AnimationStreamProvider.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
-                var outputStream = AnimationStreamProvider.Create(data.RigDefinition,context.Resolve(ref ports.Output));
+                var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
+                var outputStream = AnimationStream.Create(data.RigDefinition,context.Resolve(ref ports.Output));
 
                 AnimationStreamUtils.MemCpy(ref outputStream, ref inputStream);
 
@@ -71,18 +78,22 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigDefinition)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
 
-            kData.RigDefinition = rigDefinition;
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<float>.SizeRequest(rigDefinition.Value.Bindings.CurveCount));
+            kData.RigDefinition = rig;
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
         }
         public void HandleMessage(in MessageContext ctx, in float msg)
         {
@@ -91,5 +102,8 @@ namespace Unity.Animation
         }
 
         internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

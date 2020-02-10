@@ -1,6 +1,5 @@
 using NUnit.Framework;
 using Unity.Entities;
-using Unity.Animation;
 using Unity.Mathematics;
 using UnityEngine.TestTools;
 
@@ -28,12 +27,9 @@ namespace Unity.Animation.Tests
         quaternion      m_Clip5LocalRotation => quaternion.RotateX(math.radians(50.0f));
         float3          m_Clip5LocalScale => new float3(50.0f, 50.0f, 50.0f);
 
-        BlobAssetReference<RigDefinition>   m_Rig;
-        BlobAssetReference<BlendTree2DSimpleDirectionnal>     m_BlendTree;
-        BlobAssetReference<BlendTree2DSimpleDirectionnal>     m_NestedBlendTree;
+        Rig m_Rig;
+        BlobAssetReference<BlendTree2DSimpleDirectional>     m_BlendTree;
 
-        readonly string blendParameterX = "directionX";
-        readonly string blendParameterY = "directionY";
         readonly string[] blobPath = new string[] {
             "BlendTreeNode2DTestsClip1.blob",
             "BlendTreeNode2DTestsClip2.blob",
@@ -96,14 +92,14 @@ namespace Unity.Animation.Tests
             base.OneTimeSetUp();
 
             // Create rig
-            m_Rig = CreateTestRigDefinition();
+            m_Rig = new Rig { Value = CreateTestRigDefinition() };
 
             var motionData = new BlendTree2DMotionData[]
             {
-                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, MotionType = MotionType.Clip },
-                new BlendTree2DMotionData { MotionPosition = new float2(2, 0), MotionSpeed = 0.4f,  MotionType = MotionType.Clip },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, 2), MotionSpeed = 0.6f,  MotionType = MotionType.Clip },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, MotionType = MotionType.Clip },
+                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, },
+                new BlendTree2DMotionData { MotionPosition = new float2(2, 0), MotionSpeed = 0.4f,  },
+                new BlendTree2DMotionData { MotionPosition = new float2(0, 2), MotionSpeed = 0.6f,  },
+                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, },
             };
 
             for(int i=0;i<blobPath.Length;i++)
@@ -111,22 +107,7 @@ namespace Unity.Animation.Tests
                 motionData[i].Motion.Clip = BlobFile.ReadBlobAsset<Clip>(blobPath[i]);
             }
 
-            m_BlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(motionData, new StringHash(blendParameterX), new StringHash(blendParameterY));
-
-            var nestedMotionData = new BlendTree2DMotionData[]
-            {
-                new BlendTree2DMotionData { MotionPosition = new float2(-2, 0), MotionSpeed = 0.2f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-                new BlendTree2DMotionData { MotionPosition = new float2(2, 0),  MotionSpeed = 0.4f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, 2),  MotionSpeed = 0.6f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-                new BlendTree2DMotionData { MotionPosition = new float2(0, -2), MotionSpeed = 0.8f, MotionType = MotionType.BlendTree2DSimpleDirectionnal },
-            };
-
-            for(int i=0;i<nestedMotionData.Length;i++)
-            {
-                nestedMotionData[i].Motion.BlendTree2DSimpleDirectionnal = m_BlendTree;
-            }
-
-            m_NestedBlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(nestedMotionData, new StringHash(blendParameterX), new StringHash(blendParameterY));
+            m_BlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectional(motionData);
         }
 
         [Test]
@@ -134,27 +115,11 @@ namespace Unity.Animation.Tests
         {
             var blendTree = CreateNode<BlendTree2DNode>();
 
-            Set.SendMessage(blendTree, BlendTree2DNode.SimulationPorts.RigDefinition, m_Rig);
+            Set.SendMessage(blendTree, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
 
-            var otherRig = Set.GetFunctionality(blendTree).ExposeNodeData(blendTree).RigDefinition;
+            var otherRig = Set.GetDefinition(blendTree).ExposeNodeData(blendTree).RigDefinition;
 
-            Assert.That(otherRig, Is.EqualTo(m_Rig));
-        }
-
-        [Test]
-        public void MustSetRigDefinitionBeforeBlendTreeAsset()
-        {
-            var motionData = new []
-            {
-                new BlendTree2DMotionData { MotionPosition = 0, MotionSpeed = 1.0f },
-                new BlendTree2DMotionData { MotionPosition = 0, MotionSpeed = 1.0f },
-            };
-
-            var blendTreeAsset = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(motionData, new StringHash(), new StringHash());
-
-            var blendTreeNode = CreateNode<BlendTree2DNode>();
-
-            Assert.Throws<System.InvalidOperationException>(() => Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, blendTreeAsset));
+            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
         }
 
         [Test]
@@ -166,13 +131,15 @@ namespace Unity.Animation.Tests
                 new BlendTree2DMotionData { MotionPosition = 0, MotionSpeed = 1.0f },
             };
 
-            var blendTreeAsset = BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal(motionData, new StringHash(), new StringHash());
+            var blendTreeAsset = BlendTreeBuilder.CreateBlendTree2DSimpleDirectional(motionData);
 
             var blendTreeNode = CreateNode<BlendTree2DNode>();
 
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.RigDefinition, m_Rig);
+            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
 
-            Assert.Throws<System.InvalidOperationException>(() => Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, blendTreeAsset));
+            Assert.Throws(Is.TypeOf<System.InvalidOperationException>()
+                 .And.Message.EqualTo("Motion in BlendTree2D is not valid"),
+                 () => Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, blendTreeAsset));
         }
 
         [Test]
@@ -180,92 +147,58 @@ namespace Unity.Animation.Tests
         {
             var blendTreeNode = CreateNode<BlendTree2DNode>();
 
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.RigDefinition, m_Rig);
+            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_BlendTree);
 
-            var nodeData = Set.GetFunctionality(blendTreeNode).ExposeNodeData(blendTreeNode);
+            var nodeData = Set.GetDefinition(blendTreeNode).ExposeNodeData(blendTreeNode);
 
-            Assert.That(nodeData.BlendParameterX.Id, Is.EqualTo(new StringHash(blendParameterX)));
-            Assert.That(nodeData.BlendParameterY.Id, Is.EqualTo(new StringHash(blendParameterY)));
             Assert.That(nodeData.Motions.Count, Is.EqualTo(4));
             Assert.That(nodeData.Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
             for(int i=0;i<nodeData.Motions.Count;i++)
             {
                 var strongHandle = Set.CastHandle<UberClipNode>(nodeData.Motions[i]);
-                var data = Set.GetFunctionality(strongHandle).ExposeNodeData(nodeData.Motions[i]);
-                Assert.That(data.ClipInstance, Is.Not.Null);
+                var data = Set.GetDefinition(strongHandle).ExposeNodeData(nodeData.Motions[i]);
+                Assert.That(data.Clip, Is.Not.Null);
             }
         }
 
-        [TestCase(0.0f, 1.0f)]
-        [TestCase(0.5f, -1.0f)]
-        [TestCase(1.0f, 10.0f)]
         [Test]
-        public void CanSetBlendParameter(float valueX, float valueY)
+        public void CanSetRigDefinitionThenBlendTreeAsset()
         {
             var blendTreeNode = CreateNode<BlendTree2DNode>();
 
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.RigDefinition, m_Rig);
+            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_BlendTree);
 
-            var paramX = new Parameter {
-                    Id = new StringHash(blendParameterX),
-                    Value = valueX
-            };
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Parameter, paramX);
+            var nodeData = Set.GetDefinition(blendTreeNode).ExposeNodeData(blendTreeNode);
 
-            var paramY = new Parameter {
-                    Id = new StringHash(blendParameterY),
-                    Value = valueY
-            };
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Parameter, paramY);
-
-            var nodeData = Set.GetFunctionality(blendTreeNode).ExposeNodeData(blendTreeNode);
-
-            Assert.That(nodeData.BlendParameterX.Id, Is.EqualTo(new StringHash(blendParameterX)));
-            Assert.That(nodeData.BlendParameterX.Value, Is.EqualTo(valueX));
-            Assert.That(nodeData.BlendParameterY.Id, Is.EqualTo(new StringHash(blendParameterY)));
-            Assert.That(nodeData.BlendParameterY.Value, Is.EqualTo(valueY));
+            Assert.That(nodeData.Motions.Count, Is.EqualTo(4));
+            Assert.That(nodeData.Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
+            for(int i=0;i<nodeData.Motions.Count;i++)
+            {
+                var strongHandle = Set.CastHandle<UberClipNode>(nodeData.Motions[i]);
+                var data = Set.GetDefinition(strongHandle).ExposeNodeData(nodeData.Motions[i]);
+                Assert.That(data.Clip, Is.Not.Null);
+            }
         }
 
-        [TestCase(0.0f, 1.0f)]
-        [TestCase(0.5f, -1.0f)]
-        [TestCase(1.0f, 10.0f)]
         [Test]
-        public void CanSetNestedBlendParameter(float valueX, float valueY)
+        public void CanSetBlendTreeThenRigDefinitionAsset()
         {
             var blendTreeNode = CreateNode<BlendTree2DNode>();
 
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.RigDefinition, m_Rig);
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_NestedBlendTree);
+            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_BlendTree);
+            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
 
-            var paramX = new Parameter {
-                    Id = new StringHash(blendParameterX),
-                    Value = valueX
-            };
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Parameter, paramX);
+            var nodeData = Set.GetDefinition(blendTreeNode).ExposeNodeData(blendTreeNode);
 
-            var paramY = new Parameter {
-                    Id = new StringHash(blendParameterY),
-                    Value = valueY
-            };
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Parameter, paramY);
-
-            var nodeData = Set.GetFunctionality(blendTreeNode).ExposeNodeData(blendTreeNode);
-
-            var length = nodeData.BlendTree.Value.Motions.Length;
-            for(int i=0;i<length;i++)
+            Assert.That(nodeData.Motions.Count, Is.EqualTo(4));
+            Assert.That(nodeData.Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
+            for(int i=0;i<nodeData.Motions.Count;i++)
             {
-                if(nodeData.BlendTree.Value.MotionTypes[i] == MotionType.BlendTree2DSimpleDirectionnal)
-                {
-                    var strongHandle = Set.CastHandle<BlendTree2DNode>(nodeData.Motions[i]);
-                    var childNodeData = Set.GetFunctionality(strongHandle).ExposeNodeData(strongHandle);
-
-                    Assert.That(childNodeData.BlendParameterX.Id, Is.EqualTo(new StringHash(blendParameterX)));
-                    Assert.That(childNodeData.BlendParameterX.Value, Is.EqualTo(valueX));
-                    Assert.That(childNodeData.BlendParameterY.Id, Is.EqualTo(new StringHash(blendParameterY)));
-                    Assert.That(childNodeData.BlendParameterY.Value, Is.EqualTo(valueY));
-                }
+                var strongHandle = Set.CastHandle<UberClipNode>(nodeData.Motions[i]);
+                var data = Set.GetDefinition(strongHandle).ExposeNodeData(nodeData.Motions[i]);
+                Assert.That(data.Clip, Is.Not.Null);
             }
         }
     }

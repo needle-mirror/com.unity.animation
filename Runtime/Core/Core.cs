@@ -26,191 +26,199 @@ namespace Unity.Animation
         /// Find a binding in a binding array.
         public static int FindBindingIndex(ref BlobArray<StringHash> bindings, StringHash searchedBinding)
         {
+            // TODO : Optimize
             var i = 0;
             while (i < bindings.Length && !bindings[i].Equals(searchedBinding))
                 ++i;
             return i < bindings.Length ? i : -1;
         }
 
-        static public void Blend<TOutputDescriptor, TInputDescriptor1, TInputDescriptor2>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor1> input1,
-            ref AnimationStream<TInputDescriptor2> input2,
-            float weight
+        unsafe static public void Blend(
+            ref AnimationStream output,
+            ref AnimationStream input1,
+            ref AnimationStream input2,
+            float weight,
+            NativeArray<WeightData> weightMasks
             )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor1 : struct, IAnimationStreamDescriptor
-            where TInputDescriptor2 : struct, IAnimationStreamDescriptor
         {
             Assert.IsFalse(output.IsNull);
-            Assert.IsTrue(output.Rig == input1.Rig);
-            Assert.IsTrue(output.Rig == input2.Rig);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input1.Rig.Value.GetHashCode());
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input2.Rig.Value.GetHashCode());
+            Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
+
+            int wIdx = 0;
+            float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
+
+            // Blend 4-wide lerp non rotation data
+            float4* input1Data = input1.GetDataChunkUnsafePtr();
+            float4* input2Data = input2.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputData[i] = math.lerp(input1Data[i], input2Data[i], wMask[wIdx] * weight);
+            }
+
+            // Blend 4-wide rotations
+            quaternion4* input1Rot = input1.GetRotationChunkUnsafePtr();
+            quaternion4* input2Rot = input2.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputRot[i] = mathex.lerp(input1Rot[i], input2Rot[i], wMask[wIdx] * weight);
+            }
+        }
+
+        unsafe static public void Blend(
+            ref AnimationStream output,
+            ref AnimationStream input1,
+            ref AnimationStream input2,
+            float weight
+            )
+        {
+            Assert.IsFalse(output.IsNull);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input1.Rig.Value.GetHashCode());
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input2.Rig.Value.GetHashCode());
+
+            // Blend 4 wide lerp non rotation data
+            float4* input1Data = input1.GetDataChunkUnsafePtr();
+            float4* input2Data = input2.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            {
+                outputData[i] = math.lerp(input1Data[i], input2Data[i], weight);
+            }
+
+            // Blend 4-wide rotations
+            quaternion4* inputRot1 = input1.GetRotationChunkUnsafePtr();
+            quaternion4* inputRot2 = input2.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            {
+                outputRot[i] = mathex.lerp(inputRot1[i], inputRot2[i], weight);
+            }
+        }
+
+        static unsafe public void BlendOverrideLayer(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            float weight,
+            NativeArray<WeightData> weightMasks
+            )
+        {
+            Assert.IsFalse(output.IsNull);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+            Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
+
+            int wIdx = 0;
+            float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
+
+            // Blend 4-wide lerp non rotation data
+            float4* inputData  = input.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputData[i] = math.lerp(outputData[i], inputData[i], wMask[wIdx] * weight);
+            }
+
+            // Blend 4-wide rotations
+            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputRot[i] = mathex.lerp(outputRot[i], inputRot[i], wMask[wIdx] * weight);
+            }
+        }
+
+        static unsafe public void BlendOverrideLayer(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            float weight
+            )
+        {
+            Assert.IsFalse(output.IsNull);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+
+            // Blend 4-wide lerp non rotation data
+            float4* inputData  = input.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            {
+                outputData[i] = math.lerp(outputData[i], inputData[i], weight);
+            }
+
+            // Blend 4-wide rotations
+            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            {
+                outputRot[i] = mathex.lerp(outputRot[i], inputRot[i], weight);
+            }
+        }
+
+        static unsafe public void BlendAdditiveLayer(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            float weight,
+            NativeArray<WeightData> weightMasks
+            )
+        {
+            Assert.IsFalse(output.IsNull);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+            Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
+
+            int wIdx = 0;
+            float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
+
+            // Blend 4-wide lerp non rotation data
+            float4* inputData  = input.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputData[i] = math.mad(inputData[i], wMask[wIdx] * weight, outputData[i]);
+            }
+
+            // Blend 4-wide rotations
+            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputRot[i] = mathex.mul(outputRot[i], mathex.quatWeight(inputRot[i], wMask[wIdx] * weight));
+            }
+        }
+
+        static unsafe public void BlendAdditiveLayer(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            float weight
+            )
+        {
+            Assert.IsFalse(output.IsNull);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
 
             ref var bindings = ref output.Rig.Value.Bindings;
 
-            for (int i = 0, count = bindings.TranslationBindings.Length; i < count; ++i)
+            // Blend 4-wide lerp non rotation data
+            float4* inputData  = input.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
             {
-                var lhs = input1.GetLocalToParentTranslation(i);
-                var rhs = input2.GetLocalToParentTranslation(i);
-                output.SetLocalToParentTranslation(i, math.lerp(lhs, rhs, weight));
+                outputData[i] = math.mad(inputData[i], weight, outputData[i]);
             }
 
-            for (int i = 0, count = bindings.RotationBindings.Length; i < count; ++i)
+            // Blend 4-wide rotations
+            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
             {
-                var lhs = input1.GetLocalToParentRotation(i);
-                var rhs = input2.GetLocalToParentRotation(i);
-                output.SetLocalToParentRotation(i, math.slerp(lhs, rhs, weight));
-            }
-
-            for (int i = 0, count = bindings.ScaleBindings.Length; i < count; ++i)
-            {
-                var lhs = input1.GetLocalToParentScale(i);
-                var rhs = input2.GetLocalToParentScale(i);
-                output.SetLocalToParentScale(i, math.lerp(lhs, rhs, weight));
-            }
-
-            for (int i = 0, count = bindings.FloatBindings.Length; i < count; ++i)
-            {
-                output.SetFloat(i, math.lerp(input1.GetFloat(i), input2.GetFloat(i), weight));
-            }
-
-            for (int i = 0, count = bindings.IntBindings.Length; i < count; ++i)
-            {
-                output.SetInt(i, (int)math.lerp(input1.GetInt(i), input2.GetInt(i), weight));
+                outputRot[i] = mathex.mul(outputRot[i], mathex.quatWeight(inputRot[i], weight));
             }
         }
 
-        static public void BlendOverrideLayer<TOutputDescriptor, TInputDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor> input,
-            float weight,
-            NativeBitSet mask
-            )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor : struct, IAnimationStreamDescriptor
-        {
-            Assert.IsFalse(output.IsNull);
-            Assert.IsTrue(output.Rig == input.Rig);
-
-            var channelIndex = 0;
-            ref var rig = ref output.Rig.Value;
-
-            for (int i = 0, count = rig.Bindings.TranslationBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var value = math.lerp(output.GetLocalToParentTranslation(i), input.GetLocalToParentTranslation(i), weight);
-                    output.SetLocalToParentTranslation(i, value);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.RotationBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var value = math.slerp(output.GetLocalToParentRotation(i), input.GetLocalToParentRotation(i), weight);
-                    output.SetLocalToParentRotation(i, value);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.ScaleBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var value = math.lerp(output.GetLocalToParentScale(i), input.GetLocalToParentScale(i), weight);
-                    output.SetLocalToParentScale(i, value);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.FloatBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var value = math.lerp(output.GetFloat(i), input.GetFloat(i), weight);
-                    output.SetFloat(i, value);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.IntBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    // TODO: should we cast to int after each mixing or when the whole mixing pipe is finish?
-                    var value = math.lerp(output.GetInt(i), input.GetInt(i), weight);
-                    output.SetInt(i, (int)value);
-                }
-            }
-        }
-
-        static public void BlendAdditiveLayer<TOutputDescriptor, TInputDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor> input,
-            float weight,
-            NativeBitSet mask
-            )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor : struct, IAnimationStreamDescriptor
-        {
-            Assert.IsFalse(output.IsNull);
-            Assert.IsTrue(output.Rig == input.Rig);
-
-            var channelIndex = 0;
-            ref var rig = ref output.Rig.Value;
-
-            for (int i = 0, count = rig.Bindings.TranslationBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var baseValue = output.GetLocalToParentTranslation(i);
-                    var layerValue = input.GetLocalToParentTranslation(i) * weight;
-                    output.SetLocalToParentTranslation(i, baseValue + layerValue);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.RotationBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var baseValue = output.GetLocalToParentRotation(i);
-                    var layerValue = mathex.quatWeight(input.GetLocalToParentRotation(i), weight);
-                    output.SetLocalToParentRotation(i, math.mul(baseValue, layerValue));
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.ScaleBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    var baseValue = output.GetLocalToParentScale(i);
-                    var layerValue = input.GetLocalToParentScale(i) * weight;
-                    output.SetLocalToParentScale(i, baseValue + layerValue);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.FloatBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    output.SetFloat(i, output.GetFloat(i) + input.GetFloat(i) * weight);
-                }
-            }
-
-            for (int i = 0, count = rig.Bindings.IntBindings.Length; i < count; i++, channelIndex++)
-            {
-                if (mask.Test(channelIndex))
-                {
-                    output.SetInt(i, (int)(output.GetInt(i) + input.GetInt(i) * weight));
-                }
-            }
-        }
-
-        static public void RigRemapper<TDestinationDescriptor, TSourceDescriptor>(
+        static public void RigRemapper(
             BlobAssetReference<RigRemapTable> remapTable,
-            ref AnimationStream<TDestinationDescriptor> destinationStream,
-            ref AnimationStream<TSourceDescriptor> sourceStream
+            ref AnimationStream destinationStream,
+            ref AnimationStream sourceStream
             )
-            where TDestinationDescriptor : struct, IAnimationStreamDescriptor
-            where TSourceDescriptor : struct, IAnimationStreamDescriptor
         {
             ref var remap = ref remapTable.Value;
 
@@ -327,7 +335,20 @@ namespace Unity.Animation
             }
         }
 
-        static public unsafe void ComputeBlendTree2DSimpleDirectionnalWeights(BlobAssetReference<BlendTree2DSimpleDirectionnal> blendTree, float2 blendParameter, ref NativeArray<float> outWeights)
+        static public float ComputeBlendTree1DDuration(BlobAssetReference<BlendTree1D> blendTree, ref NativeArray<float> weights)
+        {
+            var length = blendTree.Value.MotionThresholds.Length;
+
+            var duration = 0.0f;
+            for(int i=0;i<length;i++)
+            {
+                duration += weights[i] * blendTree.Value.Motions[i].Clip.Value.Duration / blendTree.Value.MotionSpeeds[i];
+            }
+
+            return duration;
+        }
+
+        static public unsafe void ComputeBlendTree2DSimpleDirectionalWeights(BlobAssetReference<BlendTree2DSimpleDirectional> blendTree, float2 blendParameter, ref NativeArray<float> outWeights)
         {
             var length = blendTree.Value.Motions.Length;
 
@@ -448,6 +469,19 @@ namespace Unity.Animation
             }
         }
 
+        static public float ComputeBlendTree2DSimpleDirectionalDuration(BlobAssetReference<BlendTree2DSimpleDirectional> blendTree, ref NativeArray<float> weights)
+        {
+            var length = blendTree.Value.MotionPositions.Length;
+
+            var duration = 0.0f;
+            for(int i=0;i<length;i++)
+            {
+                duration += weights[i] * blendTree.Value.Motions[i].Clip.Value.Duration / blendTree.Value.MotionSpeeds[i];
+            }
+
+            return duration;
+        }
+
         public struct ClipKeyframe
         {
             public int Left;
@@ -467,70 +501,234 @@ namespace Unity.Animation
             }
         }
 
-        static public void EvaluateClip<T>(ref ClipInstance clipInstance, float time, ref AnimationStream<T> stream, int additive)
-            where T : struct, IAnimationStreamDescriptor
+        static unsafe public void EvaluateClip(BlobAssetReference<ClipInstance> clipInstance, float time, ref AnimationStream stream, int additive)
         {
-            Assert.IsTrue(clipInstance.RigDefinition == stream.Rig);
+            Assert.AreEqual(clipInstance.Value.RigDefinition.Value.GetHashCode(), stream.Rig.Value.GetHashCode());
 
             if(additive != 0)
                 AnimationStreamUtils.MemClear(ref stream);
             else
                 AnimationStreamUtils.SetDefaultValues(ref stream);
 
-            ref var clip = ref clipInstance.Clip;
+            ref var clip = ref clipInstance.Value.Clip;
             ref var bindings = ref clip.Bindings;
             var keyframe = ClipKeyframe.Create(ref clip, time);
 
-            for (int i = 0, count = bindings.TranslationBindings.Length, curveIndex = bindings.TranslationSamplesOffset; i < count; ++i, curveIndex += BindingSet.TranslationKeyFloatCount)
-            {
-                var index = clipInstance.TranslationBindingMap[i];
-                Assert.IsTrue(index != -1);
+            float* scratchPtr = stackalloc float[16];
+            float* samplesPtr = (float*)clip.Samples.GetUnsafePtr();
 
-                ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
-                ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
-                stream.SetLocalToParentTranslation(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+            // Rotations
+            {
+                int i = 0;
+                int count = bindings.RotationBindings.Length;
+                int curveIndex = bindings.RotationSamplesOffset;
+                for (; i + 4 < count; i += 4, curveIndex += BindingSet.RotationKeyFloatCount * 4)
+                {
+                    var leftKey  = (quaternion*)(samplesPtr + curveIndex + keyframe.Left);
+                    var rightKey = (quaternion*)(samplesPtr + curveIndex + keyframe.Right);
+                    var result   = (quaternion*)scratchPtr;
+
+                    for (int j = 0; j < 4; ++j)
+                    {
+                        result[j] = mathex.lerp(leftKey[j], rightKey[j], keyframe.Weight);
+                    }
+
+                    var i0 = clipInstance.Value.RotationBindingMap[i + 0];
+                    var i1 = clipInstance.Value.RotationBindingMap[i + 1];
+                    var i2 = clipInstance.Value.RotationBindingMap[i + 2];
+                    var i3 = clipInstance.Value.RotationBindingMap[i + 3];
+
+                    Assert.IsTrue(i0 != -1);
+                    Assert.IsTrue(i1 != -1);
+                    Assert.IsTrue(i2 != -1);
+                    Assert.IsTrue(i3 != -1);
+
+                    stream.SetLocalToParentRotation(i0, result[0]);
+                    stream.SetLocalToParentRotation(i1, result[1]);
+                    stream.SetLocalToParentRotation(i2, result[2]);
+                    stream.SetLocalToParentRotation(i3, result[3]);
+                }
+
+                for (; i < count; ++i, curveIndex += BindingSet.RotationKeyFloatCount)
+                {
+                    var index = clipInstance.Value.RotationBindingMap[i];
+                    Assert.IsTrue(index != -1);
+
+                    ref var leftKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Left);
+                    ref var rightKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Right);
+                    stream.SetLocalToParentRotation(index, mathex.lerp(leftKey, rightKey, keyframe.Weight));
+                }
             }
 
-            for (int i = 0, count = bindings.RotationBindings.Length, curveIndex = bindings.RotationSamplesOffset; i < count; ++i, curveIndex += BindingSet.RotationKeyFloatCount)
+            // Translations
             {
-                var index = clipInstance.RotationBindingMap[i];
-                Assert.IsTrue(index != -1);
+                int i = 0;
+                int count = bindings.TranslationBindings.Length;
+                int curveIndex = bindings.TranslationSamplesOffset;
+                for (; i + 5 < count; i += 5, curveIndex += BindingSet.TranslationKeyFloatCount * 5)
+                {
+                    var leftKey  = (float4*)(samplesPtr + curveIndex + keyframe.Left);
+                    var rightKey = (float4*)(samplesPtr + curveIndex + keyframe.Right);
+                    var result   = (float4*)scratchPtr;
 
-                ref var leftKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Left);
-                ref var rightKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Right);
-                stream.SetLocalToParentRotation(index, mathex.lerp(leftKey, rightKey, keyframe.Weight));
+                    for (int j = 0; j < 4; ++j)
+                    {
+                        result[j] = math.lerp(leftKey[j], rightKey[j], keyframe.Weight);
+                    }
+
+                    var i0 = clipInstance.Value.TranslationBindingMap[i + 0];
+                    var i1 = clipInstance.Value.TranslationBindingMap[i + 1];
+                    var i2 = clipInstance.Value.TranslationBindingMap[i + 2];
+                    var i3 = clipInstance.Value.TranslationBindingMap[i + 3];
+                    var i4 = clipInstance.Value.TranslationBindingMap[i + 4];
+
+                    Assert.IsTrue(i0 != -1);
+                    Assert.IsTrue(i1 != -1);
+                    Assert.IsTrue(i2 != -1);
+                    Assert.IsTrue(i3 != -1);
+                    Assert.IsTrue(i4 != -1);
+
+                    var float3Data = (float3*)scratchPtr;
+                    stream.SetLocalToParentTranslation(i0, float3Data[0]);
+                    stream.SetLocalToParentTranslation(i1, float3Data[1]);
+                    stream.SetLocalToParentTranslation(i2, float3Data[2]);
+                    stream.SetLocalToParentTranslation(i3, float3Data[3]);
+                    stream.SetLocalToParentTranslation(i4, float3Data[4]);
+                }
+
+                for (; i < count; ++i, curveIndex += BindingSet.TranslationKeyFloatCount)
+                {
+                    var index = clipInstance.Value.TranslationBindingMap[i];
+                    Assert.IsTrue(index != -1);
+
+                    ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
+                    ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
+                    stream.SetLocalToParentTranslation(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                }
             }
 
-            for (int i = 0, count = bindings.ScaleBindings.Length, curveIndex = bindings.ScaleSamplesOffset; i < count; ++i, curveIndex += BindingSet.ScaleKeyFloatCount)
+            // Scales
             {
-                var index = clipInstance.ScaleBindingMap[i];
-                Assert.IsTrue(index != -1);
+                int i = 0;
+                int count = bindings.ScaleBindings.Length;
+                int curveIndex = bindings.ScaleSamplesOffset;
+                for (; i + 5 < count; i += 5, curveIndex += BindingSet.ScaleKeyFloatCount * 5)
+                {
+                    var leftKey  = (float4*)(samplesPtr + curveIndex + keyframe.Left);
+                    var rightKey = (float4*)(samplesPtr + curveIndex + keyframe.Right);
+                    var result   = (float4*)scratchPtr;
 
-                ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
-                ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
-                stream.SetLocalToParentScale(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                    for (int j = 0; j < 4; ++j)
+                    {
+                        result[j] = math.lerp(leftKey[j], rightKey[j], keyframe.Weight);
+                    }
+
+                    var i0 = clipInstance.Value.ScaleBindingMap[i + 0];
+                    var i1 = clipInstance.Value.ScaleBindingMap[i + 1];
+                    var i2 = clipInstance.Value.ScaleBindingMap[i + 2];
+                    var i3 = clipInstance.Value.ScaleBindingMap[i + 3];
+                    var i4 = clipInstance.Value.ScaleBindingMap[i + 4];
+
+                    Assert.IsTrue(i0 != -1);
+                    Assert.IsTrue(i1 != -1);
+                    Assert.IsTrue(i2 != -1);
+                    Assert.IsTrue(i3 != -1);
+                    Assert.IsTrue(i4 != -1);
+
+                    var float3Data = (float3*)scratchPtr;
+                    stream.SetLocalToParentScale(i0, float3Data[0]);
+                    stream.SetLocalToParentScale(i1, float3Data[1]);
+                    stream.SetLocalToParentScale(i2, float3Data[2]);
+                    stream.SetLocalToParentScale(i3, float3Data[3]);
+                    stream.SetLocalToParentScale(i4, float3Data[4]);
+                }
+
+                for (; i < count; ++i, curveIndex += BindingSet.ScaleKeyFloatCount)
+                {
+                    var index = clipInstance.Value.ScaleBindingMap[i];
+                    Assert.IsTrue(index != -1);
+
+                    ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
+                    ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
+                    stream.SetLocalToParentScale(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                }
             }
 
-            for (int i = 0, count = bindings.FloatBindings.Length, curveIndex = bindings.FloatSamplesOffset; i < count; ++i, curveIndex += BindingSet.FloatKeyFloatCount)
+            // Floats
             {
-                var index = clipInstance.FloatBindingMap[i];
-                Assert.IsTrue(index != -1);
+                int i = 0;
+                int count = bindings.FloatBindings.Length;
+                int curveIndex = bindings.FloatSamplesOffset;
+                for (; i + 4 < count; i += 4, curveIndex += BindingSet.FloatKeyFloatCount * 4)
+                {
+                    var leftKey  = (float4*)(samplesPtr + curveIndex + keyframe.Left);
+                    var rightKey = (float4*)(samplesPtr + curveIndex + keyframe.Right);
+                    var result   = (float4*)scratchPtr;
 
-                var leftKey = clip.Samples[curveIndex + keyframe.Left];
-                var rightKey = clip.Samples[curveIndex + keyframe.Right];
-                stream.SetFloat(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                    *result = math.lerp(*leftKey, *rightKey, keyframe.Weight);
+
+                    var i0 = clipInstance.Value.FloatBindingMap[i + 0];
+                    var i1 = clipInstance.Value.FloatBindingMap[i + 1];
+                    var i2 = clipInstance.Value.FloatBindingMap[i + 2];
+                    var i3 = clipInstance.Value.FloatBindingMap[i + 3];
+
+                    Assert.IsTrue(i0 != -1);
+                    Assert.IsTrue(i1 != -1);
+                    Assert.IsTrue(i2 != -1);
+                    Assert.IsTrue(i3 != -1);
+
+                    stream.SetFloat(i0, scratchPtr[0]);
+                    stream.SetFloat(i1, scratchPtr[1]);
+                    stream.SetFloat(i2, scratchPtr[2]);
+                    stream.SetFloat(i3, scratchPtr[3]);
+                }
+
+                for (; i < count; ++i, curveIndex += BindingSet.FloatKeyFloatCount)
+                {
+                    var index = clipInstance.Value.FloatBindingMap[i];
+                    Assert.IsTrue(index != -1);
+
+                    var leftKey = clip.Samples[curveIndex + keyframe.Left];
+                    var rightKey = clip.Samples[curveIndex + keyframe.Right];
+                    stream.SetFloat(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                }
             }
 
-            // TODO: Find the algorithm we want. Right now take the left most key.
-            for (int i = 0, count = bindings.IntBindings.Length, curveIndex = bindings.IntSamplesOffset; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
+            // Ints
             {
-                var index = clipInstance.IntBindingMap[i];
-                Assert.IsTrue(index != -1);
+                int i = 0;
+                int count = count = bindings.IntBindings.Length;
+                int curveIndex = bindings.IntSamplesOffset;
 
-                var leftKey = clip.Samples[curveIndex + keyframe.Left];
-                //var rightKey = clip.Samples[curveIndex + keyframe.Right];
+                // TODO: Find the algorithm we want. Right now take the left most key.
+                for (; i + 4 < count; i += 4, curveIndex += BindingSet.IntKeyFloatCount * 4)
+                {
+                    var leftKey = *(int4*)(samplesPtr + curveIndex + keyframe.Left);
 
-                stream.SetInt(index, (int)leftKey);
+                    var i0 = clipInstance.Value.IntBindingMap[i + 0];
+                    var i1 = clipInstance.Value.IntBindingMap[i + 1];
+                    var i2 = clipInstance.Value.IntBindingMap[i + 2];
+                    var i3 = clipInstance.Value.IntBindingMap[i + 3];
+
+                    Assert.IsTrue(i0 != -1);
+                    Assert.IsTrue(i1 != -1);
+                    Assert.IsTrue(i2 != -1);
+                    Assert.IsTrue(i3 != -1);
+
+                    stream.SetInt(i0, leftKey.x);
+                    stream.SetInt(i0, leftKey.y);
+                    stream.SetInt(i0, leftKey.z);
+                    stream.SetInt(i0, leftKey.w);
+                }
+
+                for (; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
+                {
+                    var index = clipInstance.Value.IntBindingMap[i];
+                    Assert.IsTrue(index != -1);
+
+                    var leftKey = clip.Samples[curveIndex + keyframe.Left];
+                    stream.SetInt(index, (int)leftKey);
+                }
             }
         }
 
@@ -548,36 +746,23 @@ namespace Unity.Animation
         {
             return lastFrameError < 1.0f ? math.lerp(beforeLastValue, atDurationValue, 1.0f/(1.0f-lastFrameError)) : atDurationValue;
         }
-        static public void MixerBegin<TOutputDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output
-            )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
+        static public void MixerBegin(ref AnimationStream output)
         {
             AnimationStreamUtils.MemClear(ref output);
         }
 
-        static public void MixerEnd<TOutputDescriptor, TInputDescriptor, TDefaultPoseInputDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor> input,
-            ref AnimationStream<TDefaultPoseInputDescriptor> defaultPoseInput,
+        static unsafe public void MixerEnd(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            ref AnimationStream defaultPoseInput,
             float sumWeight
             )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor : struct, IAnimationStreamDescriptor
-            where TDefaultPoseInputDescriptor : struct, IAnimationStreamDescriptor
         {
-            ref var rig = ref output.Rig.Value;
-
             if(sumWeight < 1.0F)
             {
                 if(defaultPoseInput.IsNull)
                 {
-                    var defaultPoseStream = AnimationStreamProvider.CreateReadOnly(output.Rig,
-                        ref rig.DefaultValues.LocalTranslations,
-                        ref rig.DefaultValues.LocalRotations,
-                        ref rig.DefaultValues.LocalScales,
-                        ref rig.DefaultValues.Floats,
-                        ref rig.DefaultValues.Integers);
+                    var defaultPoseStream = AnimationStream.FromDefaultValues(output.Rig);
                     MixerAdd(ref output, ref input, ref defaultPoseStream, 1.0F - sumWeight, 0);
                 }
                 else
@@ -586,219 +771,210 @@ namespace Unity.Animation
             else
                 AnimationStreamUtils.MemCpy(ref output, ref input);
 
-            for (int i = 0, count = rig.Bindings.RotationBindings.Length; i < count; ++i)
+            // Normalize 4-wide rotations
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
             {
-                // need to use a normalizesafe to avoid nan when length == 0
-                var value = output.GetLocalToParentRotation(i);
-                output.SetLocalToParentRotation(i, math.normalizesafe(value));
+                outputRot[i] = mathex.normalizesafe(outputRot[i]);
             }
         }
 
-        static public float MixerAdd<TOutputDescriptor, TInputDescriptor, TAddDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor> input,
-            ref AnimationStream<TAddDescriptor> add,
+        static unsafe public float MixerAdd(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            ref AnimationStream add,
             float weight,
             float sumWeight
             )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor : struct, IAnimationStreamDescriptor
-            where TAddDescriptor : struct, IAnimationStreamDescriptor
         {
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(input.IsNull);
-            Assert.IsTrue(output.Rig == input.Rig);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
 
-            if(weight > 0.0f && !add.IsNull)
+            if (weight > 0.0f && !add.IsNull)
             {
-                ref var rig = ref output.Rig.Value;
-
-                for (int i = 0, count = rig.Bindings.TranslationBindings.Length; i < count; i++)
+                // Add 4-wide non rotational data
+                float4* inputData  = input.GetDataChunkUnsafePtr();
+                float4* addData    = add.GetDataChunkUnsafePtr();
+                float4* outputData = output.GetDataChunkUnsafePtr();
+                for (int i = 0, count = output.DataChunkCount; i < count; ++i)
                 {
-                    var baseValue = input.GetLocalToParentTranslation(i);
-                    var addValue = add.GetLocalToParentTranslation(i) * weight;
-                    output.SetLocalToParentTranslation(i, baseValue + addValue);
+                    outputData[i] = math.mad(addData[i], weight, inputData[i]);
                 }
 
-                for (int i = 0, count = rig.Bindings.RotationBindings.Length; i < count; i++)
-                {
-                    var baseValue = input.GetLocalToParentRotation(i);
-                    var addValue = new quaternion(add.GetLocalToParentRotation(i).value * weight);
-                    output.SetLocalToParentRotation(i, mathex.add(baseValue, addValue));
-                }
+                // Add 4-wide rotations
+                quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+                quaternion4* addRot    = add.GetRotationChunkUnsafePtr();
+                quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
 
-                for (int i = 0, count = rig.Bindings.ScaleBindings.Length; i < count; i++)
+                for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
                 {
-                    var baseValue = input.GetLocalToParentScale(i);
-                    var addValue = add.GetLocalToParentScale(i) * weight;
-                    output.SetLocalToParentScale(i, baseValue + addValue);
+                    outputRot[i] = mathex.add(inputRot[i], addRot[i] * weight);
                 }
-
-                for (int i = 0, count = rig.Bindings.FloatBindings.Length; i < count; i++)
-                {
-                    output.SetFloat(i, input.GetFloat(i) + add.GetFloat(i) * weight);
-                }
-
-                for (int i = 0, count = rig.Bindings.IntBindings.Length; i < count; i++)
-                {
-                    output.SetInt(i, (int)(input.GetInt(i) + add.GetInt(i) * weight));
-                }
-
                 sumWeight += weight;
             }
             else
+            {
                 AnimationStreamUtils.MemCpy(ref output, ref input);
+            }
 
             return sumWeight;
         }
 
-        static public void AddPose<TOutputDescriptor, TInputADescriptor, TInputBDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputADescriptor> inputA,
-            ref AnimationStream<TInputBDescriptor> inputB
+        static unsafe public void AddPose(
+            ref AnimationStream output,
+            ref AnimationStream inputA,
+            ref AnimationStream inputB
             )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputADescriptor : struct, IAnimationStreamDescriptor
-            where TInputBDescriptor : struct, IAnimationStreamDescriptor
         {
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(inputA.IsNull);
             Assert.IsFalse(inputB.IsNull);
-            Assert.IsTrue(output.Rig == inputA.Rig);
-            Assert.IsTrue(output.Rig == inputB.Rig);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), inputA.Rig.Value.GetHashCode());
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), inputB.Rig.Value.GetHashCode());
 
-            var tCount = output.m_StreamDescriptor.TranslationCount;
-
-            for (int tIter = 0; tIter < tCount; tIter++)
+            float4* inputAData = inputA.GetDataChunkUnsafePtr();
+            float4* inputBData = inputB.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
             {
-                output.SetLocalToParentTranslation(tIter, inputA.GetLocalToParentTranslation(tIter) + inputB.GetLocalToParentTranslation(tIter));
+                outputData[i] = inputAData[i] + inputBData[i];
             }
 
-            var rCount = output.m_StreamDescriptor.RotationCount;
-
-            for (int rIter = 0; rIter < rCount; rIter++)
+            // 4-wide add
+            quaternion4* inputARot = inputA.GetRotationChunkUnsafePtr();
+            quaternion4* inputBRot = inputB.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
             {
-                output.SetLocalToParentRotation(rIter, math.mul(inputA.GetLocalToParentRotation(rIter), inputB.GetLocalToParentRotation(rIter)));
-            }
-
-            var sCount = output.m_StreamDescriptor.ScaleCount;
-
-            for (int sIter = 0; sIter < sCount; sIter++)
-            {
-                output.SetLocalToParentScale(sIter, inputA.GetLocalToParentScale(sIter) + inputB.GetLocalToParentScale(sIter));
-            }
-
-            var fCount = output.m_StreamDescriptor.FloatCount;
-
-            for (int fIter = 0; fIter < fCount; fIter++)
-            {
-                output.SetFloat(fIter, inputA.GetFloat(fIter) + inputB.GetFloat(fIter));
-            }
-
-            var iCount = output.m_StreamDescriptor.IntCount;
-
-            for (int iIter = 0; iIter < iCount; iIter++)
-            {
-                output.SetInt(iIter, inputA.GetInt(iIter) + inputB.GetInt(iIter));
+                outputRot[i] = mathex.mul(inputARot[i], inputBRot[i]);
             }
         }
 
-        static public void InversePose<TOutputDescriptor, TInputDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor> input
-        )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor : struct, IAnimationStreamDescriptor
+        static unsafe public void InversePose(
+            ref AnimationStream output,
+            ref AnimationStream input
+            )
         {
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(input.IsNull);
-            Assert.IsTrue(output.Rig == input.Rig);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
 
-            var tCount = output.m_StreamDescriptor.TranslationCount;
-
-            for (int tIter = 0; tIter < tCount; tIter++)
+            // 4-wide inverse
+            float4* inputData  = input.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
             {
-                output.SetLocalToParentTranslation(tIter, input.GetLocalToParentTranslation(tIter) * -1.0f);
+                outputData[i] = inputData[i] * -1f;
             }
 
-            var rCount = output.m_StreamDescriptor.RotationCount;
-
-            for (int rIter = 0; rIter < rCount; rIter++)
+            // Inverse 4-wide rotations
+            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
             {
-                output.SetLocalToParentRotation(rIter, math.conjugate(input.GetLocalToParentRotation(rIter)));
-            }
-
-            var sCount = output.m_StreamDescriptor.ScaleCount;
-
-            for (int sIter = 0; sIter < sCount; sIter++)
-            {
-                output.SetLocalToParentScale(sIter, input.GetLocalToParentScale(sIter) * -1.0f);
-            }
-
-            var fCount = output.m_StreamDescriptor.FloatCount;
-
-            for (int fIter = 0; fIter < fCount; fIter++)
-            {
-                output.SetFloat(fIter, input.GetFloat(fIter) * -1.0f);
-            }
-
-            var iCount = output.m_StreamDescriptor.IntCount;
-
-            for (int iIter = 0; iIter < iCount; iIter++)
-            {
-                output.SetInt(iIter, input.GetInt(iIter) * -1);
+                outputRot[i] = mathex.conjugate(inputRot[i]);
             }
         }
 
-        static public void WeightPose<TOutputDescriptor, TInputDescriptor>(
-            ref AnimationStream<TOutputDescriptor> output,
-            ref AnimationStream<TInputDescriptor> input,
-            ref NativeArray<float> weight
-        )
-            where TOutputDescriptor : struct, IAnimationStreamDescriptor
-            where TInputDescriptor : struct, IAnimationStreamDescriptor
+        static unsafe public void WeightPose(
+            ref AnimationStream output,
+            ref AnimationStream input,
+            NativeArray<WeightData> weights
+            )
         {
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(input.IsNull);
-            Assert.IsTrue(weight != null);
-            Assert.IsTrue(output.Rig == input.Rig);
-            Assert.IsTrue(output.Rig.Value.Bindings.BindingCount == weight.Length);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+            Assert.AreEqual(WeightDataSize(output.Rig), weights.Length);
 
-            var channelIndex = 0;
+            int wIdx = 0;
+            float4* weight = (float4*)weights.GetUnsafeReadOnlyPtr();
 
-            var tCount = output.m_StreamDescriptor.TranslationCount;
-
-            for (int tIter = 0; tIter < tCount; tIter++, channelIndex++)
+            // Blend 4-wide lerp non rotation data
+            float4* inputData  = input.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
             {
-                output.SetLocalToParentTranslation(tIter, input.GetLocalToParentTranslation(tIter) * weight[channelIndex]);
+                outputData[i] = inputData[i] * weight[wIdx];
             }
 
-            var rCount = output.m_StreamDescriptor.RotationCount;
-
-            for (int rIter = 0; rIter < rCount; rIter++, channelIndex++)
+            // Blend 4-wide rotations
+            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
             {
-                output.SetLocalToParentRotation(rIter, mathex.quatWeight(input.GetLocalToParentRotation(rIter), weight[channelIndex]));
+                outputRot[i] = mathex.quatWeight(inputRot[i], weight[wIdx]);
             }
+        }
 
-            var sCount = output.m_StreamDescriptor.ScaleCount;
+        static public void ComputeLocalToWorld(
+            float4x4 localToWorld,
+            ref AnimationStream stream,
+            NativeArray<float4x4> outLocalToWorlds
+            )
+        {
+            if (stream.IsNull)
+                return;
 
-            for (int sIter = 0; sIter < sCount; sIter++, channelIndex++)
+            int count = stream.Rig.Value.Skeleton.BoneCount;
+            Assert.AreEqual(outLocalToWorlds.Length, count);
+
+            // Compute world space transforms
+            outLocalToWorlds[0] = math.mul(localToWorld, stream.GetLocalToParentMatrix(0));
+            for (int i = 1; i != count; ++i)
             {
-                output.SetLocalToParentScale(sIter, input.GetLocalToParentScale(sIter) * weight[channelIndex]);
+                var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
+                outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], stream.GetLocalToParentMatrix(i));
             }
+        }
 
-            var fCount = output.m_StreamDescriptor.FloatCount;
+        static public void ComputeLocalToRoot(
+            ref AnimationStream stream,
+            NativeArray<float4x4> outLocalToRoots
+            )
+        {
+            if (stream.IsNull)
+                return;
 
-            for (int fIter = 0; fIter < fCount; fIter++, channelIndex++)
+            int count = stream.Rig.Value.Skeleton.BoneCount;
+            Assert.AreEqual(outLocalToRoots.Length, count);
+
+            // Compute object space transforms
+            outLocalToRoots[0] = stream.GetLocalToParentMatrix(0);
+            for (int i = 1; i != count; ++i)
             {
-                output.SetFloat(fIter, input.GetFloat(fIter) * weight[channelIndex]);
+                var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
+                outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], stream.GetLocalToParentMatrix(i));
             }
+        }
 
-            var iCount = output.m_StreamDescriptor.IntCount;
+        static public void ComputeLocalToWorldAndRoot(
+            float4x4 localToWorld,
+            ref AnimationStream stream,
+            NativeArray<float4x4> outLocalToWorlds,
+            NativeArray<float4x4> outLocalToRoots
+            )
+        {
+            if (stream.IsNull)
+                return;
 
-            for (int iIter = 0; iIter < iCount; iIter++, channelIndex++)
+            int count = stream.Rig.Value.Skeleton.BoneCount;
+            Assert.AreEqual(outLocalToWorlds.Length, count);
+            Assert.AreEqual(outLocalToRoots.Length, count);
+
+            var mat = stream.GetLocalToParentMatrix(0);
+            outLocalToWorlds[0] = math.mul(localToWorld, mat);
+            outLocalToRoots[0] = mat;
+
+            // Compute object and world transforms
+            for (int i = 1; i != count; ++i)
             {
-                output.SetInt(iIter, (int)(input.GetInt(iIter) * weight[channelIndex]));
+                var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
+                mat = stream.GetLocalToParentMatrix(i);
+
+                outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], mat);
+                outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], mat);
             }
         }
     }

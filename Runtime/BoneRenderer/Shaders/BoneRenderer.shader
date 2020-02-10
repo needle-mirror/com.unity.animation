@@ -19,7 +19,7 @@ Shader "Hidden/BoneRenderer"
         {
             Name "ForwardOnly"
             Tags { "LightMode" = "ForwardOnly" }
-            
+
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag

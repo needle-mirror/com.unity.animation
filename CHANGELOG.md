@@ -5,45 +5,201 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
-## [0.2.16-preview.5] - 2019-11-22
+## [0.3.0-preview.7] - 2020-02-10
 
 ### Changed
-- Upgraded com.unity.entities to 0.2.0-preview.18
-- Upgraded com.unity.collections to 0.2.0-preview.13
-- Upgraded com.unity.jobs to 0.2.0-preview.13
-- Upgraded com.unity.rendering.hybrid to 0.2.0-preview.18
+- Upgraded com.unity.test-framework to 1.1.11
 
-## [0.2.16-preview.4] - 2019-11-21
+## [0.3.0-preview.6] - 2020-02-07
 
 ### Changed
-- Upgraded com.unity.dataflowgraph to 0.11.9-preview
+- Add missing Compositor node markup on `RootMotionNode` and `DeltaRootMotionNode`
 
-## [0.2.16-preview.3] - 2019-11-20
+## [0.3.0-preview.5] - 2020-02-07
+
+### Changed
+- Moved `BindingSet.Create` functions to be extension methods part of Clip and RigDefinition struct (i.e. `Clip.CreateBindingSet` and `RigDefinition.CreateBindingSet`).
+- Propagated Additive port on all our clip nodes : `ClipPlayerNode`, `ConfigurableClipNode` and `UberClipNode`.
+- `ClipNode` additive message input port is now a `bool` instead of an `int`.
+- Updated animation core nodes to have better representative categories and documentation in Compositor UI. 
+
+## [0.3.0-preview.4] - 2020-02-03
+
+### Changed
+- Changed how we allocate all DFG nodes' output buffers for AnimatedData to take into account optimized data format. 
+  Please update all your custom DFG node from `Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rigDefinition.IsCreated ? rigDefinition.Value.Bindings.CurveCount : 0)
+                );` to
+                `Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rigDefinition.IsCreated ? rigDefinition.Value.Bindings.StreamSize : 0)
+                );`
+- AnimationStream is not anymore a generic type since now both ECS and DFG use the same data layout, all methods using an AnimationStream have been updated to reflect this change.
+- Renamed ChannelWeightMixerNode.ChannelWeightBuffer to ChannelWeightMixerNode.WeightMasks and also changed the buffer type from `buffer<float>` to `buffer<WeightData>`.
+- Changed RigDefinition.DefaultValues from a `struct BindingDefaultValues` to a `BlobArray<float> DefaultValues` for the new optimized data format, if you need to read some values from this buffer
+please use `AnimationStream.FromDefaultValues(RigDefinition rig);` and use the stream accessor.
+- The `AnimationStreamProvider` has been deprecated and all create functions have been moved to `AnimationStream` struct.
+- All `BlobAssetReference<RigDefinition>` simulation ports on animation nodes have been changed to use the `Rig` IComponentData instead.
+- Renamed `BufferElementToPortNode` to `BufferElementValueNode`
+- Added shared DataFlowGraph `NodeDefinition` and `PortDefinition` attributes for better UI representation in Compositor
+- Added shared `IRigContextHandler` in order to automate Rig port messaging on DataFlowGraphs in Compositor
+- Upgraded com.unity.dataflowgraph to 0.12.0-preview.6
+- Upgraded com.unity.jobs to 0.2.4-preview.11
+- Upgraded com.unity.rendering.hybrid to 0.3.3-preview.11
+- Upgraded com.unity.burst to 1.2.1
+- Upgraded com.unity.test-framework.performance to 1.3.3-preview
+- Downgraded com.unity.entities to 0.5.1-preview.11
+- Downgraded com.unity.collections to 0.5.1-preview.11
+
+### Added
+
+- Added BindingSet.RotationChunkCount to iterate in chunk of 4 quaternions in blending operator for rotation data.
+- Added BindingSet.DataChunkCount to iterate in block of float4 in blending operator for all other float datas (Translation, Scale, float, int).
+- Added BindingSet.StreamSize to allocate enough memory for all stream operations.
+- Added `public struct WeightData : IBufferElementData` which needs to be used on all nodes supporting weighting of channels, since now we have an optimized blending operator we need to splat weights from channels (i.e. translation) to sub component (t.x, t.y, t.z) for best performance.
+- Added `var defaultStream = AnimationStream.FromDefaultValues(outputStream.Rig);` to create an animation stream from the rig default values.
+- Added new utility class ClipTransformations which support a few data operation on Clip: `Clone()`, `CreatePose()`, `Reverse()`, and `FilterBindings()`.
+
+## [0.3.0-preview.3] - 2020-01-20
+
+### Changed
+
+- Changed `FeatherBlendQuery` to `ChannelWeightQuery`.
+- Changed `FeatherBlendTable` to `ChannelWeightTable`.
+- Changed `FeatherBlendNode` to `ChannelWeightMixerNode`.
+- Changed `DeltaNode` to `DeltaPoseNode`.
+- Changed `AddNode` to `AddPoseNode`.
+- Changed `InverseNode` to `InversePoseNode`.
+- Added GetHashCode to dense clip to create better hash key for global clip instance cache. **[This change requires rebuilding all scene dependency caches of projects]**
+- Added `PreAnimationGraphSystem` and `PostAnimationGraphSystem` which execute graph evaluations that run before and after the `TransformSystemGroup`. Any entities with component tags such as `PreAnimationGraphTag` or `PostAnimationGraphTag` will update the respective DataFlowGraph NodeSet in the systems.
+- Upgraded com.unity.dataflowgraph to 0.12.0-preview.5
+- Upgraded com.unity.entities to 0.6.0-preview.0
+- Upgraded com.unity.collections to 0.6.0-preview.0
+- Upgraded com.unity.jobs to 0.2.4-preview.0
+- Upgraded com.unity.rendering.hybrid to 0.3.3-preview.0
+- Upgraded com.unity.burst to 1.2.0-preview.12
+- Upgraded com.unity.test-framework to 1.1.10
+- Fixed typo in struct name `BlendTree2DSimpleDirectionnal` and rename it to `BlendTree2DSimpleDirectional`.
+- Fixed typo in method name `Core.ComputeBlendTree2DSimpleDirectionnalWeights` and rename it to `Core.ComputeBlendTree2DSimpleDirectionalWeights`.
+- Fixed typo in method name `BlendTreeBuilder.CreateBlendTree2DSimpleDirectionnal` and rename it to `BlendTreeBuilder.CreateBlendTree2DSimpleDirectional`.
+- Changed `WeightBuilderNode` to take a message of the BlobAssetReference of the RigDefinition instead of an integer, to set the size of the output weight buffer.
+- Changed method `unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> Create(
+            BlobAssetReference<RigDefinition> rig,
+            NativeArray<AnimatedLocalTranslation> localTranslations,
+            NativeArray<AnimatedLocalRotation> localRotations,
+            NativeArray<AnimatedLocalScale> localScales,
+            NativeArray<AnimatedFloat> floats,
+            NativeArray<AnimatedInt> ints)` to 
+              `unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> Create(
+            BlobAssetReference<RigDefinition> rig,
+            NativeArray<AnimatedData> buffer)`.
+- Animation nodes have been refactored to use `Buffer<AnimatedData>` instead of `Buffer<float>` as animation stream kernel ports. Since the data type is now the same between ECS and DataFlowGraph it removes the need for any conversion nodes and extra connections. **[Custom animation nodes will need to change their animation stream kernel ports to `Buffer<AnimatedData>`]**
+- Renamed `AnimationStreamOffsetPtrDescriptor` to `AnimationStreamPtrDescriptor`
+
+### Fixed
+- Fixed InvalidOperationExceptions being thrown in UberClipNode when a Clip has only one of translation and rotation channels.
+
+### Deprecated
+
+- Deprecated `MixerBeginNode`, `MixerAddNode` and `MixerEndNode`. Use `NMixerNode` instead.
+- Deprecated `GraphOutput` component. Use DataFlowGraph ComponentNodes instead with `OutputRigBuffersNode`
+- Deprecated `AnimationGraphSystemBase`. Use either the `PreAnimationGraphSystem` or `PostAnimationGraphSystem` which run before and after the `TransformSystemGroup`.
+
+### Added
+
+- New `DefaultValuesNode` which fills the animation stream with default values from the RigDefinition.
+- Utility DataFlowGraph nodes to set and extract information from the AnimationStream
+  - `GetAnimationStreamLocalToParentNode`, `GetAnimationStreamLocalToRootNode`, `GetAnimationStreamFloatNode` and `GetAnimationStreamIntNode`.
+  - `SetAnimationStreamLocalToParentNode`, `SetAnimationStreamLocalToRootNode`, `SetAnimationStreamFloatNode` and `SetAnimationStreamIntNode`
+- Utility conversion DataFlowGraph nodes to simplify communication between ECS component types and animation nodes
+  - `ConvertLocalToWorldComponentToFloat4x4Node`, `ConvertFloat4x4ToLocalToWorldComponentNode`, `ConvertLocalToParentComponentToFloat4x4Node` and `ConvertFloat4x4ToLocalToParentComponentNode`
+- Added two new methods `Core.ComputeBlendTree1DDuration` and `Core.ComputeBlendTree2DSimpleDirectionalDuration`.
+- Added overload for UberClipNode.Bake that takes an existing NodeSet.
+- Added a kernel input data port to the `WeightBuilderNode` to initialize the default value of the weights in the ouput buffer (so that it can be different from 0).
+- Added `AnimatedData` IBufferElement that represent any kind of animation data, to read/write typed values you need an `AnimationStream` and a `RigDefinition`.
+
+### Removed
+- Removed `AnimatedLocalTranslation`, to access the same data you need to create an `AnimationStream` with `RigDefinition` and `AnimatedData` IBufferElement and call either `SetLocalToParentTranslation` or `GetLocalToParentTranslation`.
+- Removed `AnimatedLocalRotation`, to access the same data you need to create an `AnimationStream` with `RigDefinition` and `AnimatedData` IBufferElement and call either `SetLocalToParentRotation` or `GetLocalToParentRotation`.
+- Removed `AnimatedLocalScale`, to access the same data you need to create an `AnimationStream` with `RigDefinition` and `AnimatedData` IBufferElement and call 
+either `SetLocalToParentScale` or `GetLocalToParentScale`.
+- Removed `AnimatedFloat`, to access the same data you need to create an `AnimationStream` with `RigDefinition` and `AnimatedData` IBufferElement and call 
+either `SetFloat` or `GetFloat`.
+- Removed `AnimatedInt`, to access the same data you need to create an `AnimationStream` with `RigDefinition` and `AnimatedData` IBufferElement and call 
+either `SetInt` or `GetInt`.
+
+## [0.3.0-preview.2] - 2019-12-10
+
+### Changed
+- Upgraded com.unity.dataflowgraph to 0.12.0-preview.4
+
+## [0.3.0-preview.1] - 2019-12-06
+
+### Changed
+- We now have [Pre/Post]AnimationSystemGroups that executes before/after the TransformSystemGroup.
+- ClipInstance refactor in DFG node: 
+  * Removing ClipInstance from ClipNode and all node that use the ClipNode to generalize the animation graph to any type of Rig.  
+The ClipNode now take a RigDefinition and a Clip, when changing either the RigDefinition or the Clip, the ClipNode will generate the ClipInstance for the pair <RigDefinition,Clip>.  
+With the ClipManager you can pre generate those clip to avoid a CPU spike when changing the rig definition for a ClipNode.
+  * Removing ClipInstance from ClipPlayerNode.
+  * Removing ClipInstance from ConfigurableClipNode.
+  * Removing ClipInstance from UberClipNode.
+- Changed method `Core.EvaluateClip<T>(ref ClipInstance clipInstance, float time, ref AnimationStream<T> stream, int additive)` to `Core.EvaluateClip<T>(BlobAssetReference<ClipInstance> clipInstance, float time, ref AnimationStream<T> stream, int additive)`
+- SharedRigDefinition has been replaced by Rig (IComponentData) and when memory chunking is needed you can use the SharedRigHash (SharedComponentData).
+- Upgraded com.unity.entities to 0.3.0-preview.4
+- Upgraded com.unity.collections to 0.3.0-preview.0
+- Upgraded com.unity.jobs to 0.2.1-preview.3
+- Upgraded com.unity.burst to 1.2.0-preview.9
+- Upgraded com.unity.dataflowgraph to 0.12.0-preview.3
+- Moved simulation ports to kernel ports:
+  * Changed MixerNode.SimulationPorts.Blend for MixerNode.KernelPorts.Weight
+  * Changed LayerMixerNode.SimulationPorts.WeightInputN to port array and renamed to LayerMixerNode.KernelPorts.Weights.
+  * Changed ClipPlayerNode.SimulationPorts.Speed to ClipPlayerNode.KernelPorts.Speed.
+  * Changed TimeCounterNode.SimulationPorts.Speed to TimeCounterNode.KernelPorts.Speed.
+  * Changed BlendTree1DNode.SimulationPorts.Parameter to BlendTree1DNode.KernelPorts.BlendParameter.
+  * Changed BlendTree1DNode.SimulationPorts.Duration to BlendTree1DNode.KernelPorts.Duration.
+  * Changed BlendTree2DNode.SimulationPorts.Parameter to BlendTree2DNode.KernelPorts.BlendParameterX and BlendTree2DNode.KernelPorts.BlendParameterY.
+  * Changed BlendTree2DNode.SimulationPorts.Duration to BlendTree2DNode.KernelPorts.Duration.
+  * Changed LayerMixerNode.SimulationPorts.MaskInput0 to port array and renamed to LayerMixerNode.KernelPorts.WeightsMask. You can now either specify a weight per bindings if WeightsMask is connected to something or no masking at all if it's not connected. The weight mask is modulated by the layer weight.
+- Changed LayerMixerNode.KernelPorts.Input0 to port array and renamed to LayerMixerNode.KernelPorts.Inputs.
+- Changed LayerMixerNode.SimulationPorts.BlendModeInput0 to port array and renamed to LayerMixerNode.SimulationPorts.BlendingModes.
+- Changed `AnimationStream.GetLocalToRigTranslation` to `AnimationStream.GetLocalToRootTranslation`.
+- Changed `AnimationStream.SetLocalToRigTranslation` to `AnimationStream.SetLocalToRootTranslation`.
+- Changed `AnimationStream.GetLocalToRigRotation` to `AnimationStream.GetLocalToRootRotation`.
+- Changed `AnimationStream.SetLocalToRigRotation` to `AnimationStream.SetLocalToRootRotation`.
+- Changed `AnimationStream.GetLocalToRigMatrix` to `AnimationStream.GetLocalToRootMatrix`.
+- Changed `AnimationStream.GetLocalToRigTR` to `AnimationStream.GetLocalToRootTR`.
+- Changed `AnimationStream.SetLocalToRigTR` to `AnimationStream.SetLocalToRootTR`.
+- Changed `AnimatedLocalToRig` IBufferElementData to `AnimatedLocalToRoot`.
+- Renamed WeightNode to WeightPoseNode.
+
+### Added
+- Dependency on com.unity.rendering.hybrid 0.3.0-preview.4 for GPU skinning
+- Added `ComputeBlendTree1DWeightsNode`, `ComputeBlendTree2DWeightsNode`, and `BufferElementToPortNode` to let you compute in DFG render phase the blend tree weights and duration based on the blend parameter.
+- Added LayerMixerNode.SimulationPorts.LayerCount to let you define how many layer the node can handle.
+- Added TwoBoneIK solver `Core.SolveTwoBoneIK` and DFG node `TwoBoneIKNode`
+- Added PositionConstraint solver `Core.SolvePositionConstraint` and DFG node `PositionConstraintNode`
+- Added RotationConstraint solver `Core.SolveRotationConstraint` and DFG node `RotationConstraintNode`
+- Added ParentConstraint solver `Core.SolveParentConstraint` and DFG node `ParentConstraintNode`
+- Added AimConstraint solver `Core.SolveAimConstraint` and DFG node `AimConstraintNode`
+- Added feather blending overload of `Core.Blend` and a DFG node `FeatherBlendNode` that blends two clips according to a weight buffer.
+- Added a `WeightBuilderNode` to build a buffer of weights of the rig size from a potentially smaller set of input weights.
+
+### Removed
+- Removed built-in support for nested blend tree. Rather than nesting everything under the same blob asset we will provide a set of blend tree nodes that will provide port connection for any kind of input (ClipNode, ConfigurableClipNode, UberClipNode, BlendTree1DNode, BlendTree2DNode, etc.).
+- Removed blendParameter from `BlobAssetReference<BlendTree1D> CreateBlendTree(BlendTree1DMotionData[] motionData, StringHash blendParameter)`. BlendParameter is now a kernel port on BlendTree1DNode.
+- Removed blendParameterX and blendParameterY from `BlobAssetReference<BlendTree2DSimpleDirectionnal> CreateBlendTree2DSimpleDirectionnal(BlendTree2DMotionData[] motionData, StringHash blendParameterX, StringHash blendParameterY)`. BlendParameter is now a kernel port on BlendTree2DNode.
+- Removed IMotion, INormalizeTime, and IBlendTree interfaces as we don't need them anymore for the nested blend tree.
+- Removed Parameter struct used by blend tree for setting blend parameter. Each blend tree node has a kernel port for the blend parameter.
+- Removed setup constraint on blend tree, you no longer need to set the rig definition before the blend tree asset. Assets can now be setup in any order.
+	
+
+
+## [0.2.16-preview.1] - 2019-10-31
 
 ### Changed
 - Upgraded com.unity.entities to 0.2.0-preview.12
 - Upgraded com.unity.collections to 0.2.0-preview.7
 - Upgraded com.unity.jobs to 0.2.0-preview.7
-- Upgraded com.unity.rendering.hybrid to 0.2.0-preview.12
-- Upgraded com.unity.test-framework to 1.1.3
-
-## [0.2.16-preview.2] - 2019-11-15
-
-### Added
-- Dependency on com.unity.rendering.hybrid 0.2.0-preview.8 for GPU skinning
-
-### Changed
-- Upgraded com.unity.entities to 0.2.0-preview.8
-- Upgraded com.unity.collections to 0.2.0-preview.5
-- Upgraded com.unity.jobs to 0.2.0-preview.5
-- Upgraded com.unity.burst to 1.2.0-preview.9
-
-## [0.2.16-preview.1] - 2019-11-05
-
-### Changed
-- Upgraded com.unity.entities to 0.2.0-preview.4
-- Upgraded com.unity.collections to 0.2.0-preview.2
-- Upgraded com.unity.jobs to 0.2.0-preview.2
 
 ## [0.2.15-preview.1] - 2019-10-24
 

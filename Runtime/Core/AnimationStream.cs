@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
+using System;
 
 using UnityEngine.Assertions;
 using Unity.Entities;
@@ -7,202 +8,58 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
-
 namespace Unity.Animation
 {
-    public interface IAnimationStreamDescriptor
-    {
-        float3 GetLocalTranslation(int index);
-        quaternion GetLocalRotation(int index);
-        float3 GetLocalScale(int index);
-        float GetFloat(int index);
-        int GetInt(int index);
-
-        void SetLocalTranslation(int index, float3 translation);
-        void SetLocalRotation(int index, quaternion rotation);
-        void SetLocalScale(int index, float3 scale);
-        void SetFloat(int index, float value);
-        void SetInt(int index, int value);
-
-        unsafe float3* GetLocalTranslationUnsafePtr();
-        unsafe quaternion* GetLocalRotationUnsafePtr();
-        unsafe float3* GetLocalScaleUnsafePtr();
-        unsafe float* GetFloatUnsafePtr();
-        unsafe int* GetIntUnsafePtr();
-
-        int TranslationCount { get; }
-        int RotationCount { get; }
-        int ScaleCount { get; }
-        int FloatCount { get; }
-        int IntCount { get; }
-    }
-
-    unsafe internal struct OffsetPtr<T> where T : unmanaged
+    unsafe internal struct Ptr<T> where T : unmanaged
     {
         internal T* m_Ptr;
         internal int m_Length;
 
-        public OffsetPtr(T* ptr, int length)
+        public Ptr(T* ptr, int length)
         {
             m_Ptr = ptr;
             m_Length = length;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public T Get(int index)
+        public ref T Get(int index)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (m_Ptr == null)
                 throw new System.NullReferenceException("Invalid offset pointer");
             if ((uint)index >= (uint)m_Length)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, m_Length));
-        #endif
+#endif
 
-            return *(m_Ptr + index);
+            return ref UnsafeUtilityEx.AsRef<T>(m_Ptr + index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void Set(int index, T value)
+        public void Set(int index, in T value)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (m_Ptr == null)
                 throw new System.NullReferenceException("Invalid offset pointer");
             if ((uint)index >= (uint)m_Length)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, m_Length));
-        #endif
+#endif
 
-            *(m_Ptr + index) = value;
+            UnsafeUtilityEx.AsRef<T>(m_Ptr + index) = value;
         }
     }
 
-    [DebuggerTypeProxy(typeof(AnimationStreamOffsetPtrDescriptorDebugView))]
-    public struct AnimationStreamOffsetPtrDescriptor : IAnimationStreamDescriptor
-    {
-        internal OffsetPtr<float3> m_LocalTranslationData;
-        internal OffsetPtr<quaternion> m_LocalRotationData;
-        internal OffsetPtr<float3> m_LocalScaleData;
-        internal OffsetPtr<float> m_FloatData;
-        internal OffsetPtr<int> m_IntData;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float3 GetLocalTranslation(int index) => m_LocalTranslationData.Get(index);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public quaternion GetLocalRotation(int index) => m_LocalRotationData.Get(index);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float3 GetLocalScale(int index) => m_LocalScaleData.Get(index);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetFloat(int index) => m_FloatData.Get(index);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetInt(int index) => (int)m_IntData.Get(index);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalTranslation(int index, float3 translation)
-        {
-            ValidateIsFinite(translation);
-            m_LocalTranslationData.Set(index, translation);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalRotation(int index, quaternion rotation)
-        {
-            ValidateIsFinite(rotation);
-            m_LocalRotationData.Set(index, rotation);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalScale(int index, float3 scale)
-        {
-            ValidateIsFinite(scale);
-            m_LocalScaleData.Set(index, scale);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetFloat(int index, float value)
-        {
-            ValidateIsFinite(value);
-            m_FloatData.Set(index, value);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetInt(int index, int value) => m_IntData.Set(index, value);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe float3* GetLocalTranslationUnsafePtr() => m_LocalTranslationData.m_Ptr;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe quaternion* GetLocalRotationUnsafePtr() => m_LocalRotationData.m_Ptr;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe float3* GetLocalScaleUnsafePtr() => m_LocalScaleData.m_Ptr;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe float* GetFloatUnsafePtr() => m_FloatData.m_Ptr;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe int* GetIntUnsafePtr() => m_IntData.m_Ptr;
-
-        public int TranslationCount
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_LocalTranslationData.m_Length;
-        }
-
-        public int RotationCount
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_LocalRotationData.m_Length;
-        }
-
-        public int ScaleCount
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_LocalScaleData.m_Length;
-        }
-
-        public int FloatCount
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_FloatData.m_Length;
-        }
-
-        public int IntCount
-        {
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_IntData.m_Length;
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateIsFinite(float value)
-        {
-            if (!math.isfinite(value))
-                throw new System.ArithmeticException();
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateIsFinite(float3 value)
-        {
-            if (!math.all(math.isfinite(value)))
-                throw new System.ArithmeticException();
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        void ValidateIsFinite(quaternion value)
-        {
-            if (!math.all(math.isfinite(value.value)))
-                throw new System.ArithmeticException();
-        }
-    }
-
-    public struct AnimationStream<T> where T : struct, IAnimationStreamDescriptor
+    [DebuggerTypeProxy(typeof(AnimationStreamDebugView))]
+    public struct AnimationStream
     {
         public BlobAssetReference<RigDefinition> Rig;
-        internal T m_StreamDescriptor;
 
-        public static AnimationStream<T> Null => new AnimationStream<T>();
+        internal Ptr<float3>      m_LocalTranslationData;
+        internal Ptr<float3>      m_LocalScaleData;
+        internal Ptr<float>       m_FloatData;
+        internal Ptr<int>         m_IntData;
+        internal Ptr<quaternion4> m_LocalRotationData;
+
+        public static AnimationStream Null => default;
 
         public bool IsNull
         {
@@ -211,19 +68,24 @@ namespace Unity.Animation
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float3 GetLocalToParentTranslation(int index) => m_StreamDescriptor.GetLocalTranslation(index);
+        public float3 GetLocalToParentTranslation(int index) => m_LocalTranslationData.Get(index);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public quaternion GetLocalToParentRotation(int index) => m_StreamDescriptor.GetLocalRotation(index);
+        public quaternion GetLocalToParentRotation(int index)
+        {
+            int idx = index & 0x3; // equivalent to % 4
+            ref quaternion4 q4 = ref m_LocalRotationData.Get(index >> 2);
+            return math.quaternion(q4.x[idx], q4.y[idx], q4.z[idx], q4.w[idx]);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float3 GetLocalToParentScale(int index) => m_StreamDescriptor.GetLocalScale(index);
+        public float3 GetLocalToParentScale(int index) => m_LocalScaleData.Get(index);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetFloat(int index) => m_StreamDescriptor.GetFloat(index);
+        public float GetFloat(int index) => m_FloatData.Get(index);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetInt(int index) => m_StreamDescriptor.GetInt(index);
+        public int GetInt(int index) => m_IntData.Get(index);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public float4x4 GetLocalToParentMatrix(int index) => float4x4.TRS(GetLocalToParentTranslation(index), GetLocalToParentRotation(index), GetLocalToParentScale(index));
@@ -237,36 +99,57 @@ namespace Unity.Animation
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalToParentTranslation(int index, float3 translation) => m_StreamDescriptor.SetLocalTranslation(index, translation);
+        public void SetLocalToParentTranslation(int index, in float3 translation)
+        {
+            ValidateIsFinite(translation);
+            m_LocalTranslationData.Set(index, translation);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalToParentRotation(int index, quaternion rotation) => m_StreamDescriptor.SetLocalRotation(index, rotation);
+        public void SetLocalToParentRotation(int index, in quaternion rotation)
+        {
+            ValidateIsFinite(rotation);
+            int idx = index & 0x3; // equivalent to % 4
+            ref quaternion4 q4 = ref m_LocalRotationData.Get(index >> 2);
+            q4.x[idx] = rotation.value.x;
+            q4.y[idx] = rotation.value.y;
+            q4.z[idx] = rotation.value.z;
+            q4.w[idx] = rotation.value.w;
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalToParentScale(int index, float3 scale) => m_StreamDescriptor.SetLocalScale(index, scale);
+        public void SetLocalToParentScale(int index, in float3 scale)
+        {
+            ValidateIsFinite(scale);
+            m_LocalScaleData.Set(index, scale);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetFloat(int index, float value) => m_StreamDescriptor.SetFloat(index, value);
+        public void SetFloat(int index, in float value)
+        {
+            ValidateIsFinite(value);
+            m_FloatData.Set(index, value);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetInt(int index, int value) => m_StreamDescriptor.SetInt(index, value);
+        public void SetInt(int index, in int value) => m_IntData.Set(index, value);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetLocalToParentTRS(int index, float3 translation, quaternion rotation, float3 scale)
+        public void SetLocalToParentTRS(int index, in float3 translation, in quaternion rotation, in float3 scale)
         {
             SetLocalToParentTranslation(index, translation);
             SetLocalToParentRotation(index, rotation);
             SetLocalToParentScale(index, scale);
         }
 
-        public float3 GetLocalToRigTranslation(int index)
+        public float3 GetLocalToRootTranslation(int index)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
             float3 rigT = GetLocalToParentTranslation(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
@@ -279,40 +162,41 @@ namespace Unity.Animation
             return rigT;
         }
 
-        public void SetLocalToRigTranslation(int index, float3 translation)
+        public void SetLocalToRootTranslation(int index, in float3 translation)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
+            float3 tmp = translation;
             if (index > 0)
             {
-                translation = math.transform(
-                    math.inverse(GetLocalToRigMatrix(Rig.Value.Skeleton.ParentIndexes[index])),
-                    translation
+                tmp = math.transform(
+                    math.inverse(GetLocalToRootMatrix(Rig.Value.Skeleton.ParentIndexes[index])),
+                    tmp
                     );
             }
 
-            SetLocalToParentTranslation(index, translation);
+            SetLocalToParentTranslation(index, tmp);
         }
 
-        public quaternion GetLocalToRigRotation(int index)
+        public quaternion GetLocalToRootRotation(int index)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
             quaternion rigR = GetLocalToParentRotation(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
             while (parentIdx >= 0)
             {
                 rigR = mathex.scaleMulQuat(GetLocalToParentScale(parentIdx), rigR);
-                rigR = math.mul(GetLocalToParentRotation(parentIdx), rigR);
+                rigR = mathex.mul(GetLocalToParentRotation(parentIdx), rigR);
                 parentIdx = Rig.Value.Skeleton.ParentIndexes[parentIdx];
             }
 
@@ -324,32 +208,33 @@ namespace Unity.Animation
             if (index > 0)
                 InverseTransformRotationRecursive(Rig.Value.Skeleton.ParentIndexes[index], ref rotation);
 
-            rotation = math.mul(math.conjugate(GetLocalToParentRotation(index)), rotation);
+            rotation = mathex.mul(math.conjugate(GetLocalToParentRotation(index)), rotation);
             rotation = mathex.scaleMulQuat(GetLocalToParentScale(index), rotation);
         }
 
-        public void SetLocalToRigRotation(int index, quaternion rotation)
+        public void SetLocalToRootRotation(int index, in quaternion rotation)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
+            quaternion tmp = rotation;
             if (index > 0)
-                InverseTransformRotationRecursive(Rig.Value.Skeleton.ParentIndexes[index], ref rotation);
+                InverseTransformRotationRecursive(Rig.Value.Skeleton.ParentIndexes[index], ref tmp);
 
-            SetLocalToParentRotation(index, rotation);
+            SetLocalToParentRotation(index, tmp);
         }
 
-        public float4x4 GetLocalToRigMatrix(int index)
+        public float4x4 GetLocalToRootMatrix(int index)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
             float4x4 rigTx = GetLocalToParentMatrix(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
@@ -362,14 +247,14 @@ namespace Unity.Animation
             return rigTx;
         }
 
-        public void GetLocalToRigTR(int index, out float3 translation, out quaternion rotation)
+        public void GetLocalToRootTR(int index, out float3 translation, out quaternion rotation)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
             translation = GetLocalToParentTranslation(index);
             rotation = GetLocalToParentRotation(index);
 
@@ -378,22 +263,22 @@ namespace Unity.Animation
             {
                 translation = math.transform(GetLocalToParentMatrix(parentIdx), translation);
                 rotation = mathex.scaleMulQuat(GetLocalToParentScale(parentIdx), rotation);
-                rotation = math.mul(GetLocalToParentRotation(parentIdx), rotation);
+                rotation = mathex.mul(GetLocalToParentRotation(parentIdx), rotation);
                 parentIdx = Rig.Value.Skeleton.ParentIndexes[parentIdx];
             }
         }
 
-        public void SetLocalToRigTR(int index, float3 translation, quaternion rotation)
+        public void SetLocalToRootTR(int index, in float3 translation, in quaternion rotation)
         {
-        #if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
                 throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-        #endif
+#endif
             if (index > 0)
             {
-                GetLocalToRigTR(Rig.Value.Skeleton.ParentIndexes[index], out float3 pT, out quaternion pR);
+                GetLocalToRootTR(Rig.Value.Skeleton.ParentIndexes[index], out float3 pT, out quaternion pR);
                 float4x4 tx = math.mul(
                     math.inverse(new float4x4(pR, pT)),
                     new float4x4(rotation, translation)
@@ -409,202 +294,174 @@ namespace Unity.Animation
             }
         }
 
-        unsafe internal static AnimationStream<AnimationStreamOffsetPtrDescriptor> Create(BlobAssetReference<RigDefinition> rig, float* dataPtr)
+        unsafe internal static AnimationStream Create(BlobAssetReference<RigDefinition> rig, void* ptr)
         {
             ref var bindings = ref rig.Value.Bindings;
-            return new AnimationStream<AnimationStreamOffsetPtrDescriptor>()
+            float* floatPtr = (float*)ptr;
+
+            return new AnimationStream()
             {
                 Rig = rig,
-                m_StreamDescriptor = new AnimationStreamOffsetPtrDescriptor()
-                {
-                    m_LocalTranslationData = new OffsetPtr<float3>((float3*)(dataPtr + bindings.TranslationSamplesOffset), bindings.TranslationBindings.Length),
-                    m_LocalRotationData = new OffsetPtr<quaternion>((quaternion*)(dataPtr + bindings.RotationSamplesOffset), bindings.RotationBindings.Length),
-                    m_LocalScaleData = new OffsetPtr<float3>((float3*)(dataPtr + bindings.ScaleSamplesOffset), bindings.ScaleBindings.Length),
-                    m_FloatData = new OffsetPtr<float>(dataPtr + bindings.FloatSamplesOffset, bindings.FloatBindings.Length),
-                    m_IntData = new OffsetPtr<int>((int* )dataPtr + bindings.IntSamplesOffset, bindings.IntBindings.Length)
-                }
+                m_LocalTranslationData = new Ptr<float3>((float3*)(floatPtr + bindings.TranslationSamplesOffset), bindings.TranslationBindings.Length),
+                m_LocalScaleData = new Ptr<float3>((float3*)(floatPtr + bindings.ScaleSamplesOffset), bindings.ScaleBindings.Length),
+                m_FloatData = new Ptr<float>((floatPtr + bindings.FloatSamplesOffset), bindings.FloatBindings.Length),
+                m_IntData = new Ptr<int>((int*)(floatPtr + bindings.IntSamplesOffset), bindings.IntBindings.Length),
+                m_LocalRotationData = new Ptr<quaternion4>((quaternion4*)(floatPtr + bindings.RotationSamplesOffset), bindings.RotationChunkCount)
             };
         }
 
-        unsafe internal static AnimationStream<AnimationStreamOffsetPtrDescriptor> Create(BlobAssetReference<RigDefinition> rig, float3* translationPtr, quaternion* rotationPtr, float3* scalePtr, float* floatPtr, int* intPtr)
+        unsafe public static AnimationStream Create(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
         {
-            ref var bindings = ref rig.Value.Bindings;
-            return new AnimationStream<AnimationStreamOffsetPtrDescriptor>()
-            {
-                Rig = rig,
-                m_StreamDescriptor = new AnimationStreamOffsetPtrDescriptor()
-                {
-                    m_LocalTranslationData = new OffsetPtr<float3>(translationPtr, bindings.TranslationBindings.Length),
-                    m_LocalRotationData = new OffsetPtr<quaternion>(rotationPtr, bindings.RotationBindings.Length),
-                    m_LocalScaleData = new OffsetPtr<float3>(scalePtr, bindings.ScaleBindings.Length),
-                    m_FloatData = new OffsetPtr<float>(floatPtr, bindings.FloatBindings.Length),
-                    m_IntData = new OffsetPtr<int>(intPtr, bindings.IntBindings.Length)
-                }
-            };
+            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
+                return Null;
+
+            return Create(rig, buffer.GetUnsafePtr());
+        }
+
+        unsafe public static AnimationStream CreateReadOnly(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
+        {
+            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
+                return Null;
+
+            return Create(rig, buffer.GetUnsafeReadOnlyPtr());
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        unsafe public static AnimationStream FromDefaultValues(BlobAssetReference<RigDefinition> rig)
+        {
+            return rig == default ? Null : Create(rig, rig.Value.DefaultValues.GetUnsafePtr());
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe void* GetUnsafePtr() => (void*)m_LocalTranslationData.m_Ptr;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe float4* GetDataChunkUnsafePtr() => (float4*)m_LocalTranslationData.m_Ptr;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe quaternion4* GetRotationChunkUnsafePtr() => m_LocalRotationData.m_Ptr;
+
+        public int TranslationCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.TranslationBindings.Length;
+        }
+
+        public int RotationCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.RotationBindings.Length;
+        }
+
+        public int RotationChunkCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.RotationChunkCount;
+        }
+
+        public int ScaleCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.ScaleBindings.Length;
+        }
+
+        public int FloatCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.FloatBindings.Length;
+        }
+
+        public int IntCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.IntBindings.Length;
+        }
+
+        public int DataChunkCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.DataChunkCount;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void ValidateIsFinite(in float value)
+        {
+            if (!math.isfinite(value))
+                throw new System.ArithmeticException();
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void ValidateIsFinite(in float3 value)
+        {
+            if (!math.all(math.isfinite(value)))
+                throw new System.ArithmeticException();
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void ValidateIsFinite(in quaternion value)
+        {
+            if (!math.all(math.isfinite(value.value)))
+                throw new System.ArithmeticException();
         }
     }
 
+    [Obsolete("AnimationStreamProvider is obsolete, use AnimationStream.Create, AnimationStream.CreateReadOnly or AnimationStream.FromDefaultValues instead (RemovedAfter 2020-03-29)", false)]
     public static class AnimationStreamProvider
     {
         // ANSME: Burst needs this indirection to work otherwise it can't
         // seem to compile if both implementations live in this helper object
-        unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> Create(BlobAssetReference<RigDefinition> rig, NativeArray<float> buffer)
+        unsafe public static AnimationStream Create(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
         {
-            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.CurveCount)
-                return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Null;
+            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
+                return AnimationStream.Null;
 
-            return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Create(rig, (float*)buffer.GetUnsafePtr());
+            return AnimationStream.Create(rig, buffer.GetUnsafePtr());
         }
 
-        unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> CreateReadOnly(BlobAssetReference<RigDefinition> rig, NativeArray<float> buffer)
+        unsafe public static AnimationStream CreateReadOnly(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
         {
-            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.CurveCount)
-                return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Null;
+            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
+                return AnimationStream.Null;
 
-            return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Create(rig, (float*)buffer.GetUnsafeReadOnlyPtr());
+            return AnimationStream.Create(rig, buffer.GetUnsafeReadOnlyPtr());
         }
-
-        unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> Create(
-            BlobAssetReference<RigDefinition> rig,
-            DynamicBuffer<AnimatedLocalTranslation> localTranslations,
-            DynamicBuffer<AnimatedLocalRotation> localRotations,
-            DynamicBuffer<AnimatedLocalScale> localScales,
-            DynamicBuffer<AnimatedFloat> floats,
-            DynamicBuffer<AnimatedInt> ints
-            )
-        {
-            if (rig == default)
-                return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Null;
-
-            Assert.AreEqual(rig.Value.Bindings.TranslationBindings.Length, localTranslations.Length);
-            Assert.AreEqual(rig.Value.Bindings.RotationBindings.Length, localRotations.Length);
-            Assert.AreEqual(rig.Value.Bindings.ScaleBindings.Length, localScales.Length);
-            Assert.AreEqual(rig.Value.Bindings.FloatBindings.Length, floats.Length);
-            Assert.AreEqual(rig.Value.Bindings.IntBindings.Length, ints.Length);
-
-            return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Create(
-                rig,
-                (float3*)localTranslations.Reinterpret<float3>().AsNativeArray().GetUnsafePtr(),
-                (quaternion*)localRotations.Reinterpret<quaternion>().AsNativeArray().GetUnsafePtr(),
-                (float3*)localScales.Reinterpret<float3>().AsNativeArray().GetUnsafePtr(),
-                (float*)floats.Reinterpret<float>().AsNativeArray().GetUnsafePtr(),
-                (int*)ints.Reinterpret<int>().AsNativeArray().GetUnsafePtr()
-                );
-        }
-
-        unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> CreateReadOnly(
-            BlobAssetReference<RigDefinition> rig,
-            DynamicBuffer<AnimatedLocalTranslation> localTranslations,
-            DynamicBuffer<AnimatedLocalRotation> localRotations,
-            DynamicBuffer<AnimatedLocalScale> localScales,
-            DynamicBuffer<AnimatedFloat> floats,
-            DynamicBuffer<AnimatedInt> ints
-            )
-        {
-            if (rig == default)
-                return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Null;
-
-            Assert.AreEqual(rig.Value.Bindings.TranslationBindings.Length, localTranslations.Length);
-            Assert.AreEqual(rig.Value.Bindings.RotationBindings.Length, localRotations.Length);
-            Assert.AreEqual(rig.Value.Bindings.ScaleBindings.Length, localScales.Length);
-            Assert.AreEqual(rig.Value.Bindings.FloatBindings.Length, floats.Length);
-            Assert.AreEqual(rig.Value.Bindings.IntBindings.Length, ints.Length);
-
-            return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Create(
-                rig,
-                (float3*)localTranslations.Reinterpret<float3>().AsNativeArray().GetUnsafeReadOnlyPtr(),
-                (quaternion*)localRotations.Reinterpret<quaternion>().AsNativeArray().GetUnsafeReadOnlyPtr(),
-                (float3*)localScales.Reinterpret<float3>().AsNativeArray().GetUnsafeReadOnlyPtr(),
-                (float*)floats.Reinterpret<float>().AsNativeArray().GetUnsafeReadOnlyPtr(),
-                (int*)ints.Reinterpret<int>().AsNativeArray().GetUnsafeReadOnlyPtr()
-                );
-        }
-
-        unsafe public static AnimationStream<AnimationStreamOffsetPtrDescriptor> CreateReadOnly(
-            BlobAssetReference<RigDefinition> rig,
-            ref BlobArray<float3> localTranslations,
-            ref BlobArray<quaternion> localRotations,
-            ref BlobArray<float3> localScales,
-            ref BlobArray<float> floats,
-            ref BlobArray<int> ints
-            )
-        {
-            if (rig == default)
-                return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Null;
-
-            Assert.AreEqual(rig.Value.Bindings.TranslationBindings.Length, localTranslations.Length);
-            Assert.AreEqual(rig.Value.Bindings.RotationBindings.Length, localRotations.Length);
-            Assert.AreEqual(rig.Value.Bindings.ScaleBindings.Length, localScales.Length);
-            Assert.AreEqual(rig.Value.Bindings.FloatBindings.Length, floats.Length);
-            Assert.AreEqual(rig.Value.Bindings.IntBindings.Length, ints.Length);
-
-            return AnimationStream<AnimationStreamOffsetPtrDescriptor>.Create(
-                rig,
-                (float3*)localTranslations.GetUnsafePtr(),
-                (quaternion*)localRotations.GetUnsafePtr(),
-                (float3*)localScales.GetUnsafePtr(),
-                (float*)floats.GetUnsafePtr(),
-                (int*)ints.GetUnsafePtr()
-                );
-        }
-
     };
 
     public static class AnimationStreamUtils
     {
-        unsafe public static void MemCpy<TDescriptor0, TDescriptor1>(ref AnimationStream<TDescriptor0> dst, ref AnimationStream<TDescriptor1> src)
-            where TDescriptor0 : struct, IAnimationStreamDescriptor
-            where TDescriptor1 : struct, IAnimationStreamDescriptor
+        unsafe public static void MemCpy(ref AnimationStream dst, ref AnimationStream src)
         {
             Assert.IsFalse(dst.IsNull || src.IsNull);
 
-            ref var dstDesc = ref dst.m_StreamDescriptor;
-            ref var srcDesc = ref src.m_StreamDescriptor;
-            Assert.AreEqual(dstDesc.TranslationCount, srcDesc.TranslationCount);
-            Assert.AreEqual(dstDesc.RotationCount, srcDesc.RotationCount);
-            Assert.AreEqual(dstDesc.ScaleCount, srcDesc.ScaleCount);
-            Assert.AreEqual(dstDesc.FloatCount, srcDesc.FloatCount);
-            Assert.AreEqual(dstDesc.IntCount, srcDesc.IntCount);
+            Assert.AreEqual(dst.TranslationCount, src.TranslationCount);
+            Assert.AreEqual(dst.RotationCount, src.RotationCount);
+            Assert.AreEqual(dst.ScaleCount, src.ScaleCount);
+            Assert.AreEqual(dst.FloatCount, src.FloatCount);
+            Assert.AreEqual(dst.IntCount, src.IntCount);
 
-            UnsafeUtility.MemCpy(dstDesc.GetLocalTranslationUnsafePtr(), srcDesc.GetLocalTranslationUnsafePtr(), UnsafeUtility.SizeOf<float3>() * srcDesc.TranslationCount);
-            UnsafeUtility.MemCpy(dstDesc.GetLocalRotationUnsafePtr(), srcDesc.GetLocalRotationUnsafePtr(), UnsafeUtility.SizeOf<quaternion>() * srcDesc.RotationCount);
-            UnsafeUtility.MemCpy(dstDesc.GetLocalScaleUnsafePtr(), srcDesc.GetLocalScaleUnsafePtr(), UnsafeUtility.SizeOf<float3>() * srcDesc.ScaleCount);
-            UnsafeUtility.MemCpy(dstDesc.GetFloatUnsafePtr(), srcDesc.GetFloatUnsafePtr(), UnsafeUtility.SizeOf<float>() * srcDesc.FloatCount);
-            UnsafeUtility.MemCpy(dstDesc.GetIntUnsafePtr(), srcDesc.GetIntUnsafePtr(), UnsafeUtility.SizeOf<int>() * srcDesc.IntCount);
+            UnsafeUtility.MemCpy(dst.GetUnsafePtr(), src.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * src.Rig.Value.Bindings.StreamSize);
         }
 
-        unsafe public static void SetDefaultValues<TDescriptor>(ref AnimationStream<TDescriptor> stream)
-            where TDescriptor : struct, IAnimationStreamDescriptor
+        unsafe public static void SetDefaultValues(ref AnimationStream stream)
         {
             Assert.IsFalse(stream.IsNull);
 
-            ref var defaultValues = ref stream.Rig.Value.DefaultValues;
-            ref var desc = ref stream.m_StreamDescriptor;
-            UnsafeUtility.MemCpy(desc.GetLocalTranslationUnsafePtr(), defaultValues.LocalTranslations.GetUnsafePtr(), UnsafeUtility.SizeOf<float3>() * desc.TranslationCount);
-            UnsafeUtility.MemCpy(desc.GetLocalRotationUnsafePtr(), defaultValues.LocalRotations.GetUnsafePtr(), UnsafeUtility.SizeOf<quaternion>() * desc.RotationCount);
-            UnsafeUtility.MemCpy(desc.GetLocalScaleUnsafePtr(), defaultValues.LocalScales.GetUnsafePtr(), UnsafeUtility.SizeOf<float3>() * desc.ScaleCount);
-            UnsafeUtility.MemCpy(desc.GetFloatUnsafePtr(), defaultValues.Floats.GetUnsafePtr(), UnsafeUtility.SizeOf<float>() * desc.FloatCount);
-            UnsafeUtility.MemCpy(desc.GetIntUnsafePtr(), defaultValues.Integers.GetUnsafePtr(), UnsafeUtility.SizeOf<int>() * desc.IntCount);
+            ref var rig = ref stream.Rig.Value;
+            UnsafeUtility.MemCpy(stream.GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * rig.Bindings.StreamSize);
         }
 
-        unsafe public static void MemClear<TDescriptor>(ref AnimationStream<TDescriptor> stream)
-            where TDescriptor : struct, IAnimationStreamDescriptor
+        unsafe public static void MemClear(ref AnimationStream stream)
         {
             Assert.IsFalse(stream.IsNull);
-
-            ref var desc = ref stream.m_StreamDescriptor;
-            UnsafeUtility.MemClear(desc.GetLocalTranslationUnsafePtr(), UnsafeUtility.SizeOf<float3>() * desc.TranslationCount);
-            UnsafeUtility.MemClear(desc.GetLocalRotationUnsafePtr(), UnsafeUtility.SizeOf<quaternion>() * desc.RotationCount);
-            UnsafeUtility.MemClear(desc.GetLocalScaleUnsafePtr(), UnsafeUtility.SizeOf<float3>() * desc.ScaleCount);
-            UnsafeUtility.MemClear(desc.GetFloatUnsafePtr(), UnsafeUtility.SizeOf<float>() * desc.FloatCount);
-            UnsafeUtility.MemClear(desc.GetIntUnsafePtr(), UnsafeUtility.SizeOf<int>() * desc.IntCount);
+            UnsafeUtility.MemClear(stream.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * stream.Rig.Value.Bindings.StreamSize);
         }
     }
-    sealed class AnimationStreamOffsetPtrDescriptorDebugView
-    {
-        AnimationStreamOffsetPtrDescriptor m_Stream;
 
-        public AnimationStreamOffsetPtrDescriptorDebugView(AnimationStreamOffsetPtrDescriptor stream)
+    sealed class AnimationStreamDebugView
+    {
+        AnimationStream m_Stream;
+
+        public AnimationStreamDebugView(AnimationStream stream)
         {
             m_Stream = stream;
         }
@@ -612,16 +469,16 @@ namespace Unity.Animation
         public int TranslationCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_Stream.m_LocalTranslationData.m_Length;
+            get => m_Stream.TranslationCount;
         }
 
         public float3[] Translations
         {
             get
             {
-                float3[] values = new float3[m_Stream.m_LocalTranslationData.m_Length];
-                for(int i=0;i<m_Stream.m_LocalTranslationData.m_Length;i++)
-                    values[i] = m_Stream.m_LocalTranslationData.Get(i);
+                float3[] values = new float3[m_Stream.TranslationCount];
+                for(int i=0;i<m_Stream.TranslationCount;i++)
+                    values[i] = m_Stream.GetLocalToParentTranslation(i);
 
                 return values;
             }
@@ -630,16 +487,16 @@ namespace Unity.Animation
         public int RotationCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_Stream.m_LocalRotationData.m_Length;
+            get => m_Stream.RotationCount;
         }
 
         public quaternion[] Rotations
         {
             get
             {
-                quaternion[] values = new quaternion[m_Stream.m_LocalRotationData.m_Length];
-                for(int i=0;i<m_Stream.m_LocalRotationData.m_Length;i++)
-                    values[i] = m_Stream.m_LocalRotationData.Get(i);
+                quaternion[] values = new quaternion[m_Stream.RotationCount];
+                for(int i=0;i<m_Stream.RotationCount;i++)
+                    values[i] = m_Stream.GetLocalToParentRotation(i);
 
                 return values;
             }
@@ -648,16 +505,16 @@ namespace Unity.Animation
         public int ScaleCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_Stream.m_LocalScaleData.m_Length;
+            get => m_Stream.ScaleCount;
         }
 
         public float3[] Scales
         {
             get
             {
-                float3[] values = new float3[m_Stream.m_LocalScaleData.m_Length];
-                for(int i=0;i<m_Stream.m_LocalScaleData.m_Length;i++)
-                    values[i] = m_Stream.m_LocalScaleData.Get(i);
+                float3[] values = new float3[m_Stream.ScaleCount];
+                for(int i=0;i<m_Stream.ScaleCount;i++)
+                    values[i] = m_Stream.GetLocalToParentScale(i);
 
                 return values;
             }
@@ -666,16 +523,16 @@ namespace Unity.Animation
         public int FloatCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_Stream.m_FloatData.m_Length;
+            get => m_Stream.FloatCount;
         }
 
         public float[] Floats
         {
             get
             {
-                float[] values = new float[m_Stream.m_FloatData.m_Length];
-                for(int i=0;i<m_Stream.m_FloatData.m_Length;i++)
-                    values[i] = m_Stream.m_FloatData.Get(i);
+                float[] values = new float[m_Stream.FloatCount];
+                for(int i = 0; i < m_Stream.FloatCount; i++)
+                    values[i] = m_Stream.GetFloat(i);
 
                 return values;
             }
@@ -684,15 +541,16 @@ namespace Unity.Animation
         public int IntCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => m_Stream.m_IntData.m_Length;
+            get => m_Stream.IntCount;
         }
+
         public int[] Ints
         {
             get
             {
-                int[] values = new int[m_Stream.m_IntData.m_Length];
-                for(int i=0;i<m_Stream.m_IntData.m_Length;i++)
-                    values[i] = m_Stream.m_IntData.Get(i);
+                int[] values = new int[m_Stream.IntCount];
+                for (int i = 0; i < m_Stream.IntCount; i++)
+                    values[i] = m_Stream.GetInt(i);
 
                 return values;
             }

@@ -2,29 +2,34 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    // use this if the motion of a clip is not on root transform
-    // it extracts motion from a specified transform and project it on root transform
+    [NodeDefinition(category:"Animation Core/Root Motion", description:"Extracts motion from a specified transform and projects it's values on the root transform. This node is internally used by the UberClipNode.")]
     public class InPlaceMotionNode
         : NodeDefinition<InPlaceMotionNode.Data, InPlaceMotionNode.SimPorts, InPlaceMotionNode.KernelData, InPlaceMotionNode.KernelDefs, InPlaceMotionNode.Kernel>
-            , IMsgHandler<BlobAssetReference<RigDefinition>>
-            , IMsgHandler<ClipConfiguration>
+        , IMsgHandler<Rig>
+        , IMsgHandler<ClipConfiguration>
+        , IRigContextHandler
     {
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.InPlaceMotionNode");
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<InPlaceMotionNode, BlobAssetReference<RigDefinition>> RigDefinition;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<InPlaceMotionNode, Rig> Rig;
+            [PortDefinition(description:"Clip configuration mask")]
             public MessageInput<InPlaceMotionNode, ClipConfiguration> Configuration;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            public DataInput<InPlaceMotionNode, Buffer<float>> Input;
-            public DataOutput<InPlaceMotionNode, Buffer<float>> Output;
+            [PortDefinition(description:"The current animation stream")]
+            public DataInput<InPlaceMotionNode, Buffer<AnimatedData>> Input;
+            [PortDefinition(description:"Resulting animation stream with updated root transform")]
+            public DataOutput<InPlaceMotionNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
@@ -53,56 +58,48 @@ namespace Unity.Animation
                 data.ProfileMarker.Begin();
 
                 // Fill the destination stream with default values.
-                var inputStream = AnimationStreamProvider.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
-                var outputStream = AnimationStreamProvider.Create(data.RigDefinition,context.Resolve(ref ports.Output));
+                var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
+                var outputStream = AnimationStream.Create(data.RigDefinition,context.Resolve(ref ports.Output));
 
                 AnimationStreamUtils.MemCpy(ref outputStream, ref inputStream);
 
-                var defaultStream = AnimationStreamProvider.CreateReadOnly(data.RigDefinition,
-                    ref data.RigDefinition.Value.DefaultValues.LocalTranslations,
-                    ref data.RigDefinition.Value.DefaultValues.LocalRotations,
-                    ref data.RigDefinition.Value.DefaultValues.LocalScales,
-                    ref data.RigDefinition.Value.DefaultValues.Floats,
-                    ref data.RigDefinition.Value.DefaultValues.Integers);
+                var defaultStream = AnimationStream.FromDefaultValues(data.RigDefinition);
+                var motionTranslation = outputStream.GetLocalToRootTranslation(data.TranslationIndex);
+                var motionRotation = outputStream.GetLocalToRootRotation(data.RotationIndex);
 
-                var motionTranslation = outputStream.GetLocalToRigTranslation(data.TranslationIndex);
-                var motionRotation = outputStream.GetLocalToRigRotation(data.RotationIndex);
+                var defaultRotation = defaultStream.GetLocalToRootRotation(data.RotationIndex);
+                defaultRotation = mathex.mul(motionRotation, math.conjugate(defaultRotation));
+                defaultRotation = mathex.select(quaternion.identity, defaultRotation, math.dot(defaultRotation, defaultRotation) > math.FLT_MIN_NORMAL);
 
-                var defaultRotation = defaultStream.GetLocalToRigRotation(data.RotationIndex);
-                defaultRotation = math.mul(motionRotation, math.conjugate(defaultRotation));
+                ProjectMotionNode(motionTranslation, defaultRotation, out float3 motionProjTranslation, out quaternion motionProjRotation, (data.Configuration.Mask & ClipConfigurationMask.BankPivot) != 0);
 
-                ProjectMotionNode(motionTranslation, defaultRotation, out float3 motionProjTranslation, out quaternion motionProjRotation, (data.Configuration.Mask & (int)ClipConfigurationMask.BankPivot) != 0);
+                outputStream.SetLocalToRootTranslation(0, motionProjTranslation);
+                outputStream.SetLocalToRootRotation(0, motionProjRotation);
 
-                outputStream.SetLocalToRigTranslation(0, motionProjTranslation);
-                outputStream.SetLocalToRigRotation(0, motionProjRotation);
-
-                outputStream.SetLocalToRigTranslation(data.TranslationIndex, motionTranslation);
-                outputStream.SetLocalToRigRotation(data.RotationIndex, motionRotation);
+                outputStream.SetLocalToRootTranslation(data.TranslationIndex, motionTranslation);
+                outputStream.SetLocalToRootRotation(data.RotationIndex, motionRotation);
 
                 data.ProfileMarker.End();
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
 
-        public override void OnUpdate(NodeHandle handle)
-        {
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigDefinition)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
+            kData.RigDefinition = rig;
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
 
-            if (ctx.Port == SimulationPorts.RigDefinition)
-            {
-                kData.RigDefinition = rigDefinition;
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<float>.SizeRequest(rigDefinition.Value.Bindings.CurveCount));
-                SetMotionIndices(ref kData);
-            }
+            SetMotionIndices(ref kData);
         }
 
         public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
@@ -157,5 +154,8 @@ namespace Unity.Animation
             projQ.value.w = 1;
             projQ = math.normalize(projQ);
         }
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

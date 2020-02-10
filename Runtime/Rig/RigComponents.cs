@@ -1,6 +1,7 @@
 using System;
 using Unity.Entities;
 using Unity.Mathematics;
+using System.Runtime.CompilerServices;
 
 namespace Unity.Animation
 {
@@ -96,15 +97,6 @@ namespace Unity.Animation
         public float3       ScalingPivot;
     }
 
-    public struct BindingDefaultValues
-    {
-        public BlobArray<float3>        LocalTranslations;
-        public BlobArray<quaternion>    LocalRotations;
-        public BlobArray<float3>        LocalScales;
-        public BlobArray<float>         Floats;
-        public BlobArray<int>           Integers;
-    }
-
     public struct Skeleton
     {
         // The 3 following field are stored as separe array rather than in a SkeletonNode to minimize cache pollution,
@@ -119,31 +111,47 @@ namespace Unity.Animation
         public int BoneCount => Ids.Length;
     }
 
-    public struct RigDefinition
+    public struct RigDefinition : IEquatable<RigDefinition>
     {
-        public Skeleton                 Skeleton;
+        public Skeleton          Skeleton;
 
-        public BindingSet               Bindings;
+        public BindingSet        Bindings;
 
-        public BindingDefaultValues     DefaultValues;
+        public BlobArray<float>  DefaultValues;
 
         internal int m_HashCode;
 
-        public override int GetHashCode()
+        public override int GetHashCode() => m_HashCode;
+
+        public override bool Equals(object other)
         {
-            return m_HashCode;
+            if (other == null || !(other is RigDefinition))
+                return false;
+
+            return m_HashCode == ((RigDefinition)other).m_HashCode;
         }
+
+        public bool Equals(RigDefinition other) =>
+            m_HashCode == other.m_HashCode;
+
+        static public bool operator == (RigDefinition lhs, RigDefinition rhs) =>
+            lhs.m_HashCode == rhs.m_HashCode;
+
+        static public bool operator != (RigDefinition lhs, RigDefinition rhs) =>
+            lhs.m_HashCode != rhs.m_HashCode;
     }
 
-    // This component is a temporary fix to workaround serializing/deserializing
-    // BlobAssetReference data in SharedComponentData
-    public struct RigDefinitionSetup : IComponentData
+    public struct Rig : IComponentData
     {
         public BlobAssetReference<RigDefinition> Value;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static implicit operator BlobAssetReference<RigDefinition>(Rig rig) =>
+            rig.Value;
     }
 
-    public struct SharedRigDefinition : ISharedComponentData
+    public struct SharedRigHash : ISharedComponentData
     {
-        public BlobAssetReference<RigDefinition> Value;
+        public int Value;
     }
 }

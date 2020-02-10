@@ -1,5 +1,7 @@
 using Unity.Entities;
 using Unity.Collections;
+using Unity.Transforms;
+using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -8,10 +10,8 @@ namespace Unity.Animation
     {
         static void ValidateRigEntity(Entity rigEntity, EntityManager entityManager)
         {
-            Assert.IsTrue(entityManager.HasComponent<SharedRigDefinition>(rigEntity));
-            Assert.IsTrue(entityManager.HasComponent<AnimatedLocalTranslation>(rigEntity));
-            Assert.IsTrue(entityManager.HasComponent<AnimatedLocalRotation>(rigEntity));
-            Assert.IsTrue(entityManager.HasComponent<AnimatedLocalScale>(rigEntity));
+            Assert.IsTrue(entityManager.HasComponent<Rig>(rigEntity));
+            Assert.IsTrue(entityManager.HasComponent<AnimatedData>(rigEntity));
             Assert.IsTrue(entityManager.HasComponent<AnimatedLocalToWorld>(rigEntity));
         }
 
@@ -20,7 +20,7 @@ namespace Unity.Animation
             ValidateRigEntity(rigEntity, entityManager);
 
             var debugEntity = entityManager.Instantiate(rigEntity);
-            var rigDefinition = entityManager.GetSharedComponentData<SharedRigDefinition>(debugEntity).Value;
+            var rigDefinition = entityManager.GetComponentData<Rig>(debugEntity).Value;
             BoneRendererEntityBuilder.CreateBoneRendererEntities(debugEntity, entityManager, rigDefinition, props, ids);
 
             return debugEntity;
@@ -32,6 +32,7 @@ namespace Unity.Animation
             RigEntityBuilder.SetupRigEntity(debugEntity, entityManager, rigDefinition);
             ValidateRigEntity(debugEntity, entityManager);
 
+            entityManager.AddComponentData(debugEntity, new LocalToWorld { Value = float4x4.identity });
             BoneRendererEntityBuilder.CreateBoneRendererEntities(debugEntity, entityManager, rigDefinition, props, ids);
 
             return debugEntity;

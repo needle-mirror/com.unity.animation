@@ -8,7 +8,7 @@ namespace Unity.Animation.Tests
         [Test]
         public void BlendTree1DCreatedWithoutMotionDataReturnNull()
         {
-            var blendTree = BlendTreeBuilder.CreateBlendTree(null, new StringHash());
+            var blendTree = BlendTreeBuilder.CreateBlendTree(null);
 
             Assert.That(blendTree, Is.EqualTo(BlobAssetReference<BlendTree1D>.Null));
         }
@@ -30,7 +30,7 @@ namespace Unity.Animation.Tests
                 new BlendTree1DMotionData { MotionThreshold = 0.0f, MotionSpeed = 1.0f },
             };
 
-            var blendTree = BlendTreeBuilder.CreateBlendTree(motionData, new StringHash());
+            var blendTree = BlendTreeBuilder.CreateBlendTree(motionData);
 
             for(int i=1; i < blendTree.Value.MotionThresholds.Length; i++)
             {

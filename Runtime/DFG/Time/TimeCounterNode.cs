@@ -1,26 +1,34 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Time", description:"Accumulates and output's current time based on scale and delta time")]
     public class TimeCounterNode
         : NodeDefinition<TimeCounterNode.Data, TimeCounterNode.SimPorts, TimeCounterNode.KernelData, TimeCounterNode.KernelDefs, TimeCounterNode.Kernel>
-            , IMsgHandler<float>
+        , IMsgHandler<float>
     {
         public struct SimPorts : ISimulationPortDefinition
         {
+            [PortDefinition(description:"Set internal time to this value")]
             public MessageInput<TimeCounterNode, float> Time;
-            public MessageInput<TimeCounterNode, float> Speed;
         }
 
         static readonly ProfilerMarker k_ProfileTimeCounter = new ProfilerMarker("Animation.TimeCounter");
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Delta time")]
             public DataInput<TimeCounterNode, float> DeltaTime;
+            [PortDefinition(displayName:"Time Scale", description:"Delta time scale factor")]
+            public DataInput<TimeCounterNode, float> Speed;
+
+            [PortDefinition(description:"Resulting delta time")]
             public DataOutput<TimeCounterNode, float> OutputDeltaTime;
+            [PortDefinition(description:"Resulting time")]
             public DataOutput<TimeCounterNode, float> Time;
         }
 
@@ -33,7 +41,6 @@ namespace Unity.Animation
         {
             // Assets.
             public ProfilerMarker ProfileTimeCounter;
-            public float Speed;
 
             public int SetTime;
             public float Time;
@@ -47,7 +54,7 @@ namespace Unity.Animation
             {
                 data.ProfileTimeCounter.Begin();
 
-                var deltaTime = context.Resolve(ports.DeltaTime) * data.Speed;
+                var deltaTime = context.Resolve(ports.DeltaTime) * context.Resolve(ports.Speed);
                 m_Time = math.select(m_Time + deltaTime, data.Time, data.SetTime != 0);
 
                 context.Resolve(ref ports.Time) =  m_Time;
@@ -57,19 +64,16 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileTimeCounter = k_ProfileTimeCounter;
-            kData.Speed = 1.0f;
         }
 
-        public override void OnUpdate(NodeHandle handle)
+        protected override void OnUpdate(in UpdateContext ctx)
         {
-            base.OnUpdate(handle);
-
-            ref var nodeData = ref GetNodeData(handle);
-            ref var kernelData = ref GetKernelData(handle);
+            ref var nodeData = ref GetNodeData(ctx.Handle);
+            ref var kernelData = ref GetKernelData(ctx.Handle);
 
             if (nodeData.SetTime != 0)
             {
@@ -92,10 +96,6 @@ namespace Unity.Animation
                 kernelData.Time = msg;
                 kernelData.SetTime = 0;
                 nodeData.SetTime = 1;
-            }
-            else if (ctx.Port == SimulationPorts.Speed)
-            {
-                kernelData.Speed = msg;
             }
         }
     }

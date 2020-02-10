@@ -23,11 +23,11 @@ namespace Unity.Animation.Tests
         private quaternion m_ClipChildLocalRotation2 => quaternion.RotateX(math.radians(90.0f));
         private float3 m_ClipChildLocalScale2 => new float3(1.0f, 10.0f, 1.0f);
 
-        private BlobAssetReference<RigDefinition> m_Rig;
-        private BlobAssetReference<ClipInstance> m_ConstantRootClip1;
-        private BlobAssetReference<ClipInstance> m_ConstantRootClip2;
-        private BlobAssetReference<ClipInstance> m_ConstantHierarchyClip1;
-        private BlobAssetReference<ClipInstance> m_ConstantHierarchyClip2;
+        private Rig m_Rig;
+        private BlobAssetReference<Clip> m_ConstantRootClip1;
+        private BlobAssetReference<Clip> m_ConstantRootClip2;
+        private BlobAssetReference<Clip> m_ConstantHierarchyClip1;
+        private BlobAssetReference<Clip> m_ConstantHierarchyClip2;
 
         private static BlobAssetReference<RigDefinition> CreateTestRigDefinition()
         {
@@ -105,24 +105,24 @@ namespace Unity.Animation.Tests
             base.OneTimeSetUp();
 
             // Create rig
-            m_Rig = CreateTestRigDefinition();
+            m_Rig = new Rig { Value = CreateTestRigDefinition() };
 
             // Clip #1
             {
                 // Constant root clip
                 {
                     var path = "MixerNodeTestsConstantRootClip1.blob";
-                    var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                    m_ConstantRootClip1 = BlobFile.ReadBlobAsset<Clip>(path);
 
-                    m_ConstantRootClip1 = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                    ClipManager.Instance.GetClipFor(m_Rig, m_ConstantRootClip1);
                 }
 
                 // Constant hierarchy clip
                 {
                     var path = "MixerNodeTestsConstantHierarchyClip1.blob";
-                    var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                    m_ConstantHierarchyClip1 = BlobFile.ReadBlobAsset<Clip>(path);
 
-                    m_ConstantHierarchyClip1 = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                    ClipManager.Instance.GetClipFor(m_Rig, m_ConstantHierarchyClip1);
                 }
             }
 
@@ -132,17 +132,17 @@ namespace Unity.Animation.Tests
                 // Constant root clip
                 {
                     var path = "MixerNodeTestsConstantRootClip2.blob";
-                    var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                    m_ConstantRootClip2 = BlobFile.ReadBlobAsset<Clip>(path);
 
-                    m_ConstantRootClip2 = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                    ClipManager.Instance.GetClipFor(m_Rig, m_ConstantRootClip2);
                 }
 
                 // Constant hierarchy clip
                 {
                     var path = "MixerNodeTestsConstantHierarchyClip2.blob";
-                    var denseClip = BlobFile.ReadBlobAsset<Clip>(path);
+                    m_ConstantHierarchyClip2 = BlobFile.ReadBlobAsset<Clip>(path);
 
-                    m_ConstantHierarchyClip2 = ClipManager.Instance.GetClipFor(m_Rig, denseClip);
+                    ClipManager.Instance.GetClipFor(m_Rig, m_ConstantHierarchyClip2);
                 }
             }
         }
@@ -154,7 +154,7 @@ namespace Unity.Animation.Tests
         public void CanMixSimpleClips(float weight)
         {
             var expectedLocalTranslation = math.lerp(m_ClipRootLocalTranslation1, m_ClipRootLocalTranslation2, weight);
-            var expectedLocalRotation = math.slerp(m_ClipRootLocalRotation1, m_ClipRootLocalRotation2, weight);
+            var expectedLocalRotation = mathex.lerp(m_ClipRootLocalRotation1, m_ClipRootLocalRotation2, weight);
             var expectedLocalScale = math.lerp(m_ClipRootLocalScale1, m_ClipRootLocalScale2, weight);
 
             var entity = m_Manager.CreateEntity();
@@ -162,30 +162,34 @@ namespace Unity.Animation.Tests
 
             var set = Set;
             var clipNode1 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode1, ClipNode.SimulationPorts.ClipInstance, m_ConstantRootClip1);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Clip, m_ConstantRootClip1);
 
             var clipNode2 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode2, ClipNode.SimulationPorts.ClipInstance, m_ConstantRootClip2);
+            set.SendMessage(clipNode2, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode2, ClipNode.SimulationPorts.Clip, m_ConstantRootClip2);
 
             var mixerNode = CreateNode<MixerNode>();
             set.Connect(clipNode1, ClipNode.KernelPorts.Output, mixerNode, MixerNode.KernelPorts.Input0);
             set.Connect(clipNode2, ClipNode.KernelPorts.Output, mixerNode, MixerNode.KernelPorts.Input1);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.RigDefinition, m_Rig);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Blend, weight);
+            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Rig, m_Rig);
+            set.SetData(mixerNode, MixerNode.KernelPorts.Weight, weight);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerNode, MixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerNode, MixerNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[0].Value;
-            var localRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[0].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[0].Value;
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotation, Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -195,7 +199,7 @@ namespace Unity.Animation.Tests
         public void CanMixClipsWithHierarchy(float weight)
         {
             var expectedLocalTranslation = math.lerp(m_ClipChildLocalTranslation1, m_ClipChildLocalTranslation2, weight);
-            var expectedLocalRotation = math.slerp(m_ClipChildLocalRotation1, m_ClipChildLocalRotation2, weight);
+            var expectedLocalRotation = mathex.lerp(m_ClipChildLocalRotation1, m_ClipChildLocalRotation2, weight);
             var expectedLocalScale = math.lerp(m_ClipChildLocalScale1, m_ClipChildLocalScale2, weight);
 
             var entity = m_Manager.CreateEntity();
@@ -203,29 +207,33 @@ namespace Unity.Animation.Tests
 
             var set = Set;
             var clipNode1 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode1, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip1);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip1);
 
             var clipNode2 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode2, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip2);
+            set.SendMessage(clipNode2, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode2, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip2);
 
             var mixerNode = CreateNode<MixerNode>();
             set.Connect(clipNode1, ClipNode.KernelPorts.Output, mixerNode, MixerNode.KernelPorts.Input0);
             set.Connect(clipNode2, ClipNode.KernelPorts.Output, mixerNode, MixerNode.KernelPorts.Input1);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.RigDefinition, m_Rig);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Blend, weight);
+            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Rig, m_Rig);
+            set.SetData(mixerNode, MixerNode.KernelPorts.Weight, weight);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerNode, MixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerNode, MixerNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var localRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotation, Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -256,38 +264,32 @@ namespace Unity.Animation.Tests
                 }
             };
 
-            var rig = RigBuilder.CreateRigDefinition(skeletonNodes);
+            var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes) };
 
             var entity = m_Manager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
 
             var set = Set;
             var mixer = CreateNode<MixerNode>();
-            set.SendMessage(mixer, MixerNode.SimulationPorts.RigDefinition, rig);
+            set.SendMessage(mixer, MixerNode.SimulationPorts.Rig, rig);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixer, MixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixer, MixerNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslationBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity).Reinterpret<float3>();
-            var localRotationBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity).Reinterpret<quaternion>();
-            var localScaleBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(entity).Reinterpret<float3>();
-
-            Assert.AreEqual(skeletonNodes.Length, localTranslationBuffer.Length);
-            Assert.AreEqual(skeletonNodes.Length, localRotationBuffer.Length);
-            Assert.AreEqual(skeletonNodes.Length, localScaleBuffer.Length);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
             for(int i=0;i<skeletonNodes.Length;i++)
             {
-                var localTranslation = localTranslationBuffer[i];
-                var localRotation = localRotationBuffer[i];
-                var localScale = localScaleBuffer[i];
-
-                Assert.That(localTranslation, Is.EqualTo(skeletonNodes[i].LocalTranslationDefaultValue).Using(TranslationComparer));
-                Assert.That(localRotation, Is.EqualTo(skeletonNodes[i].LocalRotationDefaultValue).Using(RotationComparer));
-                Assert.That(localScale, Is.EqualTo(skeletonNodes[i].LocalScaleDefaultValue).Using(ScaleComparer));
+                Assert.That(streamECS.GetLocalToParentTranslation(i), Is.EqualTo(skeletonNodes[i].LocalTranslationDefaultValue).Using(TranslationComparer));
+                Assert.That(streamECS.GetLocalToParentRotation(i), Is.EqualTo(skeletonNodes[i].LocalRotationDefaultValue).Using(RotationComparer));
+                Assert.That(streamECS.GetLocalToParentScale(i), Is.EqualTo(skeletonNodes[i].LocalScaleDefaultValue).Using(ScaleComparer));
             }
         }
 
@@ -307,25 +309,28 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var clipNode2 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode2, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip2);
+            set.SendMessage(clipNode2, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode2, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip2);
 
             var mixerNode = CreateNode<MixerNode>();
             set.Connect(clipNode2, ClipNode.KernelPorts.Output, mixerNode, MixerNode.KernelPorts.Input1);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.RigDefinition, m_Rig);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Blend, weight);
+            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Rig, m_Rig);
+            set.SetData(mixerNode, MixerNode.KernelPorts.Weight, weight);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerNode, MixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerNode, MixerNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var localRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotation, Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -344,25 +349,28 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var clipNode1 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode1, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip1);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip1);
 
             var mixerNode = CreateNode<MixerNode>();
             set.Connect(clipNode1, ClipNode.KernelPorts.Output, mixerNode, MixerNode.KernelPorts.Input0);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.RigDefinition, m_Rig);
-            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Blend, weight);
+            set.SendMessage(mixerNode, MixerNode.SimulationPorts.Rig, m_Rig);
+            set.SetData(mixerNode, MixerNode.KernelPorts.Weight, weight);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerNode, MixerNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerNode, MixerNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslation = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity)[1].Value;
-            var localRotation = m_Manager.GetBuffer<AnimatedLocalRotation>(entity)[1].Value;
-            var localScale = m_Manager.GetBuffer<AnimatedLocalScale>(entity)[1].Value;
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotation, Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -378,10 +386,12 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerBeginNode, MixerBeginNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             var graphValue = CreateGraphValue(mixerBeginNode, MixerBeginNode.KernelPorts.SumWeight);
 
@@ -391,21 +401,17 @@ namespace Unity.Animation.Tests
 
             Assert.That(value, Is.EqualTo(0.0F));
 
-            // Get local translation, rotation, scale.
-            var localTranslationBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity);
-            var localRotationBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity);
-            var localScaleBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(entity);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            Assert.That(localTranslationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            for(int i=0;i<m_Rig.Value.Skeleton.BoneCount; i++)
+            for(int i=0;i<m_Rig.Value.Value.Skeleton.BoneCount; i++)
             {
                 // We expect that the buffer values are all 0
-                Assert.That(localTranslationBuffer[i].Value, Is.EqualTo(expectedLocalTranslation));
-                Assert.That(localRotationBuffer[i].Value, Is.EqualTo(expectedLocalRotation));
-                Assert.That(localScaleBuffer[i].Value, Is.EqualTo(expectedLocalScale));
+                Assert.That(streamECS.GetLocalToParentTranslation(i), Is.EqualTo(expectedLocalTranslation));
+                Assert.That(streamECS.GetLocalToParentRotation(i), Is.EqualTo(expectedLocalRotation));
+                Assert.That(streamECS.GetLocalToParentScale(i), Is.EqualTo(expectedLocalScale));
             }
         }
 
@@ -422,33 +428,32 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
             var mixerEndNode = CreateNode<MixerEndNode>();
-            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.Rig, m_Rig);
 
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, mixerEndNode, MixerEndNode.KernelPorts.Input);
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.SumWeight, mixerEndNode, MixerEndNode.KernelPorts.SumWeight);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerEndNode, MixerEndNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerEndNode, MixerEndNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslationBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity);
-            var localRotationBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity);
-            var localScaleBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(entity);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            Assert.That(localTranslationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            for(int i=0;i<m_Rig.Value.Skeleton.BoneCount; i++)
+            var defaultStream = AnimationStream.FromDefaultValues(m_Rig);
+            for(int i=0;i<m_Rig.Value.Value.Skeleton.BoneCount; i++)
             {
-                Assert.That(localTranslationBuffer[i].Value, Is.EqualTo(m_Rig.Value.DefaultValues.LocalTranslations[i]));
-                Assert.That(localRotationBuffer[i].Value, Is.EqualTo(m_Rig.Value.DefaultValues.LocalRotations[i]));
-                Assert.That(localScaleBuffer[i].Value, Is.EqualTo(m_Rig.Value.DefaultValues.LocalScales[i]));
+                Assert.That(streamECS.GetLocalToParentTranslation(i), Is.EqualTo(defaultStream.GetLocalToParentTranslation(i)));
+                Assert.That(streamECS.GetLocalToParentRotation(i), Is.EqualTo(defaultStream.GetLocalToParentRotation(i)));
+                Assert.That(streamECS.GetLocalToParentScale(i), Is.EqualTo(defaultStream.GetLocalToParentScale(i)));
             }
         }
 
@@ -461,28 +466,30 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
             var mixerEndNode = CreateNode<MixerEndNode>();
-            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.Rig, m_Rig);
 
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, mixerEndNode, MixerEndNode.KernelPorts.Input);
             // Set explicitly sumweight to 1 to force MixerEndNode to normalize rotation
             set.SetData(mixerEndNode, MixerEndNode.KernelPorts.SumWeight, 1.0f);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerEndNode, MixerEndNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerEndNode, MixerEndNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local rotation.
-            var localRotationBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            Assert.That(localRotationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            for(int i=0;i<m_Rig.Value.Skeleton.BoneCount; i++)
+            for(int i=0;i<m_Rig.Value.Value.Skeleton.BoneCount; i++)
             {
-                var length = math.length(localRotationBuffer[i].Value);
+                var length = math.length(streamECS.GetLocalToParentRotation(i));
 
                 Assert.That(length, Is.EqualTo(1.0f));
             }
@@ -508,17 +515,18 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
             var clipNode1 = CreateNode<ClipNode>();
-            set.SendMessage(clipNode1, ClipNode.SimulationPorts.ClipInstance, m_ConstantHierarchyClip1);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);
+            set.SendMessage(clipNode1, ClipNode.SimulationPorts.Clip, m_ConstantHierarchyClip1);
 
             var mixerAddNode = CreateNode<MixerAddNode>();
-            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.Rig, m_Rig);
             set.SetData(mixerAddNode, MixerAddNode.KernelPorts.Weight, weight);
 
             var mixerEndNode = CreateNode<MixerEndNode>();
-            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.Rig, m_Rig);
 
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, mixerAddNode, MixerAddNode.KernelPorts.Input);
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.SumWeight, mixerAddNode, MixerAddNode.KernelPorts.SumWeightInput);
@@ -526,27 +534,21 @@ namespace Unity.Animation.Tests
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.SumWeightOutput, mixerEndNode, MixerEndNode.KernelPorts.SumWeight);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.Output, mixerEndNode, MixerEndNode.KernelPorts.Input);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerEndNode, MixerEndNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerEndNode, MixerEndNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslationBuffer = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity);
-            var localRotationBuffer = m_Manager.GetBuffer<AnimatedLocalRotation>(entity);
-            var localScaleBuffer = m_Manager.GetBuffer<AnimatedLocalScale>(entity);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+                );
 
-            Assert.That(localTranslationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            // Get local translation, rotation, scale.
-            var localTranslation = localTranslationBuffer[1].Value;
-            var localRotation = localRotationBuffer[1].Value;
-            var localScale = localScaleBuffer[1].Value;
-            Assert.That(localTranslation, Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
-            Assert.That(localRotation, Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
-            Assert.That(localScale, Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
         }
 
         [Test]
@@ -561,22 +563,24 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
             var mixerAddNode = CreateNode<MixerAddNode>();
-            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.Rig, m_Rig);
             set.SetData(mixerAddNode, MixerAddNode.KernelPorts.Weight, weight);
 
             var mixerEndNode = CreateNode<MixerEndNode>();
-            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.Rig, m_Rig);
 
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, mixerAddNode, MixerAddNode.KernelPorts.Input);
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.SumWeight, mixerAddNode, MixerAddNode.KernelPorts.SumWeightInput);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.SumWeightOutput, mixerEndNode, MixerEndNode.KernelPorts.SumWeight);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.Output, mixerEndNode, MixerEndNode.KernelPorts.Input);
 
-            var output = new GraphOutput { Buffer = CreateGraphBuffer(mixerEndNode, MixerEndNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity, output);
+            var entityNode = CreateComponentNode(entity);
+            set.Connect(mixerEndNode, MixerEndNode.KernelPorts.Output, entityNode);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
 
             m_AnimationGraphSystem.Update();
             Assert.Pass();
@@ -594,50 +598,46 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
             var mixerAddNode = CreateNode<MixerAddNode>();
-            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.Rig, m_Rig);
             set.SetData(mixerAddNode, MixerAddNode.KernelPorts.Weight, 0.0f);
 
             var mixerEndNode = CreateNode<MixerEndNode>();
-            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.Rig, m_Rig);
 
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, mixerAddNode, MixerAddNode.KernelPorts.Input);
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.SumWeight, mixerAddNode, MixerAddNode.KernelPorts.SumWeightInput);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.SumWeightOutput, mixerEndNode, MixerEndNode.KernelPorts.SumWeight);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.Output, mixerEndNode, MixerEndNode.KernelPorts.Input);
 
-            var mixerBeginNodeOutput = new GraphOutput { Buffer = CreateGraphBuffer(mixerBeginNode, MixerBeginNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity1, mixerBeginNodeOutput);
+            var entityNode1 = CreateComponentNode(entity1);
+            var entityNode2 = CreateComponentNode(entity2);
 
-            var mixerAddNodeOutput = new GraphOutput { Buffer = CreateGraphBuffer(mixerAddNode, MixerAddNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity2, mixerAddNodeOutput);
+            set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, entityNode1);
+            set.Connect(mixerAddNode, MixerAddNode.KernelPorts.Output, entityNode2);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity1);
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity2);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslationBuffer1 = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity1);
-            var localRotationBuffer1 = m_Manager.GetBuffer<AnimatedLocalRotation>(entity1);
-            var localScaleBuffer1 = m_Manager.GetBuffer<AnimatedLocalScale>(entity1);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity1).AsNativeArray()
+                );
 
-            var localTranslationBuffer2 = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity2);
-            var localRotationBuffer2 = m_Manager.GetBuffer<AnimatedLocalRotation>(entity2);
-            var localScaleBuffer2 = m_Manager.GetBuffer<AnimatedLocalScale>(entity2);
+            var anotherStreamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity2).AsNativeArray()
+                );
 
-            Assert.That(localTranslationBuffer1.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer1.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer1.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            Assert.That(localTranslationBuffer2.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer2.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer2.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            for(int i=0;i<m_Rig.Value.Skeleton.BoneCount; i++)
+            for(int i=0;i<m_Rig.Value.Value.Skeleton.BoneCount; i++)
             {
-                Assert.That(localTranslationBuffer2[i], Is.EqualTo(localTranslationBuffer1[i]).Using(TranslationComparer));
-                Assert.That(localRotationBuffer2[i], Is.EqualTo(localRotationBuffer1[i]).Using(RotationComparer));
-                Assert.That(localScaleBuffer2[i], Is.EqualTo(localScaleBuffer1[i]).Using(ScaleComparer));
+                Assert.That(anotherStreamECS.GetLocalToParentTranslation(i), Is.EqualTo(streamECS.GetLocalToParentTranslation(i)).Using(TranslationComparer));
+                Assert.That(anotherStreamECS.GetLocalToParentRotation(i), Is.EqualTo(streamECS.GetLocalToParentRotation(i)).Using(RotationComparer));
+                Assert.That(anotherStreamECS.GetLocalToParentScale(i), Is.EqualTo(streamECS.GetLocalToParentScale(i)).Using(ScaleComparer));
             }
         }
 
@@ -656,50 +656,46 @@ namespace Unity.Animation.Tests
             var set = Set;
 
             var mixerBeginNode = CreateNode<MixerBeginNode>();
-            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerBeginNode, MixerBeginNode.SimulationPorts.Rig, m_Rig);
 
             var mixerAddNode = CreateNode<MixerAddNode>();
-            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerAddNode, MixerAddNode.SimulationPorts.Rig, m_Rig);
             set.SetData(mixerAddNode, MixerAddNode.KernelPorts.Weight, weight);
 
             var mixerEndNode = CreateNode<MixerEndNode>();
-            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.RigDefinition, m_Rig);
+            set.SendMessage(mixerEndNode, MixerEndNode.SimulationPorts.Rig, m_Rig);
 
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, mixerAddNode, MixerAddNode.KernelPorts.Input);
             set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.SumWeight, mixerAddNode, MixerAddNode.KernelPorts.SumWeightInput);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.SumWeightOutput, mixerEndNode, MixerEndNode.KernelPorts.SumWeight);
             set.Connect(mixerAddNode, MixerAddNode.KernelPorts.Output, mixerEndNode, MixerEndNode.KernelPorts.Input);
 
-            var mixerBeginNodeOutput = new GraphOutput { Buffer = CreateGraphBuffer(mixerBeginNode, MixerBeginNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity1, mixerBeginNodeOutput);
+            var entityNode1 = CreateComponentNode(entity1);
+            var entityNode2 = CreateComponentNode(entity2);
 
-            var mixerAddNodeOutput = new GraphOutput { Buffer = CreateGraphBuffer(mixerAddNode, MixerAddNode.KernelPorts.Output) };
-            m_Manager.AddComponentData(entity2, mixerAddNodeOutput);
+            set.Connect(mixerBeginNode, MixerBeginNode.KernelPorts.Output, entityNode1);
+            set.Connect(mixerAddNode, MixerAddNode.KernelPorts.Output, entityNode2);
+
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity1);
+            m_Manager.AddComponent<PreAnimationGraphTag>(entity2);
 
             m_AnimationGraphSystem.Update();
 
-            // Get local translation, rotation, scale.
-            var localTranslationBuffer1 = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity1);
-            var localRotationBuffer1 = m_Manager.GetBuffer<AnimatedLocalRotation>(entity1);
-            var localScaleBuffer1 = m_Manager.GetBuffer<AnimatedLocalScale>(entity1);
+            var streamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity1).AsNativeArray()
+                );
 
-            var localTranslationBuffer2 = m_Manager.GetBuffer<AnimatedLocalTranslation>(entity2);
-            var localRotationBuffer2 = m_Manager.GetBuffer<AnimatedLocalRotation>(entity2);
-            var localScaleBuffer2 = m_Manager.GetBuffer<AnimatedLocalScale>(entity2);
+            var anotherStreamECS = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity2).AsNativeArray()
+                );
 
-            Assert.That(localTranslationBuffer1.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer1.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer1.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            Assert.That(localTranslationBuffer2.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localRotationBuffer2.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-            Assert.That(localScaleBuffer2.Length, Is.EqualTo(m_Rig.Value.Skeleton.BoneCount));
-
-            for(int i=0;i<m_Rig.Value.Skeleton.BoneCount; i++)
+            for(int i=0;i<m_Rig.Value.Value.Skeleton.BoneCount; i++)
             {
-                Assert.That(localTranslationBuffer2[i], Is.EqualTo(localTranslationBuffer1[i]).Using(TranslationComparer));
-                Assert.That(localRotationBuffer2[i], Is.EqualTo(localRotationBuffer1[i]).Using(RotationComparer));
-                Assert.That(localScaleBuffer2[i], Is.EqualTo(localScaleBuffer1[i]).Using(ScaleComparer));
+                Assert.That(anotherStreamECS.GetLocalToParentTranslation(i), Is.EqualTo(streamECS.GetLocalToParentTranslation(i)).Using(TranslationComparer));
+                Assert.That(anotherStreamECS.GetLocalToParentRotation(i), Is.EqualTo(streamECS.GetLocalToParentRotation(i)).Using(RotationComparer));
+                Assert.That(anotherStreamECS.GetLocalToParentScale(i), Is.EqualTo(streamECS.GetLocalToParentScale(i)).Using(ScaleComparer));
             }
         }
     }

@@ -1,65 +1,64 @@
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
-using Unity.Profiling;
-using Unity.Mathematics;
+using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Blend Trees", description:"Evaluates a 2D BlendTree based on X and Y blend parameters")]
     public class BlendTree2DNode
         : NodeDefinition<BlendTree2DNode.Data, BlendTree2DNode.SimPorts, BlendTree2DNode.KernelData, BlendTree2DNode.KernelDefs, BlendTree2DNode.Kernel>
-            , IParametrizable
-            , IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectionnal>>
-            , IMsgHandler<BlobAssetReference<RigDefinition>>
-            , IBlendTree
+        , IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectional>>
+        , IMsgHandler<Rig>
+        , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<BlendTree2DNode, BlobAssetReference<BlendTree2DSimpleDirectionnal>>     BlendTree;
-            public MessageInput<BlendTree2DNode, BlobAssetReference<RigDefinition>>                     RigDefinition;
-            public MessageInput<BlendTree2DNode, Parameter>                                             Parameter;
+            [PortDefinition(description:"BlendTree data")]
+            public MessageInput<BlendTree2DNode, BlobAssetReference<BlendTree2DSimpleDirectional>> BlendTree;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<BlendTree2DNode, Rig> Rig;
 
-            public MessageOutput<BlendTree2DNode, BlobAssetReference<RigDefinition>>  RigDefinitionOut;
-            public MessageOutput<BlendTree2DNode, Parameter>                          ParameterOut;
-
-            public MessageOutput<BlendTree2DNode, float> Duration;
+            [PortDefinition(isHidden:true)]
+            public MessageOutput<BlendTree2DNode, Rig> RigOut;
         }
-
-        static readonly ProfilerMarker k_ProfileComputeBlendTree2D = new ProfilerMarker("Animation.ComputeBlendTree2DWeights");
 
         [Managed]
         public struct Data : INodeData
         {
-            public Parameter            BlendParameterX;
-            public Parameter            BlendParameterY;
-
             // Assets.
-            public BlobAssetReference<RigDefinition>                    RigDefinition;
-            public BlobAssetReference<BlendTree2DSimpleDirectionnal>    BlendTree;
+            public BlobAssetReference<RigDefinition>                RigDefinition;
+            public BlobAssetReference<BlendTree2DSimpleDirectional> BlendTree;
 
-            internal NodeHandle<BlendTree2DNode>                 BlendTree2DNode;
-            internal NodeHandle<KernelPassThroughNodeFloat>    NormalizedTimeNode;
+            internal NodeHandle<BlendTree2DNode>                    BlendTree2DNode;
+            internal NodeHandle<KernelPassThroughNodeFloat>         NormalizedTimeNode;
+            internal NodeHandle<ComputeBlendTree2DWeightsNode>      ComputeBlendTree2DWeightsNode;
 
-            internal NodeHandle<MixerBeginNode>         MixerBegin;
-            internal List< NodeHandle<MixerAddNode> >   MixerAdd;
-            internal NodeHandle<MixerEndNode>           MixerEnd;
+            internal NodeHandle<NMixerNode>                         NMixerNode;
 
-            internal List< NodeHandle > Motions;
-
-            public float Duration;
+            internal List<NodeHandle<UberClipNode>>                 Motions;
+            internal List<NodeHandle<GetBufferElementValueNode>>    MotionDurationNodes;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
+            [PortDefinition(description:"Normalized time")]
             public DataInput<BlendTree2DNode, float> NormalizedTime;
-            public DataOutput<BlendTree2DNode, Buffer<float>>  Output;
+            [PortDefinition(displayName:"Blend X", description:"Blend parameter X value")]
+            public DataInput<BlendTree2DNode, float> BlendParameterX;
+            [PortDefinition(displayName:"Blend Y", description:"Blend parameter Y value")]
+            public DataInput<BlendTree2DNode, float> BlendParameterY;
+
+            [PortDefinition(description:"Resulting animation stream")]
+            public DataOutput<BlendTree2DNode, Buffer<AnimatedData>> Output;
+            [PortDefinition(description:"Current motion duration, used to compute normalized time")]
+            public DataOutput<BlendTree2DNode, float> Duration;
         }
+
         public struct KernelData : IKernelData
         {
-
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -70,250 +69,108 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var data = ref GetNodeData(ctx.Handle);
+
             data.BlendTree2DNode = Set.CastHandle<BlendTree2DNode>(ctx.Handle);
 
             data.NormalizedTimeNode = Set.Create<KernelPassThroughNodeFloat>();
-            data.MixerBegin = Set.Create<MixerBeginNode>();
-            data.MixerEnd = Set.Create<MixerEndNode>();
+            data.NMixerNode = Set.Create<NMixerNode>();
+            data.ComputeBlendTree2DWeightsNode = Set.Create<ComputeBlendTree2DWeightsNode>();
 
-            Set.Connect(data.BlendTree2DNode, SimulationPorts.RigDefinitionOut, data.MixerBegin, MixerBeginNode.SimulationPorts.RigDefinition);
-            Set.Connect(data.BlendTree2DNode, SimulationPorts.RigDefinitionOut, data.MixerEnd, MixerEndNode.SimulationPorts.RigDefinition);
+            Set.Connect(data.BlendTree2DNode, SimulationPorts.RigOut, data.NMixerNode, NMixerNode.SimulationPorts.Rig);
 
             ctx.ForwardInput(KernelPorts.NormalizedTime, data.NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
-            ctx.ForwardOutput(KernelPorts.Output, data.MixerEnd, MixerEndNode.KernelPorts.Output);
+            ctx.ForwardInput(KernelPorts.BlendParameterX, data.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.KernelPorts.BlendParameterX);
+            ctx.ForwardInput(KernelPorts.BlendParameterY, data.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.KernelPorts.BlendParameterY);
+            ctx.ForwardOutput(KernelPorts.Output, data.NMixerNode, NMixerNode.KernelPorts.Output);
+            ctx.ForwardOutput(KernelPorts.Duration, data.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.KernelPorts.Duration);
 
-            data.Motions = new List<NodeHandle>();
-            data.MixerAdd = new List<NodeHandle<MixerAddNode>>();
-            data.Duration = 1.0f;
+            data.Motions = new List<NodeHandle<UberClipNode>>();
+            data.MotionDurationNodes = new List<NodeHandle<GetBufferElementValueNode>>();
         }
 
-        public override void Destroy(NodeHandle handle)
+        protected override void Destroy(NodeHandle handle)
         {
             var data = GetNodeData(handle);
 
             Set.Destroy(data.NormalizedTimeNode);
-            Set.Destroy(data.MixerBegin);
-            Set.Destroy(data.MixerEnd);
-
-            for (int i=0;i<data.MixerAdd.Count;i++)
-                Set.Destroy(data.MixerAdd[i]);
+            Set.Destroy(data.NMixerNode);
+            Set.Destroy(data.ComputeBlendTree2DWeightsNode);
 
             for (int i=0;i<data.Motions.Count;i++)
                 Set.Destroy(data.Motions[i]);
+
+            for (int i=0;i<data.MotionDurationNodes.Count;i++)
+                Set.Destroy(data.MotionDurationNodes[i]);
         }
 
-        private void ApplyWeights(ref Data data)
-        {
-            k_ProfileComputeBlendTree2D.Begin();
-
-            var duration = 0.0f;
-
-            var length = data.BlendTree.Value.Motions.Length;
-            if(length > 0)
-            {
-                var weights = new NativeArray<float>(length, Allocator.Temp);
-
-                var blendParameter = new float2(data.BlendParameterX.Value, data.BlendParameterY.Value);
-
-                Core.ComputeBlendTree2DSimpleDirectionnalWeights(data.BlendTree, blendParameter, ref weights);
-
-                for(int i=0;i<length;i++)
-                {
-                    float childDuration = 0.0f;
-                    var f = Set.GetFunctionality(data.Motions[i]);
-                    if (f is IMotion motion)
-                    {
-                        childDuration = motion.GetDuration(data.Motions[i]);
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException( $"Cannot get duration from source node. Source is not of type {typeof(IMotion).Name}");
-                    }
-
-                    childDuration /= data.BlendTree.Value.MotionSpeeds[i];
-                    duration += weights[i] * childDuration;
-
-                    Set.SetData(data.MixerAdd[i], MixerAddNode.KernelPorts.Weight, weights[i]);
-                }
-            }
-
-            data.Duration = duration;
-            EmitMessage(data.BlendTree2DNode, SimulationPorts.Duration, data.Duration);
-
-            k_ProfileComputeBlendTree2D.End();
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree2DSimpleDirectionnal> blendTree)
+        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree2DSimpleDirectional> blendTree)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
+            nodeData.BlendTree = blendTree;
 
             var thisHandle = Set.CastHandle<BlendTree2DNode>(ctx.Handle);
-
-            if(nodeData.RigDefinition == default)
-                throw new InvalidOperationException($"BlendTree2DNode: Please set RigDefinition before setting blendTree.");
-
-            nodeData.BlendTree = blendTree;
-            nodeData.BlendParameterX.Id = blendTree.Value.BlendParameterX.Id;
-            nodeData.BlendParameterY.Id = blendTree.Value.BlendParameterY.Id;
-
-            for(int i=0;i<nodeData.MixerAdd.Count;i++)
-                Set.Destroy(nodeData.MixerAdd[i]);
 
             for(int i=0;i<nodeData.Motions.Count;i++)
                 Set.Destroy(nodeData.Motions[i]);
 
-            nodeData.MixerAdd.Clear();
-            nodeData.Motions.Clear();
+            for(int i=0;i<nodeData.MotionDurationNodes.Count;i++)
+                Set.Destroy(nodeData.MotionDurationNodes[i]);
 
-            NodeHandle<MixerAddNode> previousMixerAdd = new NodeHandle<MixerAddNode>();
+            nodeData.Motions.Clear();
+            nodeData.MotionDurationNodes.Clear();
+
+            Set.SendMessage(nodeData.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.SimulationPorts.BlendTree, blendTree);
 
             var length = nodeData.BlendTree.Value.Motions.Length;
+
+            Set.SetPortArraySize(nodeData.NMixerNode, NMixerNode.KernelPorts.Inputs, (ushort)length);
+            Set.SetPortArraySize(nodeData.NMixerNode, NMixerNode.KernelPorts.Weights, (ushort)length);
+            Set.SetPortArraySize(nodeData.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.KernelPorts.MotionDurations, (ushort)length);
+
             for(int i=0;i<length;i++)
             {
-                NodeHandle motionNode = new NodeHandle();
+                var clip = nodeData.BlendTree.Value.Motions[i].Clip;
+                if(!clip.IsCreated)
+                    throw new InvalidOperationException("Motion in BlendTree2D is not valid");
 
-                var mixerAddNode = Set.Create<MixerAddNode>();
-                nodeData.MixerAdd.Add(mixerAddNode);
-                Set.Connect(thisHandle, SimulationPorts.RigDefinitionOut, mixerAddNode, MixerAddNode.SimulationPorts.RigDefinition);
+                var motionNode = Set.Create<UberClipNode>();
+                Set.SendMessage(motionNode, UberClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.NormalizedTime });
+                Set.SendMessage(motionNode, UberClipNode.SimulationPorts.Clip, clip);
 
-                if(previousMixerAdd == default)
-                {
-                    Set.Connect(nodeData.MixerBegin, MixerBeginNode.KernelPorts.Output, mixerAddNode, MixerAddNode.KernelPorts.Input);
-                    Set.Connect(nodeData.MixerBegin, MixerBeginNode.KernelPorts.SumWeight, mixerAddNode, MixerAddNode.KernelPorts.SumWeightInput);
-                }
-                else
-                {
-                    Set.Connect(previousMixerAdd, MixerAddNode.KernelPorts.Output, mixerAddNode, MixerAddNode.KernelPorts.Input);
-                    Set.Connect(previousMixerAdd, MixerAddNode.KernelPorts.SumWeightOutput, mixerAddNode, MixerAddNode.KernelPorts.SumWeightInput);
-                }
+                var bufferElementToPortNode = Set.Create<GetBufferElementValueNode>();
 
-                if(nodeData.BlendTree.Value.MotionTypes[i] == MotionType.Clip)
-                {
-                    var clip = nodeData.BlendTree.Value.Motions[i].Clip;
-                    if(!clip.IsCreated)
-                        throw new InvalidOperationException("Motion in Blendtree2D is not valid");
-                    var clipInstance = ClipManager.Instance.GetClipFor(nodeData.RigDefinition, clip);
+                nodeData.Motions.Add(motionNode);
+                nodeData.MotionDurationNodes.Add(bufferElementToPortNode);
 
-                    var clipNode = Set.Create<UberClipNode>();
-                    Set.SendMessage(clipNode,UberClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = (int)ClipConfigurationMask.NormalizedTime });
-                    Set.SendMessage(clipNode, UberClipNode.SimulationPorts.ClipInstance, clipInstance);
+                Set.Connect(thisHandle, SimulationPorts.RigOut, motionNode, UberClipNode.SimulationPorts.Rig);
+                Set.Connect(nodeData.NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, motionNode, UberClipNode.KernelPorts.Time);
+                Set.Connect(motionNode, UberClipNode.KernelPorts.Output, nodeData.NMixerNode, NMixerNode.KernelPorts.Inputs, i );
+                Set.SetData(nodeData.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.KernelPorts.MotionDurations, i, clip.Value.Duration );
 
-                    motionNode = clipNode;
-                    nodeData.Motions.Add(clipNode);
-                }
-                else if(nodeData.BlendTree.Value.MotionTypes[i] == MotionType.BlendTree1D)
-                {
-                    var childBlendTree = nodeData.BlendTree.Value.Motions[i].BlendTree1D;
-                    if(!childBlendTree.IsCreated)
-                        throw new InvalidOperationException("Motion in Blendtree2D is not valid");
-
-                    var blendTreeNode = Set.Create<BlendTree1DNode>();
-
-                    // Rig definition need to be set before blend tree
-                    Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.RigDefinition, nodeData.RigDefinition);
-                    Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, childBlendTree);
-
-                    motionNode = blendTreeNode;
-                    nodeData.Motions.Add(blendTreeNode);
-                }
-                else if(nodeData.BlendTree.Value.MotionTypes[i] == MotionType.BlendTree2DSimpleDirectionnal)
-                {
-                    var childBlendTree = nodeData.BlendTree.Value.Motions[i].BlendTree2DSimpleDirectionnal;
-                    if(!childBlendTree.IsCreated)
-                        throw new InvalidOperationException("Motion in Blendtree2D is not valid");
-
-                    var blendTreeNode = Set.Create<BlendTree2DNode>();
-
-                    // Rig definition need to be set before blend tree
-                    Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.RigDefinition, nodeData.RigDefinition);
-                    Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, childBlendTree);
-
-                    motionNode = blendTreeNode;
-                    nodeData.Motions.Add(blendTreeNode);
-                }
-
-                if(motionNode != default)
-                {
-                    var f = Set.GetFunctionality(motionNode);
-                    if (f is INormalizedTimeMotion motion)
-                    {
-                        Set.Connect(nodeData.NormalizedTimeNode, (OutputPortID)KernelPassThroughNodeFloat.KernelPorts.Output, motionNode, motion.NormalizedTimeInputPort);
-                        Set.Connect(motionNode, motion.AnimationStreamOutputPort, mixerAddNode, (InputPortID) MixerAddNode.KernelPorts.Add);
-                    }
-
-                    if (f is IBlendTree blendtree)
-                    {
-                        Set.Connect(thisHandle, (OutputPortID) SimulationPorts.RigDefinitionOut, motionNode, blendtree.RigDefinitionInputPort);
-                        Set.Connect(thisHandle, (OutputPortID) SimulationPorts.ParameterOut, motionNode, blendtree.ParameterInputPort);
-                    }
-                }
-
-                previousMixerAdd = mixerAddNode;
-            }
-
-            if(previousMixerAdd != default)
-            {
-                Set.Connect(previousMixerAdd, MixerAddNode.KernelPorts.SumWeightOutput, nodeData.MixerEnd, MixerEndNode.KernelPorts.SumWeight);
-                Set.Connect(previousMixerAdd, MixerAddNode.KernelPorts.Output, nodeData.MixerEnd, MixerEndNode.KernelPorts.Input);
+                Set.Connect(nodeData.ComputeBlendTree2DWeightsNode, ComputeBlendTree2DWeightsNode.KernelPorts.Weights, bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Input);
+                Set.Connect(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Output, nodeData.NMixerNode, NMixerNode.KernelPorts.Weights, i);
+                Set.SetData(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Index, i);
             }
 
             // Forward rig definition to all children.
-            EmitMessage(ctx.Handle, SimulationPorts.RigDefinitionOut, nodeData.RigDefinition);
-
-            ApplyWeights(ref nodeData);
+            ctx.EmitMessage(SimulationPorts.RigOut, new Rig { Value = nodeData.RigDefinition });
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigDefinition)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
-            nodeData.RigDefinition = rigDefinition;
+            nodeData.RigDefinition = rig;
             // Forward rig definition to all children
-            EmitMessage(ctx.Handle, SimulationPorts.RigDefinitionOut, rigDefinition);
+            ctx.EmitMessage(SimulationPorts.RigOut, rig);
         }
-
-        public void HandleMessage(in MessageContext ctx, in Parameter msg)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-            if(nodeData.BlendParameterX.Id == msg.Id && nodeData.BlendParameterX.Value != msg.Value)
-            {
-                nodeData.BlendParameterX.Value = msg.Value;
-                ApplyWeights(ref nodeData);
-            }
-            else if(nodeData.BlendParameterY.Id == msg.Id && nodeData.BlendParameterY.Value != msg.Value)
-            {
-                nodeData.BlendParameterY.Value = msg.Value;
-                ApplyWeights(ref nodeData);
-            }
-
-            // Forward parameter msg to all children. Child of type blend tree need to get this msg
-            EmitMessage(ctx.Handle, SimulationPorts.ParameterOut, msg);
-        }
-
-        public OutputPortID AnimationStreamOutputPort =>
-            (OutputPortID) KernelPorts.Output;
-
-        public float GetDuration(NodeHandle handle) =>
-            GetNodeData(handle).Duration;
-
-        public InputPortID NormalizedTimeInputPort =>
-            (InputPortID) KernelPorts.NormalizedTime;
-
-        public InputPortID RigDefinitionInputPort =>
-            (InputPortID) SimulationPorts.RigDefinition;
-
-        public InputPortID ParameterInputPort =>
-            (InputPortID) SimulationPorts.Parameter;
-
-        public OutputPortID RigDefinitionOutputPort =>
-            (OutputPortID)SimulationPorts.RigDefinitionOut;
-
-        public OutputPortID ParameterOutputPort =>
-            (OutputPortID) SimulationPorts.RigDefinitionOut;
 
         // Needed for test purpose to inspect internal node
         internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
+
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

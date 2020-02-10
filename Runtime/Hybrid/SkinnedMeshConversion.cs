@@ -13,7 +13,7 @@ namespace Unity.Animation.Hybrid
             {
                 var entity = GetPrimaryEntity(meshRenderer.SkinnedMeshRenderer);
                 Entity rigEntity = GetPrimaryEntity(meshRenderer.Rig);
-                var animatedSkinMatricesArray = DstEntityManager.AddBuffer<AnimatedLocalToRig>(rigEntity);
+                var animatedSkinMatricesArray = DstEntityManager.AddBuffer<AnimatedLocalToRoot>(rigEntity);
                 animatedSkinMatricesArray.ResizeUninitialized(meshRenderer.Rig.Bones.Length);
 
                 DstEntityManager.AddComponentData(entity, new SkinnedMeshRigEntity { Value = rigEntity });

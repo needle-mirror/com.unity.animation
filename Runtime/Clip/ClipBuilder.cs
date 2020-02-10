@@ -2,8 +2,9 @@ using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
+#if UNITY_EDITOR
 using UnityEditor;
-
+#endif
 namespace Unity.Animation
 {
     public static class ClipBuilder
@@ -22,6 +23,7 @@ namespace Unity.Animation
             var floatBindings = new List<EditorCurveBinding>();
             var intBindings = new List<EditorCurveBinding>();
 
+            // TODO : Account for missing T, R, S curves
             foreach (var binding in srcBindings)
             {
                 if (binding.propertyName == "m_LocalPosition.x")
@@ -40,6 +42,10 @@ namespace Unity.Animation
                 {
                     floatBindings.Add(binding);
                 }
+                else if(binding.isDiscreteCurve || binding.type == typeof(UnityEngine.Animation))
+                {
+                    intBindings.Add(binding);
+                }
             }
 
             var blobBuilder = new BlobBuilder(Allocator.Temp);
@@ -52,6 +58,8 @@ namespace Unity.Animation
 
             blobBuilder.Dispose();
 
+            outputClip.Value.m_HashCode = (int)HashUtils.ComputeHash(ref outputClip);
+
             return outputClip;
         }
 
@@ -60,13 +68,13 @@ namespace Unity.Animation
             IReadOnlyList<EditorCurveBinding> floatBindings, IReadOnlyList<EditorCurveBinding> intBindings,
             ref BlobBuilder blobBuilder, ref Clip clip)
         {
-            ref var bindings = ref clip.Bindings;
+            clip.Bindings = clip.CreateBindingSet(translationBindings.Count, rotationBindings.Count, scaleBindings.Count, floatBindings.Count, intBindings.Count);
 
-            FillBlobTransformBindingBuffer(translationBindings, ref blobBuilder, ref bindings.TranslationBindings);
-            FillBlobTransformBindingBuffer(rotationBindings, ref blobBuilder, ref bindings.RotationBindings);
-            FillBlobTransformBindingBuffer(scaleBindings, ref blobBuilder, ref bindings.ScaleBindings);
-            FillBlobBindingBuffer(floatBindings, ref blobBuilder, ref bindings.FloatBindings);
-            FillBlobBindingBuffer(intBindings, ref blobBuilder, ref bindings.IntBindings);
+            FillBlobTransformBindingBuffer(translationBindings, ref blobBuilder, ref clip.Bindings.TranslationBindings);
+            FillBlobTransformBindingBuffer(rotationBindings, ref blobBuilder, ref clip.Bindings.RotationBindings);
+            FillBlobTransformBindingBuffer(scaleBindings, ref blobBuilder, ref clip.Bindings.ScaleBindings);
+            FillBlobBindingBuffer(floatBindings, ref blobBuilder, ref clip.Bindings.FloatBindings);
+            FillBlobBindingBuffer(intBindings, ref blobBuilder, ref clip.Bindings.IntBindings);
         }
 
         private static void FillBlobTransformBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer)
@@ -97,42 +105,34 @@ namespace Unity.Animation
             clip.Duration = sourceClip.length;
             clip.SampleRate = sourceClip.frameRate;
 
-            var curveCount =
-                translationBindings.Count * BindingSet.TranslationKeyFloatCount +
-                rotationBindings.Count * BindingSet.RotationKeyFloatCount +
-                scaleBindings.Count * BindingSet.ScaleKeyFloatCount +
-                floatBindings.Count * BindingSet.FloatKeyFloatCount +
-                intBindings.Count * BindingSet.IntKeyFloatCount;
-
-            var sampleCount = curveCount * (clip.FrameCount + 1);
+            var sampleCount = clip.Bindings.CurveCount * (clip.FrameCount + 1);
             if (sampleCount > 0)
             {
                 var arrayBuilder = blobBuilder.Allocate(ref clip.Samples, sampleCount);
 
                 // Translation curves
-                var curveIndex = 0;
                 for (var i = 0; i != translationBindings.Count; ++i)
-                    curveIndex = AddVector3Curve(ref clip, ref arrayBuilder, sourceClip, translationBindings[i], "m_LocalPosition", curveIndex, curveCount);
-
-                // Rotation curves
-                for (var i = 0; i != rotationBindings.Count; ++i)
-                    curveIndex = AddQuaternionCurve(ref clip, ref arrayBuilder, sourceClip, rotationBindings[i], "m_LocalRotation", curveIndex, curveCount);
+                    AddVector3Curve(ref clip, ref arrayBuilder, sourceClip, translationBindings[i], "m_LocalPosition", clip.Bindings.TranslationSamplesOffset + i * BindingSet.TranslationKeyFloatCount, clip.Bindings.CurveCount);
 
                 // Scale curves
                 for (var i = 0; i != scaleBindings.Count; ++i)
-                    curveIndex = AddVector3Curve(ref clip, ref arrayBuilder, sourceClip, scaleBindings[i], "m_LocalScale", curveIndex, curveCount);
+                    AddVector3Curve(ref clip, ref arrayBuilder, sourceClip, scaleBindings[i], "m_LocalScale", clip.Bindings.ScaleSamplesOffset + i * BindingSet.ScaleKeyFloatCount, clip.Bindings.CurveCount);
 
                 // Float curves
                 for (var i = 0; i != floatBindings.Count; ++i)
-                    curveIndex = AddFloatCurve(ref clip, ref arrayBuilder, sourceClip, floatBindings[i], curveIndex, curveCount);
+                    AddFloatCurve(ref clip, ref arrayBuilder, sourceClip, floatBindings[i], clip.Bindings.FloatSamplesOffset + i * BindingSet.FloatKeyFloatCount, clip.Bindings.CurveCount);
 
                 // Int curves
                 for (var i = 0; i != intBindings.Count; ++i)
-                    curveIndex = AddFloatCurve(ref clip, ref arrayBuilder, sourceClip, intBindings[i], curveIndex, curveCount);
+                    AddFloatCurve(ref clip, ref arrayBuilder, sourceClip, intBindings[i], clip.Bindings.IntSamplesOffset + i * BindingSet.IntKeyFloatCount, clip.Bindings.CurveCount);
+
+                // Rotation curves
+                for (var i = 0; i != rotationBindings.Count; ++i)
+                    AddQuaternionCurve(ref clip, ref arrayBuilder, sourceClip, rotationBindings[i], "m_LocalRotation", clip.Bindings.RotationSamplesOffset + i * BindingSet.RotationKeyFloatCount, clip.Bindings.CurveCount);
             }
         }
 
-        private static int AddVector3Curve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
+        private static void AddVector3Curve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
             string property, int curveIndex, in int curveCount)
         {
             binding.propertyName = property + ".x";
@@ -143,11 +143,9 @@ namespace Unity.Animation
 
             binding.propertyName = property + ".z";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
-
-            return curveIndex;
         }
 
-        private static int AddQuaternionCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
+        private static void AddQuaternionCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
             string property, int curveIndex, in int curveCount)
         {
             binding.propertyName = property + ".x";
@@ -158,18 +156,15 @@ namespace Unity.Animation
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
             binding.propertyName = property + ".w";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
-
-            return curveIndex;
         }
 
-        private static int AddFloatCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
+        private static void AddFloatCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
             int curveIndex, in int curveCount)
         {
-            ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
-            return curveIndex;
+            ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex, curveCount);
         }
 
-        private static void ConvertCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationCurve curve, int curveIndex, in int curveCount)
+        private static void ConvertCurve(ref Clip clip, ref BlobBuilderArray<float> samples, UnityEngine.AnimationCurve curve, int curveIndex, in int curveCount)
         {
             var lastValue = 0.0f;
 
@@ -186,8 +181,7 @@ namespace Unity.Animation
         }
 
 #else
-        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip,
-            string skeletonRootPath, string rootMotionPath)
+        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip)
         {
             return new BlobAssetReference<Clip>();
         }

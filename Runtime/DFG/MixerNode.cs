@@ -1,28 +1,36 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(category:"Animation Core/Mixers", description:"Blends two animation streams given an input weight value")]
     public class MixerNode
         : NodeDefinition<MixerNode.Data, MixerNode.SimPorts, MixerNode.KernelData, MixerNode.KernelDefs, MixerNode.Kernel>
-        , IMsgHandler<BlobAssetReference<RigDefinition>>
-        , IMsgHandler<float>
+        , IMsgHandler<Rig>
+        , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<MixerNode, BlobAssetReference<RigDefinition>> RigDefinition;
-            public MessageInput<MixerNode, float> Blend;
+            [PortDefinition(isHidden:true)]
+            public MessageInput<MixerNode, Rig> Rig;
         }
 
         static readonly ProfilerMarker k_ProfileMixPose = new ProfilerMarker("Animation.MixPose");
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            public DataInput<MixerNode, Buffer<float>> Input0;
-            public DataInput<MixerNode, Buffer<float>> Input1;
-            public DataOutput<MixerNode, Buffer<float>> Output;
+            [PortDefinition(description:"Input stream 0")]
+            public DataInput<MixerNode, Buffer<AnimatedData>> Input0;
+            [PortDefinition(description:"Input stream 1")]
+            public DataInput<MixerNode, Buffer<AnimatedData>> Input1;
+            [PortDefinition(description:"Blend weight")]
+            public DataInput<MixerNode, float> Weight;
+
+            [PortDefinition(description:"Resulting stream")]
+            public DataOutput<MixerNode, Buffer<AnimatedData>> Output;
         }
 
         public struct Data : INodeData
@@ -34,9 +42,6 @@ namespace Unity.Animation
             // Assets.
             public BlobAssetReference<RigDefinition> RigDefinition;
             public ProfilerMarker ProfileMixPose;
-
-            // Instance data.
-            public float Blend;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -44,12 +49,14 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-                var outputStream = AnimationStreamProvider.Create(data.RigDefinition, context.Resolve(ref ports.Output));
+                var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
                 if (outputStream.IsNull)
                     throw new System.InvalidOperationException($"MixerNode Output is invalid.");
 
-                var inputStream1 = AnimationStreamProvider.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input0));
-                var inputStream2 = AnimationStreamProvider.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input1));
+                var inputStream1 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input0));
+                var inputStream2 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input1));
+
+                var weight = context.Resolve(in ports.Weight);
 
                 data.ProfileMixPose.Begin();
 
@@ -58,35 +65,37 @@ namespace Unity.Animation
                 else if (inputStream1.IsNull && !inputStream2.IsNull)
                 {
                     AnimationStreamUtils.SetDefaultValues(ref outputStream);
-                    Core.Blend(ref outputStream, ref outputStream, ref inputStream2, data.Blend);
+                    Core.Blend(ref outputStream, ref outputStream, ref inputStream2, weight);
                 }
                 else if (!inputStream1.IsNull && inputStream2.IsNull)
                 {
                     AnimationStreamUtils.SetDefaultValues(ref outputStream);
-                    Core.Blend(ref outputStream, ref inputStream1, ref outputStream, data.Blend);
+                    Core.Blend(ref outputStream, ref inputStream1, ref outputStream, weight);
                 }
                 else
-                    Core.Blend(ref outputStream, ref inputStream1, ref inputStream2, data.Blend);
+                    Core.Blend(ref outputStream, ref inputStream1, ref inputStream2, weight);
 
                 data.ProfileMixPose.End();
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMixPose = k_ProfileMixPose;
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigBindings)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
-            GetKernelData(ctx.Handle).RigDefinition = rigBindings;
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<float>.SizeRequest(rigBindings.Value.Bindings.CurveCount));
+            GetKernelData(ctx.Handle).RigDefinition = rig.Value;
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
         }
 
-        public void HandleMessage(in MessageContext ctx, in float msg)
-        {
-            GetKernelData(ctx.Handle).Blend = msg;
-        }
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+            (InputPortID)SimulationPorts.Rig;
     }
 }

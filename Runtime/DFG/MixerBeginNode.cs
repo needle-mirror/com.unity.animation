@@ -1,25 +1,30 @@
 using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
+using Unity.DataFlowGraph.Attributes;
 using Unity.Profiling;
+
+using System;
 
 namespace Unity.Animation
 {
+    [NodeDefinition(isHidden:true)]
+    [Obsolete("MixerBeginNode is obsolete, use NMixerNode instead (RemovedAfter 2020-02-18)", false)]
     public class MixerBeginNode
         : NodeDefinition<MixerBeginNode.Data, MixerBeginNode.SimPorts, MixerBeginNode.KernelData, MixerBeginNode.KernelDefs, MixerBeginNode.Kernel>
-        , IMsgHandler<BlobAssetReference<RigDefinition>>
+        , IMsgHandler<Rig>
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            public MessageInput<MixerBeginNode, BlobAssetReference<RigDefinition>> RigDefinition;
+            public MessageInput<MixerBeginNode, Rig> Rig;
         }
 
         static readonly ProfilerMarker k_ProfileMixerBegin = new ProfilerMarker("Animation.MixerBegin");
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            public DataOutput<MixerBeginNode, Buffer<float>> Output;
-            public DataOutput<MixerBeginNode, float>         SumWeight;
+            public DataOutput<MixerBeginNode, Buffer<AnimatedData>> Output;
+            public DataOutput<MixerBeginNode, float>                SumWeight;
         }
 
         public struct Data : INodeData
@@ -38,7 +43,7 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-                var outputStream = AnimationStreamProvider.Create(data.RigDefinition, context.Resolve(ref ports.Output));
+                var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
                 if (outputStream.IsNull)
                     throw new System.InvalidOperationException($"MixerBeginNode Output is invalid.");
 
@@ -52,16 +57,20 @@ namespace Unity.Animation
             }
         }
 
-        public override void Init(InitContext ctx)
+        protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMixerBegin = k_ProfileMixerBegin;
         }
 
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigDefinition> rigBindings)
+        public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
-            GetKernelData(ctx.Handle).RigDefinition = rigBindings;
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<float>.SizeRequest(rigBindings.Value.Bindings.CurveCount));
+            GetKernelData(ctx.Handle).RigDefinition = rig;
+            Set.SetBufferSize(
+                ctx.Handle,
+                (OutputPortID)KernelPorts.Output,
+                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
         }
     }
 }
