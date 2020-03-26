@@ -4,6 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using UnityEngine;
+using System;
 
 namespace Unity.Animation.Tests
 {
@@ -92,6 +93,12 @@ namespace Unity.Animation.Tests
         protected PreAnimationGraphSystem m_AnimationGraphSystem;
         protected NodeSet Set => m_AnimationGraphSystem.Set;
 
+        protected PreAnimationGraphSystem m_PreAnimationGraph;
+        protected PostAnimationGraphSystem m_PostAnimationGraph;
+
+        protected NodeSet PreSet => m_PreAnimationGraph.Set;
+        protected NodeSet PostSet => m_PostAnimationGraph.Set;
+
         private interface IDisposableGraphValue
         {
             void Dispose(NodeSet set);
@@ -108,8 +115,8 @@ namespace Unity.Animation.Tests
             }
         }
 
-        List<NodeHandle> m_Nodes;
-        List<IDisposableGraphValue> m_GraphValues;
+        List<Tuple<NodeHandle, NodeSet>> m_Nodes;
+        List<Tuple<IDisposableGraphValue, NodeSet>> m_GraphValues;
 
         public AnimationTestsFixture()
         {
@@ -122,8 +129,8 @@ namespace Unity.Animation.Tests
         [OneTimeSetUp]
         protected virtual void OneTimeSetUp()
         {
-            m_Nodes = new List<NodeHandle>(200);
-            m_GraphValues = new List<IDisposableGraphValue>(200);
+            m_Nodes = new List<Tuple<NodeHandle, NodeSet>>(200);
+            m_GraphValues = new List<Tuple<IDisposableGraphValue, NodeSet>>(200);
         }
 
         [OneTimeTearDown]
@@ -142,6 +149,12 @@ namespace Unity.Animation.Tests
 
             m_AnimationGraphSystem = World.GetOrCreateSystem<PreAnimationGraphSystem>();
             m_AnimationGraphSystem.AddRef();
+
+            m_PreAnimationGraph = World.GetOrCreateSystem<PreAnimationGraphSystem>();
+            m_PreAnimationGraph.AddRef();
+
+            m_PostAnimationGraph = World.GetOrCreateSystem<PostAnimationGraphSystem>();
+            m_PostAnimationGraph.AddRef();
         }
 
         [TearDown]
@@ -149,6 +162,8 @@ namespace Unity.Animation.Tests
         {
             DestroyNodesAndGraphBuffers();
             m_AnimationGraphSystem.RemoveRef();
+            m_PreAnimationGraph.RemoveRef();
+            m_PostAnimationGraph.RemoveRef();
 
             if (m_Manager != null)
             {
@@ -172,15 +187,26 @@ namespace Unity.Animation.Tests
         protected NodeHandle<T> CreateNode<T>()
             where T : NodeDefinition, new()
         {
-            var node = Set.Create<T>();
-            m_Nodes.Add(node);
+            return CreateNode<T>(Set);
+        }
+
+        protected NodeHandle<T> CreateNode<T>(NodeSet set)
+            where T : NodeDefinition, new()
+        {
+            var node = set.Create<T>();
+            m_Nodes.Add(Tuple.Create((NodeHandle)node, set));
             return node;
         }
 
         protected NodeHandle<ComponentNode> CreateComponentNode(Entity entity)
         {
-            var node = Set.CreateComponentNode(entity);
-            m_Nodes.Add(node);
+            return CreateComponentNode(entity, Set);
+        }
+
+        protected NodeHandle<ComponentNode> CreateComponentNode(Entity entity, NodeSet set)
+        {
+            var node = set.CreateComponentNode(entity);
+            m_Nodes.Add(Tuple.Create((NodeHandle)node, set));
             return node;
         }
 
@@ -188,19 +214,26 @@ namespace Unity.Animation.Tests
             where TDefinition : NodeDefinition
             where TData : struct
         {
-            var gv = new DisposableGraphValue<TData> { Value = Set.CreateGraphValue(node, output) };
-            m_GraphValues.Add(gv);
+            return CreateGraphValue(node, output, Set);
+        }
+
+        protected GraphValue<TData> CreateGraphValue<TData, TDefinition>(NodeHandle<TDefinition> node, DataOutput<TDefinition, TData> output, NodeSet set)
+            where TDefinition : NodeDefinition
+            where TData : struct
+        {
+            var gv = new DisposableGraphValue<TData> { Value = set.CreateGraphValue(node, output) };
+            m_GraphValues.Add(Tuple.Create((IDisposableGraphValue)gv, set));
             return gv.Value;
         }
 
         protected void DestroyNodesAndGraphBuffers()
         {
             for (var i = 0; i < m_Nodes.Count; ++i)
-                Set.Destroy(m_Nodes[i]);
+                m_Nodes[i].Item2.Destroy(m_Nodes[i].Item1);
             m_Nodes.Clear();
 
             for (var i = 0; i < m_GraphValues.Count; ++i)
-                m_GraphValues[i].Dispose(Set);
+                m_GraphValues[i].Item1.Dispose(m_GraphValues[i].Item2);
             m_GraphValues.Clear();
         }
 

@@ -30,7 +30,6 @@ namespace Unity.Animation
     [NodeDefinition(category:"Animation Core", description:"Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden:true)]
     public class UberClipNode
         : NodeDefinition<UberClipNode.Data, UberClipNode.SimPorts, UberClipNode.KernelData, UberClipNode.KernelDefs, UberClipNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<BlobAssetReference<Clip>>
         , IMsgHandler<ClipConfiguration>
         , IMsgHandler<bool>

@@ -3,23 +3,27 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Mathematics;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Utils", description:"Gets the local to parent information of a bone in the AnimationStream")]
     public class GetAnimationStreamLocalToParentNode
         : NodeDefinition<GetAnimationStreamLocalToParentNode.Data, GetAnimationStreamLocalToParentNode.SimPorts, GetAnimationStreamLocalToParentNode.KernelData, GetAnimationStreamLocalToParentNode.KernelDefs, GetAnimationStreamLocalToParentNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.GetAnimationStreamLocalToParentNode");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(isHidden:true)]
             public MessageInput<GetAnimationStreamLocalToParentNode, Rig> Rig;
         }
-
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.GetAnimationStreamLocalToParentNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -44,9 +48,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilerMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -58,7 +63,9 @@ namespace Unity.Animation
                 if (stream.IsNull)
                     throw new System.InvalidOperationException($"GetAnimationStreamLocalToParentNode input is invalid.");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.Begin();
+#endif
 
                 stream.GetLocalToParentTRS(context.Resolve(ports.Index), out float3 translation, out quaternion rotation, out float3 scale);
                 context.Resolve(ref ports.Translation) = translation;
@@ -66,15 +73,19 @@ namespace Unity.Animation
                 context.Resolve(ref ports.Scale) = scale;
                 context.Resolve(ref ports.Transform) = float4x4.TRS(translation, rotation, scale);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilerMarker = k_ProfilerMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -88,9 +99,12 @@ namespace Unity.Animation
     [NodeDefinition(category: "Animation Core/Utils", description: "Sets the local to parent information of a bone in the AnimationStream")]
     public class SetAnimationStreamLocalToParentNode
         : NodeDefinition<SetAnimationStreamLocalToParentNode.Data, SetAnimationStreamLocalToParentNode.SimPorts, SetAnimationStreamLocalToParentNode.KernelData, SetAnimationStreamLocalToParentNode.KernelDefs, SetAnimationStreamLocalToParentNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.SetAnimationStreamLocalToParentNode");
+#endif
+
         public enum SetFromMode : uint
         {
             Translation              = 1 << 0,
@@ -107,8 +121,6 @@ namespace Unity.Animation
             [PortDefinition(isHidden:true)]
             public MessageInput<SetAnimationStreamLocalToParentNode, Rig> Rig;
         }
-
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.SetAnimationStreamLocalToParentNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -136,9 +148,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilerMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -151,7 +164,9 @@ namespace Unity.Animation
                 if (input.Length != output.Length)
                     throw new System.InvalidOperationException($"SetAnimationStreamLocalToParentNode: Input Length '{input.Length}' does not match Output Length '{output.Length}'");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.Begin();
+#endif
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
@@ -175,14 +190,18 @@ namespace Unity.Animation
                         stream.SetLocalToParentScale(index, context.Resolve(ports.Scale));
                 }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();
+#endif
             }
         }
 
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             kData.ProfilerMarker = k_ProfilerMarker;
+#endif
 
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Rotation, quaternion.identity);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Scale, mathex.one());

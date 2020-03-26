@@ -3,17 +3,21 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Root Motion", description:"Computes and sets the total root motion offset amount based on the number of cycles for a given clip. This node is internally used by the UberClipNode.")]
     public class CycleRootMotionNode
         : NodeDefinition<CycleRootMotionNode.Data, CycleRootMotionNode.SimPorts, CycleRootMotionNode.KernelData, CycleRootMotionNode.KernelDefs, CycleRootMotionNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.CycleRootMotionNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -42,9 +46,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public BlobAssetReference<RigDefinition> RigDefinition;
-
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -55,7 +60,9 @@ namespace Unity.Animation
                 if (data.RigDefinition == default)
                     return;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 // Fill the destination stream with default values.
                 var startStream = AnimationStream.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Start));
@@ -73,15 +80,19 @@ namespace Unity.Animation
                 outputStream.SetLocalToParentRotation(0, cycleX.rot);
                 outputStream.SetLocalToParentTranslation(0, cycleX.pos);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -95,7 +106,7 @@ namespace Unity.Animation
                 );
         }
 
-        public static RigidTransform GetCycleX(RigidTransform x, RigidTransform startX, RigidTransform stopX, int cycle)
+        static RigidTransform GetCycleX(RigidTransform x, RigidTransform startX, RigidTransform stopX, int cycle)
         {
             if (cycle == 0)
             {

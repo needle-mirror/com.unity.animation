@@ -4,6 +4,21 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Animation
 {
+    // TODO: Move this block of code to Unity.Animation.Hybrid namespace when
+    //       ClipBuilder moves to this assembly as well
+    public delegate uint BindingHashDelegate(string path);
+
+    public static class BindingHashUtils
+    {
+        public static BindingHashDelegate DefaultBindingHash = HashFullPath;
+
+        public static uint HashFullPath(string path) =>
+            StringHash.Hash(path);
+
+        public static uint HashName(string path) =>
+            StringHash.Hash(System.IO.Path.GetFileName(path));
+    }
+
     internal static class HashUtils
     {
         internal static unsafe uint ComputeHash<T>(ref BlobArray<T> array, uint seed = 0)

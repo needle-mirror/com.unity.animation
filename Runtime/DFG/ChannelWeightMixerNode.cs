@@ -2,23 +2,27 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Mixers", description:"Blends two animation streams given per channel weight values. Weight masks can be built using the WeightBuilderNode.")]
     public class ChannelWeightMixerNode
         : NodeDefinition<ChannelWeightMixerNode.Data, ChannelWeightMixerNode.SimPorts, ChannelWeightMixerNode.KernelData, ChannelWeightMixerNode.KernelDefs, ChannelWeightMixerNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.ChannelWeightMixerNode");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(isHidden:true)]
             public MessageInput<ChannelWeightMixerNode, Rig> Rig;
         }
-
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.ChannelWeightMixerNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -41,8 +45,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -57,7 +63,9 @@ namespace Unity.Animation
                 var inputStream0 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input0));
                 var inputStream1 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input1));
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 var weight = context.Resolve(ports.Weight);
                 var weightMasks = context.Resolve(ports.WeightMasks);
@@ -80,15 +88,19 @@ namespace Unity.Animation
                 else
                     Core.Blend(ref outputStream, ref inputStream0, ref inputStream1, weight, weightMasks);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

@@ -4,15 +4,22 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Profiling;
 
 using UnityEngine;
 using UnityEngine.Assertions;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     public abstract class BoneRendererRenderingSystemBase : ComponentSystem
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_Marker = new ProfilerMarker("BoneRendererRenderingSystemBase");
+#endif
+
         EntityQuery m_Query;
 
         const int kMaxDrawMeshInstanceCount = 1023;
@@ -21,8 +28,6 @@ namespace Unity.Animation
         int m_ColorPropertyID;
         BoneRendererUtils.BoneShape[] m_BoneShapes;
         MaterialPropertyBlock m_PropertyBlock;
-
-        static readonly ProfilerMarker k_Marker = new ProfilerMarker("BoneRendererRenderingSystemBase");
 
         protected override unsafe void OnCreate()
         {
@@ -44,7 +49,9 @@ namespace Unity.Animation
 
         protected override unsafe void OnUpdate()
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.Begin();
+#endif
 
             var boneWireMaterial = BoneRendererUtils.GetBoneWireMaterial();
             var boneFaceMaterial = BoneRendererUtils.GetBoneFaceMaterial();
@@ -129,7 +136,9 @@ namespace Unity.Animation
                 chunks.Dispose();
             }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.End();
+#endif
         }
     }
 }

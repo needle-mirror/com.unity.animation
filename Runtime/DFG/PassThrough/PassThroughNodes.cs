@@ -1,7 +1,10 @@
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
-using Unity.Profiling;
 using Unity.Burst;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -42,7 +45,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilePassThrough;
+#endif
         }
     }
 
@@ -50,24 +55,34 @@ namespace Unity.Animation
     [NodeDefinition(isHidden:true)]
     public class KernelPassThroughNodeFloat : KernelPassThroughNode<KernelPassThroughNodeFloat, float, KernelPassThroughNodeFloat.Kernel>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileKernelPassThrough = new ProfilerMarker("Animation.KernelPassThrough");
+#endif
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilePassThrough.Begin();
+#endif
+
                 context.Resolve(ref ports.Output) = context.Resolve(ports.Input);
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilePassThrough.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilePassThrough = k_ProfileKernelPassThrough;
         }
+#endif
     }
 
     [NodeDefinition(isHidden:true)]
@@ -95,7 +110,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilePassThrough;
+#endif
         }
 
         public void HandleMessage(in MessageContext ctx, in  int msg)
@@ -109,23 +126,32 @@ namespace Unity.Animation
     [NodeDefinition(isHidden:true)]
     public class KernelPassThroughNodeBufferFloat : KernelPassThroughNodeBuffer<KernelPassThroughNodeBufferFloat, AnimatedData, KernelPassThroughNodeBufferFloat.Kernel>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileKernelPassThroughBuffer = new ProfilerMarker("Animation.KernelPassThroughBuffer");
+#endif
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilePassThrough.Begin();
+#endif
                 context.Resolve(ref ports.Output).CopyFrom(context.Resolve(ports.Input));
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilePassThrough.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilePassThrough = k_ProfileKernelPassThroughBuffer;
         }
+#endif
     }
 }

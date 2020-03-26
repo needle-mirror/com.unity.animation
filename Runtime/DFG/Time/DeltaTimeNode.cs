@@ -1,8 +1,11 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
-using Unity.Profiling;
 using UnityEngine;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -10,11 +13,13 @@ namespace Unity.Animation
     public class DeltaTimeNode
         : NodeDefinition<DeltaTimeNode.Data, DeltaTimeNode.SimPorts, DeltaTimeNode.KernelData, DeltaTimeNode.KernelDefs, DeltaTimeNode.Kernel>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfileDeltaTime = new ProfilerMarker("Animation.DeltaTime");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
         }
-
-        static readonly ProfilerMarker k_ProfileDeltaTime = new ProfilerMarker("Animation.DeltaTime");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -28,10 +33,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileDeltaTime;
-
-            // Instance data.
+#endif
             public float DeltaTime;
         }
 
@@ -40,19 +44,25 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileDeltaTime.Begin();
+#endif
 
                 context.Resolve(ref ports.DeltaTime) = data.DeltaTime;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileDeltaTime.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileDeltaTime = k_ProfileDeltaTime;
         }
+#endif
 
         protected override void OnUpdate(in UpdateContext ctx)
         {

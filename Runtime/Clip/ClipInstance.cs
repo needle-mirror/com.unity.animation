@@ -130,7 +130,9 @@ namespace Unity.Animation
                 // Find binding in clip bindings.
                 var binding = instanceBindings[i];
                 var clipBindingIndex = Core.FindBindingIndex(ref sourceClipBindings, binding);
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                 Assert.IsTrue(clipBindingIndex != -1);
+#endif
 
                 // Copy all the curves for this binding to the clip instance.
                 var clipCurveIndex = sourceClipCurveOffset + clipBindingIndex * keyFloatCount;

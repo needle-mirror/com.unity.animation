@@ -96,7 +96,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             Set.Connect(clipNode, ClipNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             var data = new TestData { Entity = entity, Buffer = CreateGraphValue(clipNode, ClipNode.KernelPorts.Output) };
 

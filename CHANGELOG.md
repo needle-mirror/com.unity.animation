@@ -5,6 +5,78 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.3.0-preview.9] - 2020-03-26
+
+### Added
+- Added `SkinnedMeshRendererConversion` system that automatically convert any `SkinnedMeshRenderer` component if a `RigComponent` exists on this GameObject or on any of his parents up to the root GameObject.
+- Added `NotSupportedTransformHandle` for animation systems that do not support reading from or writing to exposed transforms like the default `PreAnimationGraphSystem`
+- Added a `BindingHashDelegate` to override hashing strategy of bindings when converting clips and rig definitions. Notably the following functions have changed signature:
+    - `Unity.Animation.ClipBuilder.AnimationClipToDenseClip(AnimationClip sourceClip, BindingHashDelegate bindingHash = null)`
+    - `Unity.Animation.Hybrid.RigGenerator.ExtractSkeletonNodesFromTransforms(Transform root, Transform[] transforms, BindingHashDelegate bindingHash = null)`
+    - `Unity.Animation.Hybrid.RigGenerator.ExtractSkeletonNodesFromGameObject(GameObject root, BindingHashDelegate bindingHash = null)`
+    - `Unity.Animation.Hybrid.RigGenerator.ExtractSkeletonNodesFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)`
+    - `Unity.Animation.Hybrid.RigGenerator.ExtractAnimationChannelFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)`
+    - When no `BindingHashDelegate` is specified, the `Unity.Animation.BindingHashUtils.DefaultBindingHash` is used. The `Unity.Animation.BindingHashUtils.DefaultBindingHash` defaults to `Unity.Animation.BindingHashUtils.HashFullPath`. If your pipeline wants to create bindings based on names rather than the full path, `Unity.Animation.BindingHashUtils.HashName` could be employed.
+- Added support for LocalToRoot space remapping and two new helpers to streamline the process of creating a `RigRemapTable`:
+    - `Unity.Animation.RigRemapUtils.CreateRemapTable(BlobAssetReference<RigDefinition> src, BlobAssetReference<RigDefinition> dst, OffsetOverrides offsetOverides = null)`: Given a source and destination `RigDefinition` this function creates a remap table based on matching bindings. By default all matches are mapped in LocalToParent space but this can be overriden using the `Unity.Animation.RigRemapUtils.OffsetOverrides`.
+    - `Unity.Animation.Hybrid.RigRemapUtils.CreateRemapTable(RigComponent src, RigComponent dst, OffsetOverrides offsetOverrides = null, BindingHashDelegate bindingHash = null)`: Given a source and destination `RigComponent` this function creates a remap table based on matching ids. A `BindingHashDelegate` can be specified in order to match using either the transform path [`BindingHashUtils.HashFullPath`], the transform name [`BindingHashUtils.HashName`] or a custom delegate. When no binding hash deletegate is specified, the system wide `BindingHashUtils.DefaultBindingHash` is used. By default, LocalToParent mapping is performed, however `Unity.Animation.RigRemapUtils.OffsetOverrides` can be specified to remap in LocalToRoot space and/or add translation/rotation offsets.
+    - Note that remapping in LocalToRoot space has a performance cost and should be used with care.
+    - LocalToRoot space in the `RigRemapTable` changes format. **All previous `RigRemapTable` BlobAssetReferences or usage of these in SubScenes need to be regenerated**.
+
+### Changed
+- Removed `PreAnimationGraphWriteTransformHandle` MonoBehaviour since default system definition does not support this operation.
+- Upgraded com.unity.dataflowgraph to 0.13.0-preview.2
+
+### Fixed
+- Undeprecated `RigComputeMatricesSystem`, it's still necessary for pipelines to have a well defined sync point in order for all rig buffers to be up-to-date.
+- Fixed AnimationSystemBase to be reactive to component data instead of previous `AnimationSystemOperation` flags. The `WriteTransformComponentJob` computes `AnimatedLocalToWorld` only for the required rig.
+- Fixed NullReferenceException when using Menu option `Animation/Rig/Setup Rig Transforms` for the first setup.
+
+### Deprecated
+- Deprecated `SkinnedMesh` and `SkinnedMeshConversion` system to reduce setup complexity. You no longer need to add the `SkinnedMesh` component on the same GameObject than your `SkinnedMeshRenderer` to convert it. see `SkinnedMeshRendererConversion`
+
+## [0.3.0-preview.8] - 2020-03-18
+
+### Added
+- Added scripting define symbols for package which can be added under `Project Settings/Player`
+    * `UNITY_DISABLE_ANIMATION_CHECKS`: disables all validation checks in animation functions
+    * `UNITY_DISABLE_ANIMATION_PROFILING`: disables all animation profiling markers
+- Added `public interface IReadTransformHandle : IBufferElementData` to allow users to define a read transform handle for custom animation systems.
+- Added `public interface IWriteTransformHandle : IBufferElementData` to allow users to define a write transform handle for custom animation systems.
+- Added `public struct AnimationTransformOverride : IComponentData` to allow the animation system to override the transform system. This component defines WriteGroups for `LocalToParent` and `LocalToWorld`. The animation system will add this component data on all exposed transform entities with write access.
+- Added `PostAnimationGraphReadTransformHandle`, `PostAnimationGraphWriteTransformHandle`, `PreAnimationGraphReadTransformHandle`, and `PreAnimationGraphWriteTransformHandle` MonoBehaviour. You need to use them on your GameObject transform hierarchy to define which transforms are exposed as read/write but also which animation graph should use this information to read from/write to entity transform components.
+- Added `RigEntityBuilder.AddReadTransformHandle<T>(EntityManager entityManager, Entity rig, Entity transform, int index) where T : struct, IReadTransformHandle` to add a new expose transform that you want to read from.
+- Added `RigEntityBuilder.AddWriteTransformHandle<T>(EntityManager entityManager, Entity rig, Entity transform, int index) where T : struct, IWriteTransformHandle` to add a new expose transform that you want to write to.
+
+### Changed
+- Deprecated `RigComputeMatricesSystem`. The system jobs are still executed but are now folded into `AnimationSystemBase`. They are scheduled only if the system needs to write back into transform entities or if the system has to update the skin matrices.
+- Removed deprecated `MixerBeginNode`, `MixerAddNode` and `MixerEndNode`.
+- Removed deprecated `IGraphOutput` and `AnimationGraphSystem`.
+- Removed cached `LimbLengths` in `TwoBoneIKConstraint` which streamlines setup and lets users modify bone lengths dynamically. No significant performance loss was detected.
+- `Core.MixerAdd` and `Core.MixerEnd` have changed function signatures to perform implace work on output stream directly:
+    - `MixerAdd(ref AnimationStream output, ref AnimationStream input, ref AnimationStream add, float weight, float sumWeight)` changed to `MixerAdd(ref AnimationStream output, ref AnimationStream add, float weight, float sumWeight)`
+    - `MixerEnd(ref AnimationStream output, ref AnimationStream input, ref AnimationStream defaultPose, float sumWeight)` changed to `MixerEnd(ref AnimationStream output, ref AnimationStream defaultPose, float sumWeight)`
+- Upgraded com.unity.jobs to 0.2.7-preview.11
+- Upgraded com.unity.rendering.hybrid to 0.4.0-preview.8
+- Upgraded com.unity.burst to 1.3.0-preview.7
+- Upgraded com.unity.entities to 0.8.0-preview.8
+- Upgraded com.unity.collections to 0.7.0-preview.2
+- Upgraded com.unity.dataflowgraph to 0.13.0-preview.1
+- Moved simulation ports to kernel ports:
+  * Changed LayerMixerNode.SimulationPorts.BlendingModes for LayerMixerNode.KernelPorts.BlendingModes
+- Renamed  `IGraphTag` to `IAnimationSystemTag`
+
+### Removed
+- Removed `PreAnimationGraphTag`. Instead the animation system tag is now defined in `PreAnimationGraphSystem`. You can use `PreAnimationGraphSystem.TagComponent` to retrieve the tag.
+- Removed `PostAnimationGraphTag`. Instead the animation system tag is now defined in `PostAnimationGraphSystem`. You can use `PostAnimationGraphSystem.TagComponent` to retrieve the tag.
+
+### Fixed
+- Fixed ComputeMatrixBuffer queries to include necessary `LocalToWorld` IComponentData to prevent errors from being thrown. Updated `RigEntityBuilder` creation functions to add the `LocalToWorld` IComponentData if it's not current on the entity.
+- Fixed race condition crash when deleting a LayerMixer caused by internal allocation jobs for kernel memory.
+
+### Know Issues
+- Global scale is unsupported while reading from Expose transform.
+
 ## [0.3.0-preview.7] - 2020-02-10
 
 ### Changed

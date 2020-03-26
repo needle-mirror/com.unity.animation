@@ -8,7 +8,6 @@ namespace Unity.Animation
    [NodeDefinition(category:"Animation Core", description:"Evaluates a clip based on the clip configuration mask", isHidden:true)]
    public class ConfigurableClipNode
         : NodeDefinition<ConfigurableClipNode.Data, ConfigurableClipNode.SimPorts, ConfigurableClipNode.KernelData, ConfigurableClipNode.KernelDefs, ConfigurableClipNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<BlobAssetReference<Clip>>
         , IMsgHandler<ClipConfiguration>
         , IMsgHandler<bool>

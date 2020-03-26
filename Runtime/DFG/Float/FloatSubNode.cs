@@ -1,7 +1,10 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -9,11 +12,13 @@ namespace Unity.Animation
     public class FloatSubNode
         : NodeDefinition<FloatSubNode.Data, FloatSubNode.SimPorts, FloatSubNode.KernelData, FloatSubNode.KernelDefs, FloatSubNode.Kernel>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfileFloatSub = new ProfilerMarker("Animation.FloatSub");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
         }
-
-        static readonly ProfilerMarker k_ProfileFloatSub = new ProfilerMarker("Animation.FloatSub");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -28,8 +33,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileFloatSub;
+#endif
         }
 
         [BurstCompile]
@@ -37,16 +43,23 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileFloatSub.Begin();
+#endif
                 context.Resolve(ref ports.Output) = context.Resolve(ports.InputA) - context.Resolve(ports.InputB);
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileFloatSub.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileFloatSub = k_ProfileFloatSub;
         }
+#endif
     }
 }

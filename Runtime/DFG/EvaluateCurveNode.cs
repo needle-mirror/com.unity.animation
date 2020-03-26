@@ -1,7 +1,10 @@
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
-using Unity.Profiling;
 using Unity.Burst;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -10,7 +13,9 @@ namespace Unity.Animation
         : NodeDefinition<EvaluateCurveNode.Data, EvaluateCurveNode.SimPorts, EvaluateCurveNode.KernelData, EvaluateCurveNode.KernelDefs, EvaluateCurveNode.Kernel>
         , IMsgHandler<AnimationCurve>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.EvaluateCurveNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -33,8 +38,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public AnimationCurve AnimationCurve;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
+            public AnimationCurve AnimationCurve;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -49,19 +56,25 @@ namespace Unity.Animation
 
                 var time = context.Resolve(ports.Time);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 output = AnimationCurveEvaluator.Evaluate(time, ref data.AnimationCurve);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in AnimationCurve curve)
         {

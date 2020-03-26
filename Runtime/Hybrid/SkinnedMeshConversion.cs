@@ -1,10 +1,14 @@
+using System;
+
 using Unity.Mathematics;
 using Unity.Entities;
 using Unity.Transforms;
 
 namespace Unity.Animation.Hybrid
 {
+    [Obsolete("SkinnedMeshConversion has been deprecated. (RemovedAfter 2020-06-24)")]
     [ConverterVersion("Unity.Animation.Hybrid.SkinnedMeshConversion", 1)]
+    [UpdateInGroup(typeof(GameObjectConversionGroup))]
     public class SkinnedMeshConversion : GameObjectConversionSystem
     {
         protected override void OnUpdate()

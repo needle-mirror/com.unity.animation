@@ -3,17 +3,21 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Root Motion", description:"Extracts root motion values from animation stream so these can be used for different operations (i.e store state values in entity components)")]
     public class RootMotionNode
         : NodeDefinition<RootMotionNode.Data, RootMotionNode.SimPorts, RootMotionNode.KernelData, RootMotionNode.KernelDefs, RootMotionNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.RootMotionNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -42,8 +46,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile]
@@ -54,7 +60,9 @@ namespace Unity.Animation
                 if (data.RigDefinition == BlobAssetReference<RigDefinition>.Null)
                     return;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
                 var outputStream = AnimationStream.Create(data.RigDefinition,context.Resolve(ref ports.Output));
@@ -71,15 +79,19 @@ namespace Unity.Animation
                 outputStream.SetLocalToParentTranslation(0, defaultStream.GetLocalToParentTranslation(0));
                 outputStream.SetLocalToParentRotation(0, defaultStream.GetLocalToParentRotation(0));
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

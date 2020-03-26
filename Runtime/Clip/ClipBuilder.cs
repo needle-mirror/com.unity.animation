@@ -7,10 +7,12 @@ using UnityEditor;
 #endif
 namespace Unity.Animation
 {
+    // TODO: Move ClipBuilder to the Unity.Animation.Hybrid assembly
+    //       with BindingHashUtils and BindingHashDelegate
     public static class ClipBuilder
     {
 #if UNITY_EDITOR
-        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip)
+        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip, BindingHashDelegate bindingHash = null)
         {
             if (sourceClip == null)
                 return new BlobAssetReference<Clip>();
@@ -51,7 +53,7 @@ namespace Unity.Animation
             var blobBuilder = new BlobBuilder(Allocator.Temp);
             ref var clip = ref blobBuilder.ConstructRoot<Clip>();
 
-            CreateBindings(translationBindings, rotationBindings, scaleBindings, floatBindings, intBindings, ref blobBuilder, ref clip);
+            CreateBindings(translationBindings, rotationBindings, scaleBindings, floatBindings, intBindings, ref blobBuilder, ref clip, bindingHash ?? BindingHashUtils.DefaultBindingHash);
             FillCurves(sourceClip, translationBindings, rotationBindings, scaleBindings, floatBindings, intBindings, ref blobBuilder, ref clip);
 
             var outputClip = blobBuilder.CreateBlobAssetReference<Clip>(Allocator.Persistent);
@@ -66,35 +68,35 @@ namespace Unity.Animation
         private static void CreateBindings(IReadOnlyList<EditorCurveBinding> translationBindings,
             IReadOnlyList<EditorCurveBinding> rotationBindings, IReadOnlyList<EditorCurveBinding> scaleBindings,
             IReadOnlyList<EditorCurveBinding> floatBindings, IReadOnlyList<EditorCurveBinding> intBindings,
-            ref BlobBuilder blobBuilder, ref Clip clip)
+            ref BlobBuilder blobBuilder, ref Clip clip, BindingHashDelegate bindingHash)
         {
             clip.Bindings = clip.CreateBindingSet(translationBindings.Count, rotationBindings.Count, scaleBindings.Count, floatBindings.Count, intBindings.Count);
 
-            FillBlobTransformBindingBuffer(translationBindings, ref blobBuilder, ref clip.Bindings.TranslationBindings);
-            FillBlobTransformBindingBuffer(rotationBindings, ref blobBuilder, ref clip.Bindings.RotationBindings);
-            FillBlobTransformBindingBuffer(scaleBindings, ref blobBuilder, ref clip.Bindings.ScaleBindings);
-            FillBlobBindingBuffer(floatBindings, ref blobBuilder, ref clip.Bindings.FloatBindings);
-            FillBlobBindingBuffer(intBindings, ref blobBuilder, ref clip.Bindings.IntBindings);
+            FillBlobTransformBindingBuffer(translationBindings, ref blobBuilder, ref clip.Bindings.TranslationBindings, bindingHash);
+            FillBlobTransformBindingBuffer(rotationBindings, ref blobBuilder, ref clip.Bindings.RotationBindings, bindingHash);
+            FillBlobTransformBindingBuffer(scaleBindings, ref blobBuilder, ref clip.Bindings.ScaleBindings, bindingHash);
+            FillBlobBindingBuffer(floatBindings, ref blobBuilder, ref clip.Bindings.FloatBindings, bindingHash);
+            FillBlobBindingBuffer(intBindings, ref blobBuilder, ref clip.Bindings.IntBindings, bindingHash);
         }
 
-        private static void FillBlobTransformBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer)
+        private static void FillBlobTransformBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer, BindingHashDelegate bindingHash)
         {
             if (bindings == null || bindings.Count == 0)
                 return;
 
             var arrayBuilder = blobBuilder.Allocate(ref blobBuffer, bindings.Count);
             for (var i = 0; i != bindings.Count; ++i)
-                arrayBuilder[i] = bindings[i].path;
+                arrayBuilder[i] = bindingHash(bindings[i].path);
         }
 
-        private static void FillBlobBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer)
+        private static void FillBlobBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer, BindingHashDelegate bindingHash)
         {
             if (bindings == null || bindings.Count == 0)
                 return;
 
             var arrayBuilder = blobBuilder.Allocate(ref blobBuffer, bindings.Count);
             for (var i = 0; i != bindings.Count; ++i)
-                arrayBuilder[i] = bindings[i].propertyName;
+                arrayBuilder[i] = bindingHash(bindings[i].propertyName);
         }
 
         private static void FillCurves(AnimationClip sourceClip, IReadOnlyList<EditorCurveBinding> translationBindings,
@@ -179,12 +181,9 @@ namespace Unity.Animation
 
             samples[curveIndex + clip.FrameCount * curveCount] = Core.AdjustLastFrameValue(lastValue, valueAtDuration, clip.LastFrameError);
         }
-
 #else
-        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip)
-        {
-            return new BlobAssetReference<Clip>();
-        }
+        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip, BindingHashDelegate bindingHash = null) =>
+            new BlobAssetReference<Clip>();
 #endif
     }
 }

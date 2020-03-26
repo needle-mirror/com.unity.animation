@@ -3,7 +3,10 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Entities;
 using Unity.Collections;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -11,7 +14,6 @@ namespace Unity.Animation
     [PortGroupDefinition(portGroupSizeDescription:"Number of channels", groupIndex:1, minInstance:1, maxInstance:-1)]
     public class WeightBuilderNode
         : NodeDefinition<WeightBuilderNode.Data, WeightBuilderNode.SimPorts, WeightBuilderNode.KernelData, WeightBuilderNode.KernelDefs, WeightBuilderNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
@@ -87,7 +89,9 @@ namespace Unity.Animation
         : NodeDefinition<ConvertChannelIndicesNode.Data, ConvertChannelIndicesNode.SimPorts, ConvertChannelIndicesNode.KernelData, ConvertChannelIndicesNode.KernelDefs, ConvertChannelIndicesNode.Kernel>
         , IMsgHandler<Rig>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("WeightBuilderNode.ConvertChannelIndicesNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -106,8 +110,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -118,7 +124,9 @@ namespace Unity.Animation
                 var channelIndexPorts = context.Resolve(ports.ChannelIndices);
                 var outOffsets = context.Resolve(ref ports.WeightDataOffsets);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 context.Resolve(ref ports.WeightCount) = channelIndexPorts.Length;
                 for (int i = 0; i < channelIndexPorts.Length; ++i)
@@ -129,15 +137,19 @@ namespace Unity.Animation
                         );
                 }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -154,7 +166,9 @@ namespace Unity.Animation
         : NodeDefinition<ComputeWeightDataNode.Data, ComputeWeightDataNode.SimPorts, ComputeWeightDataNode.KernelData, ComputeWeightDataNode.KernelDefs, ComputeWeightDataNode.Kernel>
         , IMsgHandler<Rig>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("WeightBuilderNode.ComputeWeightDataNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -175,7 +189,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -190,7 +206,9 @@ namespace Unity.Animation
                 if (channelWeightPorts.Length != context.Resolve(ports.WeightCount))
                     throw new System.InvalidOperationException("WeightBuilderNode: ChannelIndices and ChannelWeights port array length mismatch.");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 var channelWeights = new NativeArray<float>(channelWeightPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 channelWeightPorts.CopyTo(channelWeights);
@@ -203,15 +221,19 @@ namespace Unity.Animation
                     context.Resolve(ref ports.Output)
                     );
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

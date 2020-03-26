@@ -41,10 +41,12 @@ namespace Unity.Animation
             NativeArray<WeightData> weightMasks
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input1.Rig.Value.GetHashCode());
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input2.Rig.Value.GetHashCode());
             Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
+#endif
 
             int wIdx = 0;
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
@@ -75,9 +77,11 @@ namespace Unity.Animation
             float weight
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input1.Rig.Value.GetHashCode());
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input2.Rig.Value.GetHashCode());
+#endif
 
             // Blend 4 wide lerp non rotation data
             float4* input1Data = input1.GetDataChunkUnsafePtr();
@@ -105,9 +109,11 @@ namespace Unity.Animation
             NativeArray<WeightData> weightMasks
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
             Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
+#endif
 
             int wIdx = 0;
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
@@ -135,8 +141,10 @@ namespace Unity.Animation
             float weight
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+#endif
 
             // Blend 4-wide lerp non rotation data
             float4* inputData  = input.GetDataChunkUnsafePtr();
@@ -162,9 +170,11 @@ namespace Unity.Animation
             NativeArray<WeightData> weightMasks
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
             Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
+#endif
 
             int wIdx = 0;
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
@@ -192,8 +202,10 @@ namespace Unity.Animation
             float weight
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+#endif
 
             ref var bindings = ref output.Rig.Value.Bindings;
 
@@ -222,32 +234,28 @@ namespace Unity.Animation
         {
             ref var remap = ref remapTable.Value;
 
-            for (int i=0;i<remap.TranslationMappings.Length;i++)
+            for (int i=0,count=remap.LocalToParentTRCount.x;i<count;i++)
             {
                 ref var mapping = ref remap.TranslationMappings[i];
                 var value = sourceStream.GetLocalToParentTranslation(mapping.SourceIndex);
 
-                var offsetIndex = remapTable.Value.TranslationMappings[i].OffsetIndex;
-
-                if (offsetIndex > 0)
+                if (mapping.OffsetIndex > 0)
                 {
-                    var translationOffset = remapTable.Value.TranslationOffsets[offsetIndex];
+                    var translationOffset = remapTable.Value.TranslationOffsets[mapping.OffsetIndex];
                     value = math.mul(translationOffset.Rotation, value * translationOffset.Scale);
                 }
 
                 destinationStream.SetLocalToParentTranslation(mapping.DestinationIndex, value);
             }
 
-            for (int i=0;i<remap.RotationMappings.Length;i++)
+            for (int i=0,count=remap.LocalToParentTRCount.y;i<count;i++)
             {
                 ref var mapping = ref remap.RotationMappings[i];
                 var value = sourceStream.GetLocalToParentRotation(mapping.SourceIndex);
 
-                var offsetIndex = remapTable.Value.RotationMappings[i].OffsetIndex;
-
-                if (offsetIndex > 0)
+                if (mapping.OffsetIndex > 0)
                 {
-                    var rotationOffset = remapTable.Value.RotationOffsets[offsetIndex];
+                    var rotationOffset = remapTable.Value.RotationOffsets[mapping.OffsetIndex];
                     value = math.mul(math.mul(rotationOffset.PreRotation, value), rotationOffset.PostRotation);
                 }
 
@@ -273,6 +281,71 @@ namespace Unity.Animation
                 ref var mapping = ref remap.IntMappings[i];
                 var value = sourceStream.GetInt(mapping.SourceIndex);
                 destinationStream.SetInt(mapping.DestinationIndex, value);
+            }
+
+            for (int i=0;i<remap.SortedLocalToRootTREntries.Length;i++)
+            {
+                ref var localToRootTREntry = ref remap.SortedLocalToRootTREntries[i];
+                if (localToRootTREntry.x != -1 && localToRootTREntry.y != -1)
+                {
+                    ref var translationMapping = ref remap.TranslationMappings[localToRootTREntry.x];
+                    ref var rotationMapping = ref remap.RotationMappings[localToRootTREntry.y];
+
+#if !UNITY_DISABLE_ANIMATION_CHECKS
+                    Assert.AreEqual(translationMapping.DestinationIndex, rotationMapping.DestinationIndex);
+#endif
+                    float3 tValue;
+                    quaternion rValue;
+                    if (translationMapping.SourceIndex == rotationMapping.SourceIndex)
+                    {
+                        sourceStream.GetLocalToRootTR(translationMapping.SourceIndex, out tValue, out rValue);
+                    }
+                    else
+                    {
+                        tValue = sourceStream.GetLocalToRootTranslation(translationMapping.SourceIndex);
+                        rValue = sourceStream.GetLocalToRootRotation(rotationMapping.SourceIndex);
+                    }
+
+                    if (translationMapping.OffsetIndex > 0)
+                    {
+                        var offset = remapTable.Value.TranslationOffsets[translationMapping.OffsetIndex];
+                        tValue = math.mul(offset.Rotation, tValue * offset.Scale);
+                    }
+
+                    if (rotationMapping.OffsetIndex > 0)
+                    {
+                        var offset = remapTable.Value.RotationOffsets[rotationMapping.OffsetIndex];
+                        rValue = math.mul(math.mul(offset.PreRotation, rValue), offset.PostRotation);
+                    }
+
+                    destinationStream.SetLocalToRootTR(translationMapping.DestinationIndex, tValue, rValue);
+                }
+                else if (localToRootTREntry.y == -1)
+                {
+                    ref var mapping = ref remap.TranslationMappings[localToRootTREntry.x];
+                    var value = sourceStream.GetLocalToRootTranslation(mapping.SourceIndex);
+
+                    if (mapping.OffsetIndex > 0)
+                    {
+                        var offset = remapTable.Value.TranslationOffsets[mapping.OffsetIndex];
+                        value = math.mul(offset.Rotation, value * offset.Scale);
+                    }
+
+                    destinationStream.SetLocalToRootTranslation(mapping.DestinationIndex, value);
+                }
+                else
+                {
+                    ref var mapping = ref remap.RotationMappings[localToRootTREntry.y];
+                    var value = sourceStream.GetLocalToRootRotation(mapping.SourceIndex);
+
+                    if (mapping.OffsetIndex > 0)
+                    {
+                        var offset = remapTable.Value.RotationOffsets[mapping.OffsetIndex];
+                        value = math.mul(math.mul(offset.PreRotation, value), offset.PostRotation);
+                    }
+
+                    destinationStream.SetLocalToRootRotation(mapping.DestinationIndex, value);
+                }
             }
         }
 
@@ -503,7 +576,9 @@ namespace Unity.Animation
 
         static unsafe public void EvaluateClip(BlobAssetReference<ClipInstance> clipInstance, float time, ref AnimationStream stream, int additive)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.GetHashCode(), stream.Rig.Value.GetHashCode());
+#endif
 
             if(additive != 0)
                 AnimationStreamUtils.MemClear(ref stream);
@@ -538,10 +613,12 @@ namespace Unity.Animation
                     var i2 = clipInstance.Value.RotationBindingMap[i + 2];
                     var i3 = clipInstance.Value.RotationBindingMap[i + 3];
 
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(i0 != -1);
                     Assert.IsTrue(i1 != -1);
                     Assert.IsTrue(i2 != -1);
                     Assert.IsTrue(i3 != -1);
+#endif
 
                     stream.SetLocalToParentRotation(i0, result[0]);
                     stream.SetLocalToParentRotation(i1, result[1]);
@@ -552,7 +629,9 @@ namespace Unity.Animation
                 for (; i < count; ++i, curveIndex += BindingSet.RotationKeyFloatCount)
                 {
                     var index = clipInstance.Value.RotationBindingMap[i];
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(index != -1);
+#endif
 
                     ref var leftKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Left);
                     ref var rightKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Right);
@@ -582,11 +661,13 @@ namespace Unity.Animation
                     var i3 = clipInstance.Value.TranslationBindingMap[i + 3];
                     var i4 = clipInstance.Value.TranslationBindingMap[i + 4];
 
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(i0 != -1);
                     Assert.IsTrue(i1 != -1);
                     Assert.IsTrue(i2 != -1);
                     Assert.IsTrue(i3 != -1);
                     Assert.IsTrue(i4 != -1);
+#endif
 
                     var float3Data = (float3*)scratchPtr;
                     stream.SetLocalToParentTranslation(i0, float3Data[0]);
@@ -599,7 +680,9 @@ namespace Unity.Animation
                 for (; i < count; ++i, curveIndex += BindingSet.TranslationKeyFloatCount)
                 {
                     var index = clipInstance.Value.TranslationBindingMap[i];
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(index != -1);
+#endif
 
                     ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
                     ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
@@ -629,11 +712,13 @@ namespace Unity.Animation
                     var i3 = clipInstance.Value.ScaleBindingMap[i + 3];
                     var i4 = clipInstance.Value.ScaleBindingMap[i + 4];
 
+ #if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(i0 != -1);
                     Assert.IsTrue(i1 != -1);
                     Assert.IsTrue(i2 != -1);
                     Assert.IsTrue(i3 != -1);
                     Assert.IsTrue(i4 != -1);
+#endif
 
                     var float3Data = (float3*)scratchPtr;
                     stream.SetLocalToParentScale(i0, float3Data[0]);
@@ -646,7 +731,9 @@ namespace Unity.Animation
                 for (; i < count; ++i, curveIndex += BindingSet.ScaleKeyFloatCount)
                 {
                     var index = clipInstance.Value.ScaleBindingMap[i];
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(index != -1);
+#endif
 
                     ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
                     ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
@@ -666,16 +753,18 @@ namespace Unity.Animation
                     var result   = (float4*)scratchPtr;
 
                     *result = math.lerp(*leftKey, *rightKey, keyframe.Weight);
-
+ 
                     var i0 = clipInstance.Value.FloatBindingMap[i + 0];
                     var i1 = clipInstance.Value.FloatBindingMap[i + 1];
                     var i2 = clipInstance.Value.FloatBindingMap[i + 2];
                     var i3 = clipInstance.Value.FloatBindingMap[i + 3];
 
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(i0 != -1);
                     Assert.IsTrue(i1 != -1);
                     Assert.IsTrue(i2 != -1);
                     Assert.IsTrue(i3 != -1);
+#endif
 
                     stream.SetFloat(i0, scratchPtr[0]);
                     stream.SetFloat(i1, scratchPtr[1]);
@@ -686,7 +775,9 @@ namespace Unity.Animation
                 for (; i < count; ++i, curveIndex += BindingSet.FloatKeyFloatCount)
                 {
                     var index = clipInstance.Value.FloatBindingMap[i];
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(index != -1);
+#endif
 
                     var leftKey = clip.Samples[curveIndex + keyframe.Left];
                     var rightKey = clip.Samples[curveIndex + keyframe.Right];
@@ -710,10 +801,12 @@ namespace Unity.Animation
                     var i2 = clipInstance.Value.IntBindingMap[i + 2];
                     var i3 = clipInstance.Value.IntBindingMap[i + 3];
 
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(i0 != -1);
                     Assert.IsTrue(i1 != -1);
                     Assert.IsTrue(i2 != -1);
                     Assert.IsTrue(i3 != -1);
+#endif
 
                     stream.SetInt(i0, leftKey.x);
                     stream.SetInt(i0, leftKey.y);
@@ -724,7 +817,9 @@ namespace Unity.Animation
                 for (; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
                 {
                     var index = clipInstance.Value.IntBindingMap[i];
+#if !UNITY_DISABLE_ANIMATION_CHECKS
                     Assert.IsTrue(index != -1);
+#endif
 
                     var leftKey = clip.Samples[curveIndex + keyframe.Left];
                     stream.SetInt(index, (int)leftKey);
@@ -746,6 +841,7 @@ namespace Unity.Animation
         {
             return lastFrameError < 1.0f ? math.lerp(beforeLastValue, atDurationValue, 1.0f/(1.0f-lastFrameError)) : atDurationValue;
         }
+
         static public void MixerBegin(ref AnimationStream output)
         {
             AnimationStreamUtils.MemClear(ref output);
@@ -753,23 +849,20 @@ namespace Unity.Animation
 
         static unsafe public void MixerEnd(
             ref AnimationStream output,
-            ref AnimationStream input,
             ref AnimationStream defaultPoseInput,
             float sumWeight
             )
         {
-            if(sumWeight < 1.0F)
+            if (sumWeight < 1.0F)
             {
-                if(defaultPoseInput.IsNull)
+                if (defaultPoseInput.IsNull)
                 {
                     var defaultPoseStream = AnimationStream.FromDefaultValues(output.Rig);
-                    MixerAdd(ref output, ref input, ref defaultPoseStream, 1.0F - sumWeight, 0);
+                    MixerAdd(ref output, ref defaultPoseStream, 1.0F - sumWeight, 0);
                 }
                 else
-                    MixerAdd(ref output, ref input, ref defaultPoseInput, 1.0F - sumWeight, 0);
+                    MixerAdd(ref output, ref defaultPoseInput, 1.0F - sumWeight, 0);
             }
-            else
-                AnimationStreamUtils.MemCpy(ref output, ref input);
 
             // Normalize 4-wide rotations
             quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
@@ -781,44 +874,34 @@ namespace Unity.Animation
 
         static unsafe public float MixerAdd(
             ref AnimationStream output,
-            ref AnimationStream input,
             ref AnimationStream add,
             float weight,
             float sumWeight
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
-            Assert.IsFalse(input.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+            Assert.IsFalse(add.IsNull);
+            Assert.AreEqual(output.Rig.Value.GetHashCode(), add.Rig.Value.GetHashCode());
+#endif
 
-            if (weight > 0.0f && !add.IsNull)
+            // Add 4-wide non rotational data
+            float4* addData    = add.GetDataChunkUnsafePtr();
+            float4* outputData = output.GetDataChunkUnsafePtr();
+            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
             {
-                // Add 4-wide non rotational data
-                float4* inputData  = input.GetDataChunkUnsafePtr();
-                float4* addData    = add.GetDataChunkUnsafePtr();
-                float4* outputData = output.GetDataChunkUnsafePtr();
-                for (int i = 0, count = output.DataChunkCount; i < count; ++i)
-                {
-                    outputData[i] = math.mad(addData[i], weight, inputData[i]);
-                }
-
-                // Add 4-wide rotations
-                quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-                quaternion4* addRot    = add.GetRotationChunkUnsafePtr();
-                quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-
-                for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
-                {
-                    outputRot[i] = mathex.add(inputRot[i], addRot[i] * weight);
-                }
-                sumWeight += weight;
-            }
-            else
-            {
-                AnimationStreamUtils.MemCpy(ref output, ref input);
+                outputData[i] = math.mad(addData[i], weight, outputData[i]);
             }
 
-            return sumWeight;
+            // Add 4-wide rotations
+            quaternion4* addRot    = add.GetRotationChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
+            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            {
+                outputRot[i] = mathex.add(outputRot[i], addRot[i] * weight);
+            }
+
+            return sumWeight + weight;
         }
 
         static unsafe public void AddPose(
@@ -827,11 +910,13 @@ namespace Unity.Animation
             ref AnimationStream inputB
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(inputA.IsNull);
             Assert.IsFalse(inputB.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), inputA.Rig.Value.GetHashCode());
             Assert.AreEqual(output.Rig.Value.GetHashCode(), inputB.Rig.Value.GetHashCode());
+#endif
 
             float4* inputAData = inputA.GetDataChunkUnsafePtr();
             float4* inputBData = inputB.GetDataChunkUnsafePtr();
@@ -856,9 +941,11 @@ namespace Unity.Animation
             ref AnimationStream input
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(input.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
+#endif
 
             // 4-wide inverse
             float4* inputData  = input.GetDataChunkUnsafePtr();
@@ -883,10 +970,12 @@ namespace Unity.Animation
             NativeArray<WeightData> weights
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(output.IsNull);
             Assert.IsFalse(input.IsNull);
             Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
             Assert.AreEqual(WeightDataSize(output.Rig), weights.Length);
+#endif
 
             int wIdx = 0;
             float4* weight = (float4*)weights.GetUnsafeReadOnlyPtr();
@@ -918,7 +1007,9 @@ namespace Unity.Animation
                 return;
 
             int count = stream.Rig.Value.Skeleton.BoneCount;
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.AreEqual(outLocalToWorlds.Length, count);
+#endif
 
             // Compute world space transforms
             outLocalToWorlds[0] = math.mul(localToWorld, stream.GetLocalToParentMatrix(0));
@@ -938,7 +1029,9 @@ namespace Unity.Animation
                 return;
 
             int count = stream.Rig.Value.Skeleton.BoneCount;
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.AreEqual(outLocalToRoots.Length, count);
+#endif
 
             // Compute object space transforms
             outLocalToRoots[0] = stream.GetLocalToParentMatrix(0);
@@ -960,8 +1053,10 @@ namespace Unity.Animation
                 return;
 
             int count = stream.Rig.Value.Skeleton.BoneCount;
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.AreEqual(outLocalToWorlds.Length, count);
             Assert.AreEqual(outLocalToRoots.Length, count);
+#endif
 
             var mat = stream.GetLocalToParentMatrix(0);
             outLocalToWorlds[0] = math.mul(localToWorld, mat);

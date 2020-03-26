@@ -1,8 +1,11 @@
 using Unity.Burst;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
-using Unity.Profiling;
 using Unity.Mathematics;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -11,13 +14,15 @@ namespace Unity.Animation
         : NodeDefinition<TimeCounterNode.Data, TimeCounterNode.SimPorts, TimeCounterNode.KernelData, TimeCounterNode.KernelDefs, TimeCounterNode.Kernel>
         , IMsgHandler<float>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfileTimeCounter = new ProfilerMarker("Animation.TimeCounter");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(description:"Set internal time to this value")]
             public MessageInput<TimeCounterNode, float> Time;
         }
-
-        static readonly ProfilerMarker k_ProfileTimeCounter = new ProfilerMarker("Animation.TimeCounter");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -39,8 +44,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileTimeCounter;
+#endif
 
             public int SetTime;
             public float Time;
@@ -52,7 +58,9 @@ namespace Unity.Animation
             float m_Time;
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileTimeCounter.Begin();
+#endif
 
                 var deltaTime = context.Resolve(ports.DeltaTime) * context.Resolve(ports.Speed);
                 m_Time = math.select(m_Time + deltaTime, data.Time, data.SetTime != 0);
@@ -60,15 +68,19 @@ namespace Unity.Animation
                 context.Resolve(ref ports.Time) =  m_Time;
                 context.Resolve(ref ports.OutputDeltaTime) = deltaTime;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileTimeCounter.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileTimeCounter = k_ProfileTimeCounter;
         }
+#endif
 
         protected override void OnUpdate(in UpdateContext ctx)
         {

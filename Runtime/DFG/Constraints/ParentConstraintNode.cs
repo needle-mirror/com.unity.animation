@@ -4,7 +4,10 @@ using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Collections;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 using System;
 
@@ -14,10 +17,13 @@ namespace Unity.Animation
     [PortGroupDefinition(portGroupSizeDescription:"Source Count", groupIndex:1, minInstance:1, maxInstance:-1)]
     public class ParentConstraintNode
         : NodeDefinition<ParentConstraintNode.Data, ParentConstraintNode.SimPorts, ParentConstraintNode.KernelData, ParentConstraintNode.KernelDefs, ParentConstraintNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<ParentConstraintNode.SetupMessage>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.ParentConstraintNode");
+#endif
+
         [Serializable]
         public struct SetupMessage
         {
@@ -33,8 +39,6 @@ namespace Unity.Animation
             [PortDefinition(displayName:"Setup", description:"Parent constraint properties")]
             public MessageInput<ParentConstraintNode, SetupMessage> ConstraintSetup;
         }
-
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.ParentConstraintNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -58,9 +62,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilerMarker;
-
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
             public int Index;
             public bool3 LocalTranslationAxesMask;
             public bool3 LocalRotationAxesMask;
@@ -76,7 +81,9 @@ namespace Unity.Animation
                 if (input.Length != output.Length)
                     throw new InvalidOperationException($"ParentConstrainNode: Input Length '{input.Length}' doesn't match Output Length '{output.Length}'");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.Begin();
+#endif
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
@@ -112,14 +119,20 @@ namespace Unity.Animation
                 };
                 Core.SolveParentConstraint(ref stream, constraintData, ctx.Resolve(ports.Weight));
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();
+#endif
             }
         }
 
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             kData.ProfilerMarker = k_ProfilerMarker;
+#endif
+
             kData.Index = -1;
             kData.LocalTranslationAxesMask = new bool3(true);
             kData.LocalRotationAxesMask = new bool3(true);

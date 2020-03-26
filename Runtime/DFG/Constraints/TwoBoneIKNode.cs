@@ -3,18 +3,24 @@ using Unity.Burst;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Mathematics;
-using Unity.Profiling;
 using Unity.Entities;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Constraints", description:"Two bone IK solver")]
     public class TwoBoneIKNode
         : NodeDefinition<TwoBoneIKNode.Data, TwoBoneIKNode.SimPorts, TwoBoneIKNode.KernelData, TwoBoneIKNode.KernelDefs, TwoBoneIKNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<TwoBoneIKNode.SetupMessage>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.TwoBoneIKNode");
+#endif
+
         [Serializable]
         public struct SetupMessage
         {
@@ -23,7 +29,6 @@ namespace Unity.Animation
             public int TipIndex;
 
             public RigidTransform TargetOffset;
-            public float2 LimbLengths;
         }
 
         public struct SimPorts : ISimulationPortDefinition
@@ -33,8 +38,6 @@ namespace Unity.Animation
             [PortDefinition(displayName:"Setup", description:"Two bone IK properties")]
             public MessageInput<TwoBoneIKNode, SetupMessage> ConstraintSetup;
         }
-
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.TwoBoneIKNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -62,7 +65,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilerMarker;
+#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
 
             public int RootIndex;
@@ -70,7 +75,6 @@ namespace Unity.Animation
             public int TipIndex;
 
             public RigidTransform TargetOffset;
-            public float2 LimbLengths;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -83,7 +87,9 @@ namespace Unity.Animation
                 if (input.Length != output.Length)
                     throw new InvalidOperationException($"TwoBoneIKNode: Input Length '{input.Length}' does not match Output Length '{output.Length}'");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.Begin();
+#endif
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
@@ -96,7 +102,6 @@ namespace Unity.Animation
                     MidIndex = data.MidIndex,
                     TipIndex = data.TipIndex,
                     TargetOffset = data.TargetOffset,
-                    LimbLengths = data.LimbLengths,
                     Target = new RigidTransform(ctx.Resolve(ports.Target)),
                     Hint = ctx.Resolve(ports.Hint),
                     TargetPositionWeight = ctx.Resolve(ports.TargetPositionWeight),
@@ -105,19 +110,23 @@ namespace Unity.Animation
                 };
 
                 Core.SolveTwoBoneIK(ref stream, ikData, ctx.Resolve(ports.Weight));
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();
+#endif
             }
         }
 
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             kData.ProfilerMarker = k_ProfilerMarker;
+#endif
             kData.RootIndex = -1;
             kData.MidIndex = -1;
             kData.TipIndex = -1;
             kData.TargetOffset = RigidTransform.identity;
-            kData.LimbLengths = float2.zero;
 
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.TargetPositionWeight, 1f);
@@ -141,7 +150,6 @@ namespace Unity.Animation
             kData.RootIndex    = msg.RootIndex;
             kData.MidIndex     = msg.MidIndex;
             kData.TipIndex     = msg.TipIndex;
-            kData.LimbLengths  = msg.LimbLengths;
             kData.TargetOffset = msg.TargetOffset;
         }
 

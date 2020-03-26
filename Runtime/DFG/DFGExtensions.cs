@@ -1,7 +1,6 @@
 using Unity.DataFlowGraph;
 using Unity.Entities;
 using Unity.Collections;
-using System;
 
 namespace Unity.Animation
 {
@@ -14,9 +13,9 @@ namespace Unity.Animation
             where TType : struct
             where TDefinition : NodeDefinition
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (src.Length != dst.Length)
-                throw new ArgumentException("Source and destination length must be the same");
+                throw new System.ArgumentException("Source and destination length must be the same");
 #endif
             for (var i = 0; i < src.Length; ++i)
                 dst[i] = src[i];

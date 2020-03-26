@@ -48,7 +48,7 @@ namespace Unity.Animation
          public BlobAssetReference<ChannelWeightTable> ToChannelWeightTable(BlobAssetReference<RigDefinition> rigDef)
          {
             if (rigDef == default)
-                throw new ArgumentNullException("rigDef");
+                throw new ArgumentNullException(nameof(rigDef));
 
             var channels = new List<ChannelWeightMap>(Channels);
             ValidateNoDuplicatedBlendChannel(channels);

@@ -46,11 +46,8 @@ namespace Unity.Animation.Tests
             ikData.RootIndex = k_RootIndex;
             ikData.MidIndex = k_MidIndex;
             ikData.TipIndex = k_TipIndex;
-            ikData.LimbLengths = new float2(
-                math.distance(stream.GetLocalToRootTranslation(k_RootIndex), stream.GetLocalToRootTranslation(k_MidIndex)),
-                math.distance(stream.GetLocalToRootTranslation(k_MidIndex), stream.GetLocalToRootTranslation(k_TipIndex)));
-
             ikData.Target.pos = new float3(0f, 1f, 0f);
+
             for (int i = 0; i < 5; ++i)
             {
                 ikData.Target.pos.y += 0.3f;
@@ -76,9 +73,6 @@ namespace Unity.Animation.Tests
             ikData.RootIndex = k_RootIndex;
             ikData.MidIndex = k_MidIndex;
             ikData.TipIndex = k_TipIndex;
-            ikData.LimbLengths = new float2(
-                math.distance(stream.GetLocalToRootTranslation(k_RootIndex), stream.GetLocalToRootTranslation(k_MidIndex)),
-                math.distance(stream.GetLocalToRootTranslation(k_MidIndex), stream.GetLocalToRootTranslation(k_TipIndex)));
             ikData.HintWeight = 1f;
 
             // Bend considering target is above x axis
@@ -131,10 +125,6 @@ namespace Unity.Animation.Tests
             ikData.RootIndex = k_RootIndex;
             ikData.MidIndex = k_MidIndex;
             ikData.TipIndex = k_TipIndex;
-            ikData.LimbLengths = new float2(
-                math.distance(stream.GetLocalToRootTranslation(k_RootIndex), stream.GetLocalToRootTranslation(k_MidIndex)),
-                math.distance(stream.GetLocalToRootTranslation(k_MidIndex), stream.GetLocalToRootTranslation(k_TipIndex)));
-
             ikData.Target.pos = new float3(2f, 0.5f, 0f);
             var tipPos1 = stream.GetLocalToRootTranslation(k_TipIndex);
 

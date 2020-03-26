@@ -2,23 +2,27 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Utils", description:"Gets an integer value from the AnimationStream")]
     public class GetAnimationStreamIntNode
         : NodeDefinition<GetAnimationStreamIntNode.Data, GetAnimationStreamIntNode.SimPorts, GetAnimationStreamIntNode.KernelData, GetAnimationStreamIntNode.KernelDefs, GetAnimationStreamIntNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.GetAnimationStreamIntNode");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(isHidden:true)]
             public MessageInput<GetAnimationStreamIntNode, Rig> Rig;
         }
-
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.GetAnimationStreamIntNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -37,9 +41,11 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilerMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
+
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -51,19 +57,25 @@ namespace Unity.Animation
                 if (stream.IsNull)
                     throw new System.InvalidOperationException($"GetAnimationStreamIntNode input is invalid.");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.Begin();
+#endif
 
                 context.Resolve(ref ports.Output) = stream.GetInt(context.Resolve(ports.Index));
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilerMarker = k_ProfilerMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -77,16 +89,17 @@ namespace Unity.Animation
     [NodeDefinition(category: "Animation Core/Utils", description: "Sets an integer value in the AnimationStream")]
     public class SetAnimationStreamIntNode
         : NodeDefinition<SetAnimationStreamIntNode.Data, SetAnimationStreamIntNode.SimPorts, SetAnimationStreamIntNode.KernelData, SetAnimationStreamIntNode.KernelDefs, SetAnimationStreamIntNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.SetAnimationStreamIntNode");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(isHidden:true)]
             public MessageInput<SetAnimationStreamIntNode, Rig> Rig;
         }
-
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.SetAnimationStreamIntNode");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -107,9 +120,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfilerMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -122,7 +136,9 @@ namespace Unity.Animation
                 if (input.Length != output.Length)
                     throw new System.InvalidOperationException($"SetAnimationStreamIntNode: Input Length '{input.Length}' does not match Output Length '{output.Length}'");
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.Begin();
+#endif
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
@@ -130,15 +146,19 @@ namespace Unity.Animation
                     throw new System.InvalidOperationException("SetAnimationStreamIntNode output is invalid.");
 
                 stream.SetInt(context.Resolve(ports.Index), context.Resolve(ports.Value));
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfilerMarker = k_ProfilerMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

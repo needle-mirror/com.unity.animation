@@ -226,11 +226,13 @@ namespace Unity.Animation
             var destPtr = (float*)samples.GetUnsafePtr();
             var srcPtr = (float*)source.Value.Samples.GetUnsafePtr();
 
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             // will trigger if the data layout order changes.
             Assert.IsTrue(source.Value.Bindings.TranslationSamplesOffset <= source.Value.Bindings.ScaleSamplesOffset &&
                           source.Value.Bindings.ScaleSamplesOffset <= source.Value.Bindings.FloatSamplesOffset &&
                           source.Value.Bindings.FloatSamplesOffset <= source.Value.Bindings.IntSamplesOffset &&
                           source.Value.Bindings.IntSamplesOffset <= source.Value.Bindings.RotationSamplesOffset, "Clip Data Layout has changed.");
+#endif
 
             InterleavedBlit(ref rotBindings, ref source.Value.Bindings.RotationBindings, destPtr + clip.Bindings.RotationSamplesOffset, srcPtr + source.Value.Bindings.RotationSamplesOffset, BindingSet.RotationKeyFloatCount, destStride, sourceStride, numSamples);
 

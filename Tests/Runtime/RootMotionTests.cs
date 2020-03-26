@@ -92,7 +92,7 @@ namespace Unity.Animation.Tests
 
             Set.Connect(inPlaceNode, InPlaceMotionNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -135,7 +135,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -183,7 +183,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 

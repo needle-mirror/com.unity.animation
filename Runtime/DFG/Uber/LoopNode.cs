@@ -7,7 +7,6 @@ namespace Unity.Animation
     [NodeDefinition(isHidden:true)]
     public class LoopNode
         : NodeDefinition<LoopNode.Data, LoopNode.SimPorts, LoopNode.KernelData, LoopNode.KernelDefs, LoopNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<int>
         , IRigContextHandler
     {
@@ -42,7 +41,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-
         }
 
         [BurstCompile]

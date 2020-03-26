@@ -2,7 +2,10 @@ using Unity.Burst;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -11,13 +14,15 @@ namespace Unity.Animation
         : NodeDefinition<TimeLoopNode.Data, TimeLoopNode.SimPorts, TimeLoopNode.KernelData, TimeLoopNode.KernelDefs, TimeLoopNode.Kernel>
         , IMsgHandler<float>
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfileTimeLoop = new ProfilerMarker("Animation.TimeLoop");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(description:"Duration")]
             public MessageInput<TimeLoopNode, float> Duration;
         }
-
-        static readonly ProfilerMarker k_ProfileTimeLoop = new ProfilerMarker("Animation.TimeLoop");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -37,8 +42,9 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileTimeLoop;
+#endif
             public float Duration;
         }
 
@@ -47,7 +53,9 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileTimeLoop.Begin();
+#endif
 
                 var time = context.Resolve(ports.InputTime);
                 var normalizedTime = time / data.Duration;
@@ -60,15 +68,19 @@ namespace Unity.Animation
                 context.Resolve(ref ports.NormalizedTime) = normalizedTime;
                 context.Resolve(ref ports.OutputTime) = normalizedTime * data.Duration;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileTimeLoop.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileTimeLoop = k_ProfileTimeLoop;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in float msg)
         {

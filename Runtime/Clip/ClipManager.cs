@@ -27,9 +27,8 @@ namespace Unity.Animation
                 m_ClipInstanceMap[key] = clipInstance;
             }
 
-            if (!clipInstance.IsCreated)
-                throw new System.InvalidOperationException("ClipManager contains a stale ClipInstance reference.");
-
+#if !UNITY_DISABLE_ANIMATION_CHECKS
+            Assert.IsTrue(clipInstance.IsCreated);
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.GetHashCode(), rigDefinition.Value.GetHashCode());
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.Bindings.CurveCount, rigDefinition.Value.Bindings.CurveCount);
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.Bindings.TranslationBindings.Length, rigDefinition.Value.Bindings.TranslationBindings.Length);
@@ -37,7 +36,7 @@ namespace Unity.Animation
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.Bindings.ScaleBindings.Length, rigDefinition.Value.Bindings.ScaleBindings.Length);
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.Bindings.FloatBindings.Length, rigDefinition.Value.Bindings.FloatBindings.Length);
             Assert.AreEqual(clipInstance.Value.RigDefinition.Value.Bindings.IntBindings.Length, rigDefinition.Value.Bindings.IntBindings.Length);
-
+#endif
             return clipInstance;
         }
     }

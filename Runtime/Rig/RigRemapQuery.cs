@@ -3,6 +3,7 @@ using System.Collections.Generic;
 
 using Unity.Collections;
 using Unity.Entities;
+using Unity.Mathematics;
 
 namespace Unity.Animation
 {
@@ -10,8 +11,8 @@ namespace Unity.Animation
     {
         public StringHash SourceId;
         public StringHash DestinationId;
-        // index 0 (default) means no or identity offset
-        public int OffsetIndex;
+
+        public int OffsetIndex; // index 0 (default) means no or identity offset
     }
 
     ///
@@ -68,7 +69,7 @@ namespace Unity.Animation
         /// </summary>
         public ChannelMap[] IntChannels = Array.Empty<ChannelMap>();
 
-        List<ChannelMap> GetChannelsMap(ChannelMap[] allChannels, ChannelMap[] typedChannels)
+        static List<ChannelMap> GetChannelsMap(ChannelMap[] allChannels, ChannelMap[] typedChannels)
         {
             var channels = new List<ChannelMap>(allChannels);
             channels.AddRange(typedChannels);
@@ -76,7 +77,7 @@ namespace Unity.Animation
             return channels;
         }
 
-        void ValidateNoDuplicatedDestinationChannel(List<ChannelMap> channels)
+        static void ValidateNoDuplicatedDestinationChannel(List<ChannelMap> channels)
         {
             for(int i=0;i!=channels.Count;i++)
             {
@@ -91,7 +92,7 @@ namespace Unity.Animation
             }
         }
 
-        void ValidateOffsetIndex(List<ChannelMap> channels, int offsetCount)
+        static void ValidateOffsetIndex(List<ChannelMap> channels, int offsetCount)
         {
             for(int channelIter = 0; channelIter != channels.Count; channelIter++)
             {
@@ -105,21 +106,18 @@ namespace Unity.Animation
             }
         }
 
-        RigRemapEntry[] GetMatchingRemapEntries(List<ChannelMap> channels, ref BlobArray<StringHash> sourceBindings, ref BlobArray<StringHash> destinationBindings, int offsetCount = 0)
+        static NativeList<RigRemapEntry> GetMatchingRemapEntries(List<ChannelMap> channels, ref BlobArray<StringHash> sourceBindings, ref BlobArray<StringHash> destinationBindings, int offsetCount = 0)
         {
-            var rigRemapEntry = new RigRemapEntry[channels.Count];
-            int count = 0;
+            var rigRemapEntry = new NativeList<RigRemapEntry>(channels.Count, Allocator.Persistent);
             for (int i = 0; i != channels.Count; i++)
             {
                 var sourceIndex = Core.FindBindingIndex(ref sourceBindings, channels[i].SourceId);
                 var destinationIndex = Core.FindBindingIndex(ref destinationBindings, channels[i].DestinationId);
                 if(sourceIndex != -1 && destinationIndex != -1 && (channels[i].OffsetIndex == 0 || channels[i].OffsetIndex < offsetCount))
                 {
-                    rigRemapEntry[count++] = new RigRemapEntry { SourceIndex = sourceIndex, DestinationIndex = destinationIndex, OffsetIndex = channels[i].OffsetIndex };
+                    rigRemapEntry.Add(new RigRemapEntry { SourceIndex = sourceIndex, DestinationIndex = destinationIndex, OffsetIndex = channels[i].OffsetIndex });
                 }
             }
-
-            Array.Resize(ref rigRemapEntry, count);
 
             return rigRemapEntry;
         }
@@ -127,10 +125,10 @@ namespace Unity.Animation
         public BlobAssetReference<RigRemapTable> ToRigRemapTable(BlobAssetReference<RigDefinition> sourceRigDefinition, BlobAssetReference<RigDefinition> destinationRigDefinition)
         {
             if (sourceRigDefinition == default)
-                throw new ArgumentNullException("sourceRigDefinition");
+                throw new ArgumentNullException(nameof(sourceRigDefinition));
 
             if (destinationRigDefinition == default)
-                throw new ArgumentNullException("destinationRigDefinition");
+                throw new ArgumentNullException(nameof(destinationRigDefinition));
 
             var translations = GetChannelsMap(AllChannels, TranslationChannels);
             var rotations = GetChannelsMap(AllChannels, RotationChannels);
@@ -156,34 +154,59 @@ namespace Unity.Animation
             var floatsRemapEntry = GetMatchingRemapEntries(floats, ref sourceRigDefinition.Value.Bindings.FloatBindings, ref destinationRigDefinition.Value.Bindings.FloatBindings);
             var intsRemapEntry = GetMatchingRemapEntries(ints, ref sourceRigDefinition.Value.Bindings.IntBindings, ref destinationRigDefinition.Value.Bindings.IntBindings);
 
+            var translationOffsets = new NativeList<RigTranslationOffset>(Allocator.Temp);
+            var rotationOffsets = new NativeList<RigRotationOffset>(Allocator.Temp);
+            translationOffsets.CopyFrom(TranslationOffsets);
+            rotationOffsets.CopyFrom(RotationOffsets);
+
+            int localToRootTranslationOffsetCount = 0;
+            for (int i = 1; i < translationOffsets.Length; ++i)
+                if (translationOffsets[i].Space == RigRemapSpace.LocalToRoot)
+                    localToRootTranslationOffsetCount++;
+
+            int localToRootRotationOffsetCount = 0;
+            for (int i = 1; i < rotationOffsets.Length; ++i)
+                if (rotationOffsets[i].Space == RigRemapSpace.LocalToRoot)
+                    localToRootRotationOffsetCount++;
+
+            var sortedLocalToRootTREntries = RigRemapUtils.ComputeSortedLocalToRootTREntries(
+                translationsRemapEntry,
+                rotationsRemapEntry,
+                translationOffsets,
+                rotationOffsets,
+                localToRootTranslationOffsetCount,
+                localToRootRotationOffsetCount
+                );
+
             var blobBuilder = new BlobBuilder(Allocator.Temp);
 
             ref var rigRemapTable = ref blobBuilder.ConstructRoot<RigRemapTable>();
 
-            FillRigMapperBlobBuffer(ref blobBuilder, translationsRemapEntry, ref rigRemapTable.TranslationMappings);
-            FillRigMapperBlobBuffer(ref blobBuilder, rotationsRemapEntry, ref rigRemapTable.RotationMappings);
-            FillRigMapperBlobBuffer(ref blobBuilder, scalesRemapEntry, ref rigRemapTable.ScaleMappings);
-            FillRigMapperBlobBuffer(ref blobBuilder, floatsRemapEntry, ref rigRemapTable.FloatMappings);
-            FillRigMapperBlobBuffer(ref blobBuilder, intsRemapEntry, ref rigRemapTable.IntMappings);
-            FillRigMapperBlobBuffer(ref blobBuilder, TranslationOffsets, ref rigRemapTable.TranslationOffsets);
-            FillRigMapperBlobBuffer(ref blobBuilder, RotationOffsets, ref rigRemapTable.RotationOffsets);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, translationsRemapEntry, ref rigRemapTable.TranslationMappings);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, rotationsRemapEntry, ref rigRemapTable.RotationMappings);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, scalesRemapEntry, ref rigRemapTable.ScaleMappings);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, floatsRemapEntry, ref rigRemapTable.FloatMappings);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, intsRemapEntry, ref rigRemapTable.IntMappings);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, sortedLocalToRootTREntries, ref rigRemapTable.SortedLocalToRootTREntries);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, translationOffsets, ref rigRemapTable.TranslationOffsets);
+            RigRemapUtils.FillRigMapperBlobBuffer(ref blobBuilder, rotationOffsets, ref rigRemapTable.RotationOffsets);
+            rigRemapTable.LocalToParentTRCount = math.int2(
+                translationsRemapEntry.Length - localToRootTranslationOffsetCount,
+                rotationsRemapEntry.Length - localToRootRotationOffsetCount
+                );
 
             var rigRemapTableAsset = blobBuilder.CreateBlobAssetReference<RigRemapTable>(Allocator.Persistent);
 
             blobBuilder.Dispose();
 
+            translationsRemapEntry.Dispose();
+            rotationsRemapEntry.Dispose();
+            scalesRemapEntry.Dispose();
+            floatsRemapEntry.Dispose();
+            intsRemapEntry.Dispose();
+            sortedLocalToRootTREntries.Dispose();
+
             return rigRemapTableAsset;
-        }
-
-        private static void FillRigMapperBlobBuffer<T>(ref BlobBuilder blobBuilder, T[] data, ref BlobArray<T> blobBuffer)
-            where T : struct
-        {
-            if (data == null || data.Length == 0)
-                return;
-
-            var builderArray = blobBuilder.Allocate(ref blobBuffer, data.Length);
-            for (int i = 0; i < data.Length; ++i)
-                builderArray[i] = data[i];
         }
     }
 }

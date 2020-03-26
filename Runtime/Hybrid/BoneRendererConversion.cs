@@ -6,6 +6,7 @@ using Unity.Entities;
 namespace Unity.Animation.Hybrid
 {
     [ConverterVersion("Unity.Animation.Hybrid.BoneRendererConversion", 1)]
+    [UpdateInGroup(typeof(GameObjectConversionGroup))]
     [UpdateAfter(typeof(RigConversion))]
     public class BoneRendererConversion : GameObjectConversionSystem
     {

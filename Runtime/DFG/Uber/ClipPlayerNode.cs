@@ -8,7 +8,6 @@ namespace Unity.Animation
     [NodeDefinition(category:"Animation Core", description:"Evaluates an animation clip given a clip configuration and time value")]
     public class ClipPlayerNode
         : NodeDefinition<ClipPlayerNode.Data, ClipPlayerNode.SimPorts, ClipPlayerNode.KernelData, ClipPlayerNode.KernelDefs, ClipPlayerNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<BlobAssetReference<Clip>>
         , IMsgHandler<float>
         , IMsgHandler<ClipConfiguration>

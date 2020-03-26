@@ -4,9 +4,12 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Burst;
 using Unity.Mathematics;
-using Unity.Profiling;
 using Unity.Transforms;
 using UnityEngine;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
@@ -17,20 +20,26 @@ namespace Unity.Animation
 
     public abstract class PrepareSkinMatrixToRendererSystemBase : JobComponentSystem
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_Marker = new ProfilerMarker("PrepareSkinMatrixToRendererSystemBase");
+#endif
 
         const string k_ShaderPropertyName = "_SkinMatrices";
         const int    k_ChunkSize = 2048;
 
         internal class PrepareSkinMatrixToRendererSystemMainThread : ComponentSystem
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             static readonly ProfilerMarker k_Marker = new ProfilerMarker("PrepareSkinMatrixToRendererSystem");
+#endif
 
             public PrepareSkinMatrixToRendererSystemBase Parent;
 
             protected override void OnUpdate()
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 k_Marker.Begin();
+#endif
 
                 bool doResize = false;
 
@@ -76,7 +85,9 @@ namespace Unity.Animation
                         );
                 }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 k_Marker.End();
+#endif
             }
         }
 
@@ -110,14 +121,18 @@ namespace Unity.Animation
                 m_AllMatrices.Dispose();
         }
 
-        protected override JobHandle OnUpdate(JobHandle inputDeps)
+        unsafe protected override JobHandle OnUpdate(JobHandle inputDeps)
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.Begin();
+#endif
 
             m_PrepareSkinMatrixToRendererSystemMainThread.Update();
             if (m_Offset == 0)
             {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 k_Marker.End();
+#endif
                 return inputDeps;
             }
 
@@ -128,9 +143,24 @@ namespace Unity.Animation
 
                 m_AllMatrices = new NativeArray<float3x4>(m_Buffer.count, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             }
-            inputDeps = new FlattenSkinMatricesJob { SkinMatricesBuffer = m_AllMatrices }.Schedule(this, inputDeps);
 
+            var allMatricesPtr = (float3x4*)m_AllMatrices.GetUnsafePtr();
+            inputDeps = Entities
+                .WithNativeDisableUnsafePtrRestriction(allMatricesPtr)
+                .ForEach((Entity e, DynamicBuffer<SkinMatrix> skinMatrices, ref BoneIndexOffset boneIndexOffset, in ComputeBufferIndex computeBufferIndex) =>
+                {
+                    UnsafeUtility.MemCpy(
+                        allMatricesPtr + computeBufferIndex.Value,
+                        skinMatrices.GetUnsafePtr(),
+                        skinMatrices.Length * UnsafeUtility.SizeOf<float3x4>()
+                        );
+
+                    boneIndexOffset = new BoneIndexOffset { Value = computeBufferIndex.Value };
+                }).Schedule(inputDeps);
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.End();
+#endif
             return inputDeps;
         }
 
@@ -141,24 +171,6 @@ namespace Unity.Animation
 
             m_Buffer.SetData(m_AllMatrices, 0, 0, m_AllMatrices.Length);
             Shader.SetGlobalBuffer(k_ShaderPropertyName, m_Buffer);
-        }
-
-        [BurstCompile]
-        unsafe struct FlattenSkinMatricesJob : IJobForEachWithEntity_EBCC<SkinMatrix, BoneIndexOffset, ComputeBufferIndex>
-        {
-            [NativeDisableContainerSafetyRestriction]
-            public NativeArray<float3x4> SkinMatricesBuffer;
-
-            public void Execute(Entity entity, int index, DynamicBuffer<SkinMatrix> skinMatrices, ref BoneIndexOffset boneIndexOffset, ref ComputeBufferIndex computeBufferIndex)
-            {
-                UnsafeUtility.MemCpy(
-                    (float3x4*)SkinMatricesBuffer.GetUnsafePtr() + computeBufferIndex.Value,
-                    skinMatrices.GetUnsafePtr(),
-                    skinMatrices.Length * UnsafeUtility.SizeOf<float3x4>()
-                    );
-
-                boneIndexOffset = new BoneIndexOffset { Value = computeBufferIndex.Value };
-            }
         }
     }
 

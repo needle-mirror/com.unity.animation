@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Unity.Animation;
 
 namespace Unity.Animation.Hybrid
 {
@@ -41,15 +40,16 @@ namespace Unity.Animation.Hybrid
             return res;
         }
 
-        public static SkeletonNode[] ExtractSkeletonNodesFromTransforms(Transform root, Transform[] transforms)
+        public static SkeletonNode[] ExtractSkeletonNodesFromTransforms(Transform root, Transform[] transforms, BindingHashDelegate bindingHash = null)
         {
             var skeletonNodes = new List<SkeletonNode>();
 
+            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
             for (int i = 0; i < transforms.Length; i++)
             {
                 var skeletonNode = new SkeletonNode
                 {
-                    Id = ComputeRelativePath(transforms[i], root),
+                    Id = hasher(ComputeRelativePath(transforms[i], root)),
                     AxisIndex = -1,
                     LocalTranslationDefaultValue = transforms[i].localPosition,
                     LocalRotationDefaultValue = transforms[i].localRotation,
@@ -62,49 +62,49 @@ namespace Unity.Animation.Hybrid
             return skeletonNodes.ToArray();
         }
 
-        public static SkeletonNode[] ExtractSkeletonNodesFromGameObject(GameObject root)
+        public static SkeletonNode[] ExtractSkeletonNodesFromGameObject(GameObject root, BindingHashDelegate bindingHash = null)
         {
             var transforms = root.GetComponentsInChildren<Transform>();
 
-            return ExtractSkeletonNodesFromTransforms(root.transform, transforms);
+            return ExtractSkeletonNodesFromTransforms(root.transform, transforms, bindingHash);
         }
 
-        public static SkeletonNode[] ExtractSkeletonNodesFromRigComponent(RigComponent rigComponent)
+        public static SkeletonNode[] ExtractSkeletonNodesFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)
         {
-            return ExtractSkeletonNodesFromTransforms(rigComponent.transform, rigComponent.Bones);
+            return ExtractSkeletonNodesFromTransforms(rigComponent.transform, rigComponent.Bones, bindingHash);
         }
 
-        public static IAnimationChannel[] ExtractAnimationChannelFromRigComponent(RigComponent rigComponent)
+        public static IAnimationChannel[] ExtractAnimationChannelFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)
         {
             var channels = new List<IAnimationChannel>();
-
+            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
             for(int i=0;i<rigComponent.TranslationChannels.Length;i++)
             {
-                var channel = new LocalTranslationChannel { Id = rigComponent.TranslationChannels[i].Id, DefaultValue = rigComponent.TranslationChannels[i].DefaultValue };
+                var channel = new LocalTranslationChannel { Id = hasher(rigComponent.TranslationChannels[i].Id), DefaultValue = rigComponent.TranslationChannels[i].DefaultValue };
                 channels.Add(channel);
             }
 
             for(int i=0;i<rigComponent.RotationChannels.Length;i++)
             {
-                var channel = new LocalRotationChannel { Id = rigComponent.RotationChannels[i].Id, DefaultValue = rigComponent.RotationChannels[i].DefaultValue };
+                var channel = new LocalRotationChannel { Id = hasher(rigComponent.RotationChannels[i].Id), DefaultValue = rigComponent.RotationChannels[i].DefaultValue };
                 channels.Add(channel);
             }
 
             for(int i=0;i<rigComponent.ScaleChannels.Length;i++)
             {
-                var channel = new LocalScaleChannel { Id = rigComponent.ScaleChannels[i].Id, DefaultValue = rigComponent.ScaleChannels[i].DefaultValue };
+                var channel = new LocalScaleChannel { Id = hasher(rigComponent.ScaleChannels[i].Id), DefaultValue = rigComponent.ScaleChannels[i].DefaultValue };
                 channels.Add(channel);
             }
 
             for(int i=0;i<rigComponent.FloatChannels.Length;i++)
             {
-                var channel = new Unity.Animation.FloatChannel { Id = rigComponent.FloatChannels[i].Id, DefaultValue = rigComponent.FloatChannels[i].DefaultValue };
+                var channel = new Unity.Animation.FloatChannel { Id = hasher(rigComponent.FloatChannels[i].Id), DefaultValue = rigComponent.FloatChannels[i].DefaultValue };
                 channels.Add(channel);
             }
 
             for(int i=0;i<rigComponent.IntChannels.Length;i++)
             {
-                var channel = new Unity.Animation.IntChannel { Id = rigComponent.IntChannels[i].Id, DefaultValue = rigComponent.IntChannels[i].DefaultValue };
+                var channel = new Unity.Animation.IntChannel { Id = hasher(rigComponent.IntChannels[i].Id), DefaultValue = rigComponent.IntChannels[i].DefaultValue };
                 channels.Add(channel);
             }
 

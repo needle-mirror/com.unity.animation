@@ -10,17 +10,23 @@ namespace Unity.Animation
     {
         public static int WeightDataSize(BlobAssetReference<RigDefinition> rig)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(rig.IsCreated);
+#endif
             ref var bindings = ref rig.Value.Bindings;
             return bindings.DataChunkCount * BindingSet.k_DataPadding + bindings.RotationCurveCount;
         }
 
         internal static int ChannelIndexToWeightDataOffset(BlobAssetReference<RigDefinition> rig, int channelIndex)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(rig.IsCreated);
+#endif
             ref var bindings = ref rig.Value.Bindings;
 
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(channelIndex < bindings.CurveCount);
+#endif
 
             if (channelIndex < bindings.ScaleBindingIndex)
                 return math.mad(channelIndex - bindings.TranslationBindingIndex, BindingSet.TranslationKeyFloatCount, bindings.TranslationSamplesOffset);
@@ -39,8 +45,10 @@ namespace Unity.Animation
 
         internal static unsafe void SetWeightValueFromOffset(BlobAssetReference<RigDefinition> rig, float weight, int weightOffset, NativeArray<WeightData> weightData)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(weightOffset < weightData.Length);
             Assert.AreEqual(weightData.Length, WeightDataSize(rig));
+#endif
 
             float* ptr = (float*)weightData.GetUnsafePtr() + weightOffset;
             if (weightOffset < rig.Value.Bindings.FloatSamplesOffset)
@@ -51,8 +59,10 @@ namespace Unity.Animation
 
         public static void SetWeightValueFromChannelIndex(BlobAssetReference<RigDefinition> rig, float weight, int channelIndex, NativeArray<WeightData> weightData)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(channelIndex < rig.Value.Bindings.CurveCount);
             Assert.AreEqual(weightData.Length, WeightDataSize(rig));
+#endif
 
             SetWeightValueFromOffset(rig, weight, ChannelIndexToWeightDataOffset(rig, channelIndex), weightData);
         }
@@ -86,9 +96,11 @@ namespace Unity.Animation
             NativeArray<WeightData> weightData
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(rig.IsCreated);
             Assert.AreEqual(channelIndices.Length, channelWeights.Length);
             Assert.AreEqual(WeightDataSize(rig), weightData.Length);
+#endif
 
             SetDefaultWeight(defaultWeight, weightData);
             for (int i = 0, count = channelIndices.Length; i < count; ++i)
@@ -105,9 +117,11 @@ namespace Unity.Animation
             NativeArray<WeightData> weightData
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(rig.IsCreated);
             Assert.IsTrue(channelWeights.Length <= weightOffsets.Length);
             Assert.AreEqual(WeightDataSize(rig), weightData.Length);
+#endif
 
             SetDefaultWeight(defaultWeight, weightData);
             for (int i = 0, count = channelWeights.Length; i < count; ++i)

@@ -7,7 +7,7 @@ namespace Unity.Animation
     [NodeDefinition(isHidden:true)]
     public class FloatRcpSimNode
         : NodeDefinition<FloatRcpSimNode.Data, FloatRcpSimNode.SimPorts>
-            , IMsgHandler<float>
+        , IMsgHandler<float>
     {
         public struct SimPorts : ISimulationPortDefinition
         {

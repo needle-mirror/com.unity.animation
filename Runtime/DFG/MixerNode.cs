@@ -2,23 +2,27 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Mixers", description:"Blends two animation streams given an input weight value")]
     public class MixerNode
         : NodeDefinition<MixerNode.Data, MixerNode.SimPorts, MixerNode.KernelData, MixerNode.KernelDefs, MixerNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_ProfileMixPose = new ProfilerMarker("Animation.MixPose");
+#endif
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(isHidden:true)]
             public MessageInput<MixerNode, Rig> Rig;
         }
-
-        static readonly ProfilerMarker k_ProfileMixPose = new ProfilerMarker("Animation.MixPose");
 
         public struct KernelDefs : IKernelPortDefinition
         {
@@ -39,9 +43,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            // Assets.
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMixPose;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -58,7 +63,9 @@ namespace Unity.Animation
 
                 var weight = context.Resolve(in ports.Weight);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMixPose.Begin();
+#endif
 
                 if (inputStream1.IsNull && inputStream2.IsNull)
                     AnimationStreamUtils.SetDefaultValues(ref outputStream);
@@ -75,15 +82,19 @@ namespace Unity.Animation
                 else
                     Core.Blend(ref outputStream, ref inputStream1, ref inputStream2, weight);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMixPose.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMixPose = k_ProfileMixPose;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

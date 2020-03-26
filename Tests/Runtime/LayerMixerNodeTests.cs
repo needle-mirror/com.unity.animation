@@ -151,40 +151,14 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-        public void CannotSendMessageOnPortArrayBeforeSettingLayerCount()
+        public void CannotSetDataOnPortArrayBeforeSettingLayerCount()
         {
             var set = Set;
             var layerMixer = CreateNode<LayerMixerNode>();
 
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
 
-            Assert.Throws<System.IndexOutOfRangeException>(() => set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 0, BlendingMode.Override));
-        }
-
-        [Test]
-        public unsafe void CanSetBlendingMode()
-        {
-            var set = Set;
-            var layerMixer = CreateNode<LayerMixerNode>();
-
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.LayerCount, (ushort) 4 );
-
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 0, BlendingMode.Override);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 1, BlendingMode.Override);
-
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 2, BlendingMode.Additive);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 3, BlendingMode.Additive);
-
-            var blendingModes = set.GetDefinition(layerMixer).ExposeKernelData(layerMixer).BlendingModes;
-
-            Assert.That(blendingModes->Length, Is.EqualTo(4));
-
-
-            Assert.AreEqual(BlendingMode.Override, LayerMixerNode.ItemAt<BlendingMode>(blendingModes, 0));
-            Assert.AreEqual(BlendingMode.Override, LayerMixerNode.ItemAt<BlendingMode>(blendingModes, 1));
-
-            Assert.AreEqual(BlendingMode.Additive, LayerMixerNode.ItemAt<BlendingMode>(blendingModes, 2));
-            Assert.AreEqual(BlendingMode.Additive, LayerMixerNode.ItemAt<BlendingMode>(blendingModes, 3));
+            Assert.Throws<System.IndexOutOfRangeException>(() => set.SetData(layerMixer, LayerMixerNode.KernelPorts.BlendingModes, 0, BlendingMode.Override));
         }
 
         [Test]
@@ -227,7 +201,7 @@ namespace Unity.Animation.Tests
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, rig);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -266,7 +240,7 @@ namespace Unity.Animation.Tests
             set.Connect(clipNode, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 0);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -318,7 +292,7 @@ namespace Unity.Animation.Tests
 
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -361,14 +335,14 @@ namespace Unity.Animation.Tests
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.LayerCount, (ushort) 1);
             set.SetData(layerMixer, LayerMixerNode.KernelPorts.Weights, 0, layerWeight);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 0, BlendingMode.Additive);
+            set.SetData(layerMixer, LayerMixerNode.KernelPorts.BlendingModes, 0, BlendingMode.Additive);
 
             set.Connect(clipNode, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 0);
 
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -421,9 +395,9 @@ namespace Unity.Animation.Tests
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.LayerCount, (ushort) 2);
             set.SetData(layerMixer, LayerMixerNode.KernelPorts.Weights, 0, layer1Weight);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 0, BlendingMode.Additive);
+            set.SetData(layerMixer, LayerMixerNode.KernelPorts.BlendingModes, 0, BlendingMode.Additive);
             set.SetData(layerMixer, LayerMixerNode.KernelPorts.Weights, 1, layer2Weight);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 1, BlendingMode.Additive);
+            set.SetData(layerMixer, LayerMixerNode.KernelPorts.BlendingModes, 1, BlendingMode.Additive);
 
             set.Connect(clipNode, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 0);
             set.Connect(clipNode2, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 1);
@@ -431,7 +405,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -499,10 +473,10 @@ namespace Unity.Animation.Tests
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.LayerCount, (ushort) 2);
             set.SetData(layerMixer, LayerMixerNode.KernelPorts.Weights, 0, layer0Weight);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 0, BlendingMode.Additive);
+            set.SetData(layerMixer, LayerMixerNode.KernelPorts.BlendingModes, 0, BlendingMode.Additive);
 
             set.SetData(layerMixer, LayerMixerNode.KernelPorts.Weights, 1, layer1Weight);
-            set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.BlendingModes, 1, BlendingMode.Additive);
+            set.SetData(layerMixer, LayerMixerNode.KernelPorts.BlendingModes, 1, BlendingMode.Additive);
 
             set.Connect(clipNode, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 0);
             set.Connect(clipNode2, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 1);
@@ -511,7 +485,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -548,7 +522,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             Assert.DoesNotThrow(() => m_AnimationGraphSystem.Update());
         }
@@ -589,7 +563,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 

@@ -32,7 +32,6 @@ namespace Unity.Animation
             RigEntityBuilder.SetupRigEntity(debugEntity, entityManager, rigDefinition);
             ValidateRigEntity(debugEntity, entityManager);
 
-            entityManager.AddComponentData(debugEntity, new LocalToWorld { Value = float4x4.identity });
             BoneRendererEntityBuilder.CreateBoneRendererEntities(debugEntity, entityManager, rigDefinition, props, ids);
 
             return debugEntity;

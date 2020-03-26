@@ -252,7 +252,7 @@ namespace Unity.Animation.Tests
             set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, clip);
             set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             return new TestDataClipNode { Entity = entity, ClipNode = clipNode };
         }
@@ -279,7 +279,7 @@ namespace Unity.Animation.Tests
             Set.SendMessage(uberNode, UberClipNode.SimulationPorts.Configuration, config);
             set.SetData(uberNode, UberClipNode.KernelPorts.Time, time);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             return new TestDataUberClipNode { Entity = entity, UberClipNode = uberNode };
         }
@@ -307,7 +307,7 @@ namespace Unity.Animation.Tests
             set.SetData(clipPlayerNode, ClipPlayerNode.KernelPorts.Speed, speed);
             set.SetData(clipPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, deltaTime);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             return new TestDataClipPlayerNode { Entity = entity, ClipPlayerNode = clipPlayerNode };
         }
@@ -693,7 +693,6 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale).Using(ScaleComparer));
         }
 
-        [Ignore("TODO Fix race condition in layerMixer")]
         [Test]
         public void CanInstantiateAndDeleteClipLoopPlayer()
         {
@@ -722,7 +721,7 @@ namespace Unity.Animation.Tests
             set.Connect(deltaTimeNode, DeltaTimeNode.KernelPorts.DeltaTime, clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime);
             set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 0);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 

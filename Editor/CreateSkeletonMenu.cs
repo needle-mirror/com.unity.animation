@@ -27,7 +27,7 @@ namespace Unity.Animation.Editor
             {
                 Undo.RecordObject(rigComponent, "Setup Rig Transforms");
 
-                if (rigComponent.Bones.Length >= 1 && rigComponent.Bones[0] != null)
+                if (rigComponent.Bones != null && rigComponent.Bones.Length >= 1 && rigComponent.Bones[0] != null)
                     go = rigComponent.Bones[0].gameObject;
                 rigComponent.Bones = go.GetComponentsInChildren<Transform>();
             }

@@ -7,7 +7,6 @@ namespace Unity.Animation
     [NodeDefinition(category:"Animation Core/Utils", description:"Computes the delta animation stream given two input streams")]
     public class DeltaPoseNode
         : NodeDefinition<DeltaPoseNode.Data, DeltaPoseNode.SimPorts, DeltaPoseNode.KernelData, DeltaPoseNode.KernelDefs, DeltaPoseNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition

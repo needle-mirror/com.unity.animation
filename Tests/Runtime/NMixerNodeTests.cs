@@ -209,7 +209,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -277,7 +277,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -330,7 +330,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -384,7 +384,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -431,7 +431,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -475,7 +475,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -522,7 +522,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -563,7 +563,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -613,7 +613,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(mixerNode, NMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 

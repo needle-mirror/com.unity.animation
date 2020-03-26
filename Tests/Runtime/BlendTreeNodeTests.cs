@@ -147,7 +147,7 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, m_BlendTree);
             Set.SetData(blendTreeNode, BlendTree1DNode.KernelPorts.BlendParameter, blendValue);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             return new TestData { Entity = entity, BlendTreeNode = blendTreeNode };
         }

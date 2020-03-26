@@ -3,18 +3,22 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Root Motion", description:"Extracts motion from a specified transform and projects it's values on the root transform. This node is internally used by the UberClipNode.")]
     public class InPlaceMotionNode
         : NodeDefinition<InPlaceMotionNode.Data, InPlaceMotionNode.SimPorts, InPlaceMotionNode.KernelData, InPlaceMotionNode.KernelDefs, InPlaceMotionNode.Kernel>
-        , IMsgHandler<Rig>
         , IMsgHandler<ClipConfiguration>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.InPlaceMotionNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -38,13 +42,14 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+            public ProfilerMarker ProfileMarker;
+#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
             public ClipConfiguration Configuration;
 
             public int TranslationIndex;
             public int RotationIndex;
-
-            public ProfilerMarker ProfileMarker;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -55,7 +60,9 @@ namespace Unity.Animation
                 if (data.RigDefinition == default)
                     return;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 // Fill the destination stream with default values.
                 var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
@@ -79,15 +86,19 @@ namespace Unity.Animation
                 outputStream.SetLocalToRootTranslation(data.TranslationIndex, motionTranslation);
                 outputStream.SetLocalToRootRotation(data.RotationIndex, motionRotation);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -134,7 +145,7 @@ namespace Unity.Animation
 
         // this is the default projection
         // todo: support Mecanim parameters for motion projection
-        public static void ProjectMotionNode(float3 t, quaternion q, out float3 projT, out quaternion projQ, bool bankPivot)
+        static void ProjectMotionNode(float3 t, quaternion q, out float3 projT, out quaternion projQ, bool bankPivot)
         {
             if (bankPivot)
             {
@@ -143,16 +154,10 @@ namespace Unity.Animation
             }
             else
             {
-                projT.x = t.x;
-                projT.y = 0;
-                projT.z = t.z;
+                projT = math.float3(t.x, 0f, t.z);
             }
 
-            projQ.value.x = 0;
-            projQ.value.y = q.value.y / q.value.w;
-            projQ.value.z = 0;
-            projQ.value.w = 1;
-            projQ = math.normalize(projQ);
+            projQ = math.normalize(math.quaternion(0f, q.value.y / q.value.w, 0f, 1f));
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

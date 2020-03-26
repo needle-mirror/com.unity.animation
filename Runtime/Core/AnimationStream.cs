@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
-using System;
 
 using UnityEngine.Assertions;
 using Unity.Entities;
@@ -24,7 +23,7 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get(int index)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (m_Ptr == null)
                 throw new System.NullReferenceException("Invalid offset pointer");
             if ((uint)index >= (uint)m_Length)
@@ -37,7 +36,7 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set(int index, in T value)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (m_Ptr == null)
                 throw new System.NullReferenceException("Invalid offset pointer");
             if ((uint)index >= (uint)m_Length)
@@ -101,14 +100,18 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetLocalToParentTranslation(int index, in float3 translation)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             ValidateIsFinite(translation);
+#endif
             m_LocalTranslationData.Set(index, translation);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetLocalToParentRotation(int index, in quaternion rotation)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             ValidateIsFinite(rotation);
+#endif
             int idx = index & 0x3; // equivalent to % 4
             ref quaternion4 q4 = ref m_LocalRotationData.Get(index >> 2);
             q4.x[idx] = rotation.value.x;
@@ -120,14 +123,18 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetLocalToParentScale(int index, in float3 scale)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             ValidateIsFinite(scale);
+#endif
             m_LocalScaleData.Set(index, scale);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetFloat(int index, in float value)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             ValidateIsFinite(value);
+#endif
             m_FloatData.Set(index, value);
         }
 
@@ -144,7 +151,7 @@ namespace Unity.Animation
 
         public float3 GetLocalToRootTranslation(int index)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
@@ -164,7 +171,7 @@ namespace Unity.Animation
 
         public void SetLocalToRootTranslation(int index, in float3 translation)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
@@ -184,7 +191,7 @@ namespace Unity.Animation
 
         public quaternion GetLocalToRootRotation(int index)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
@@ -214,7 +221,7 @@ namespace Unity.Animation
 
         public void SetLocalToRootRotation(int index, in quaternion rotation)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
@@ -249,7 +256,7 @@ namespace Unity.Animation
 
         public void GetLocalToRootTR(int index, out float3 translation, out quaternion rotation)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
@@ -270,7 +277,7 @@ namespace Unity.Animation
 
         public void SetLocalToRootTR(int index, in float3 translation, in quaternion rotation)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             if (IsNull)
                 throw new System.NullReferenceException("Invalid rig definition");
             if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
@@ -284,7 +291,7 @@ namespace Unity.Animation
                     new float4x4(rotation, translation)
                     );
 
-                SetLocalToParentTranslation(index, new float3(tx.c3.x, tx.c3.y, tx.c3.z));
+                SetLocalToParentTranslation(index, tx.c3.xyz);
                 SetLocalToParentRotation(index, new quaternion(tx));
             }
             else
@@ -383,29 +390,28 @@ namespace Unity.Animation
             get => Rig.Value.Bindings.DataChunkCount;
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+#if !UNITY_DISABLE_ANIMATION_CHECKS
         void ValidateIsFinite(in float value)
         {
             if (!math.isfinite(value))
                 throw new System.ArithmeticException();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateIsFinite(in float3 value)
         {
             if (!math.all(math.isfinite(value)))
                 throw new System.ArithmeticException();
         }
 
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateIsFinite(in quaternion value)
         {
             if (!math.all(math.isfinite(value.value)))
                 throw new System.ArithmeticException();
         }
+#endif
     }
 
-    [Obsolete("AnimationStreamProvider is obsolete, use AnimationStream.Create, AnimationStream.CreateReadOnly or AnimationStream.FromDefaultValues instead (RemovedAfter 2020-03-29)", false)]
+    [System.Obsolete("AnimationStreamProvider is obsolete, use AnimationStream.Create, AnimationStream.CreateReadOnly or AnimationStream.FromDefaultValues instead (RemovedAfter 2020-03-29)", false)]
     public static class AnimationStreamProvider
     {
         // ANSME: Burst needs this indirection to work otherwise it can't
@@ -431,6 +437,7 @@ namespace Unity.Animation
     {
         unsafe public static void MemCpy(ref AnimationStream dst, ref AnimationStream src)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(dst.IsNull || src.IsNull);
 
             Assert.AreEqual(dst.TranslationCount, src.TranslationCount);
@@ -438,21 +445,24 @@ namespace Unity.Animation
             Assert.AreEqual(dst.ScaleCount, src.ScaleCount);
             Assert.AreEqual(dst.FloatCount, src.FloatCount);
             Assert.AreEqual(dst.IntCount, src.IntCount);
-
+#endif
             UnsafeUtility.MemCpy(dst.GetUnsafePtr(), src.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * src.Rig.Value.Bindings.StreamSize);
         }
 
         unsafe public static void SetDefaultValues(ref AnimationStream stream)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(stream.IsNull);
-
+#endif
             ref var rig = ref stream.Rig.Value;
             UnsafeUtility.MemCpy(stream.GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * rig.Bindings.StreamSize);
         }
 
         unsafe public static void MemClear(ref AnimationStream stream)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(stream.IsNull);
+#endif
             UnsafeUtility.MemClear(stream.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * stream.Rig.Value.Bindings.StreamSize);
         }
     }

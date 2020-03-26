@@ -142,7 +142,7 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             Set.Connect(deltaNode, DeltaPoseNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
@@ -198,7 +198,7 @@ namespace Unity.Animation.Tests
             var layerMixerNode = CreateNode<LayerMixerNode>();
             Set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.Rig, m_Rig);
             Set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.LayerCount, (ushort)2 );
-            Set.SendMessage(layerMixerNode, LayerMixerNode.SimulationPorts.BlendingModes, 1, BlendingMode.Additive);
+            Set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.BlendingModes, 1, BlendingMode.Additive);
             Set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.Weights, 0, 1.0f);
             Set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.Weights, 1, 1.0f);
 
@@ -213,8 +213,8 @@ namespace Unity.Animation.Tests
 
             Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
-            m_Manager.AddComponent<PreAnimationGraphTag>(entity);
-            m_Manager.AddComponent<PreAnimationGraphTag>(anotherEntity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(anotherEntity);
 
             m_AnimationGraphSystem.Update();
 

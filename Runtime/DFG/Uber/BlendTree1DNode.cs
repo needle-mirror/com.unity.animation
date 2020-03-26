@@ -11,7 +11,6 @@ namespace Unity.Animation
     public class BlendTree1DNode
         : NodeDefinition<BlendTree1DNode.Data, BlendTree1DNode.SimPorts, BlendTree1DNode.KernelData, BlendTree1DNode.KernelDefs, BlendTree1DNode.Kernel>
         , IMsgHandler<BlobAssetReference<BlendTree1D>>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition

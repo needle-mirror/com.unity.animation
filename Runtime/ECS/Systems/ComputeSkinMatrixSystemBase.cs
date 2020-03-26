@@ -3,13 +3,18 @@ using Unity.Entities;
 using Unity.Jobs;
 using Unity.Mathematics;
 using Unity.Burst;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     public abstract class ComputeSkinMatrixSystemBase : JobComponentSystem
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_Marker = new ProfilerMarker("ComputeSkinMatrixSystemBase");
+#endif
 
         EntityQuery m_Query;
 
@@ -25,7 +30,9 @@ namespace Unity.Animation
 
         protected override JobHandle OnUpdate(JobHandle inputDep)
         {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.Begin();
+#endif
 
             var renderingSkinMatricesJob = new ComputeSkinMatricesJob
             {
@@ -37,7 +44,9 @@ namespace Unity.Animation
             };
             inputDep = renderingSkinMatricesJob.Schedule(m_Query, inputDep);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.End();
+#endif
 
             return inputDep;
         }

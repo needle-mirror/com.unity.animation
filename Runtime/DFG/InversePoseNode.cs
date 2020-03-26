@@ -2,17 +2,21 @@ using Unity.Burst;
 using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
+#endif
 
 namespace Unity.Animation
 {
     [NodeDefinition(category:"Animation Core/Utils", description:"Computes the inverse animation stream")]
     public class InversePoseNode
         : NodeDefinition<InversePoseNode.Data, InversePoseNode.SimPorts, InversePoseNode.KernelData, InversePoseNode.KernelDefs, InversePoseNode.Kernel>
-        , IMsgHandler<Rig>
         , IRigContextHandler
     {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.InversePoseNode");
+#endif
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -35,8 +39,10 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-            public BlobAssetReference<RigDefinition> RigDefinition;
+#if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker ProfileMarker;
+#endif
+            public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile/*(FloatMode = FloatMode.Fast)*/]
@@ -47,7 +53,9 @@ namespace Unity.Animation
                 if (data.RigDefinition == BlobAssetReference<RigDefinition>.Null)
                     return;
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.Begin();
+#endif
 
                 // Fill the destination stream with default values.
                 var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition,context.Resolve(ports.Input));
@@ -55,15 +63,19 @@ namespace Unity.Animation
 
                 Core.InversePose(ref outputStream, ref inputStream);
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMarker.End();
+#endif
             }
         }
 
+#if !UNITY_DISABLE_ANIMATION_PROFILING
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
             kData.ProfileMarker = k_ProfileMarker;
         }
+#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

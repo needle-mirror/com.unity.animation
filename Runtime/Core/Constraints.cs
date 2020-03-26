@@ -16,7 +16,6 @@ namespace Unity.Animation
             public RigidTransform TargetOffset;
 
             public float3 Hint;
-            public float2 LimbLengths;
 
             public int RootIndex;
             public int MidIndex;
@@ -31,7 +30,6 @@ namespace Unity.Animation
                 Target               = RigidTransform.identity,
                 TargetOffset         = RigidTransform.identity,
                 Hint                 = float3.zero,
-                LimbLengths          = float2.zero,
                 RootIndex            = -1,
                 MidIndex             = -1,
                 TipIndex             = -1,
@@ -43,9 +41,11 @@ namespace Unity.Animation
 
         public static void SolveTwoBoneIK(ref AnimationStream stream, in TwoBoneIKData data, float weight)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(data.RootIndex > -1);
             Assert.IsTrue(data.MidIndex  > -1);
             Assert.IsTrue(data.TipIndex  > -1);
+#endif
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -65,8 +65,13 @@ namespace Unity.Animation
             float3 ac = tipPos - rootPos;
             float3 at = tPos   - rootPos;
 
-            float prevAngle = TriangleAngle(math.length(ac), data.LimbLengths);
-            float newAngle  = TriangleAngle(math.length(at), data.LimbLengths);
+            float lenAB = math.length(ab);
+            float lenBC = math.length(bc);
+            float lenAC = math.length(ac);
+            float lenAT = math.length(at);
+
+            float prevAngle = TriangleAngle(lenAC, lenAB, lenBC);
+            float newAngle  = TriangleAngle(lenAT, lenAB, lenBC);
 
             // Bend normal strategy is to take whatever has been provided in the animation
             // stream to minimize configuration changes, however if this is collinear
@@ -106,7 +111,7 @@ namespace Unity.Animation
                     float3 abProj = ab - acNorm * math.dot(ab, acNorm);
                     float3 ahProj = ah - acNorm * math.dot(ah, acNorm);
 
-                    float maxReach = data.LimbLengths.x + data.LimbLengths.y;
+                    float maxReach = lenAB + lenBC;
                     if (math.lengthsq(abProj) > (maxReach * maxReach * 0.001f) && math.lengthsq(ahProj) > 0f)
                     {
                         quaternion hintRot = mathex.fromTo(abProj, ahProj);
@@ -120,8 +125,8 @@ namespace Unity.Animation
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static float TriangleAngle(float aLen, float2 limbLengths) =>
-            math.acos(math.clamp((math.lengthsq(limbLengths) - aLen * aLen) / (limbLengths.x * limbLengths.y) * 0.5f, -1f, 1f));
+        static float TriangleAngle(float len0, float len1, float len2) =>
+            math.acos(math.clamp(((math.lengthsq(math.float2(len1, len2)) - (len0 * len0)) / (len1 * len2)) * 0.5f, -1f, 1f));
 
         static float Sum(NativeArray<float> array)
         {
@@ -152,9 +157,11 @@ namespace Unity.Animation
 
         public static void SolvePositionConstraint(ref AnimationStream stream, in PositionConstraintData data, float weight)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(data.Index > -1);
             Assert.IsTrue(data.SourcePositions.Length == data.SourceOffsets.Length);
             Assert.IsTrue(data.SourcePositions.Length == data.SourceWeights.Length);
+#endif
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -213,9 +220,11 @@ namespace Unity.Animation
 
         public static void SolveRotationConstraint(ref AnimationStream stream, in RotationConstraintData data, float weight)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(data.Index > -1);
             Assert.IsTrue(data.SourceRotations.Length == data.SourceOffsets.Length);
             Assert.IsTrue(data.SourceRotations.Length == data.SourceWeights.Length);
+#endif
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -276,9 +285,11 @@ namespace Unity.Animation
 
         public static void SolveParentConstraint(ref AnimationStream stream, in ParentConstraintData data, float weight)
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(data.Index > -1);
             Assert.IsTrue(data.SourceTx.Length == data.SourceOffsets.Length);
             Assert.IsTrue(data.SourceTx.Length == data.SourceWeights.Length);
+#endif
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -365,9 +376,11 @@ namespace Unity.Animation
             in float weight
             )
         {
+#if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(data.Index > -1);
             Assert.IsTrue(data.SourcePositions.Length == data.SourceOffsets.Length);
             Assert.IsTrue(data.SourcePositions.Length == data.SourceWeights.Length);
+#endif
 
             if (!(weight > 0f))
                 return;

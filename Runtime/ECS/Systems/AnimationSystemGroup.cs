@@ -2,16 +2,11 @@ using Unity.Entities;
 using Unity.Transforms;
 using UnityEngine;
 
-using System;
-
 namespace Unity.Animation
 {
     // TODO : Eventually the animation pipeline should be defined outside
     // of the core animation package as users can implement
     // their own custom ones.
-
-    public struct PreAnimationGraphTag : IGraphTag { }
-    public struct PostAnimationGraphTag : IGraphTag { }
 
     [ExecuteAlways]
     [UpdateBefore(typeof(TransformSystemGroup))]
@@ -25,23 +20,44 @@ namespace Unity.Animation
     {
     }
 
-    [Obsolete("AnimationGraphSystem is obsolete, use either PreAnimationGraphSystem or PostAnimationGraphSystem and component nodes (RemovedAfter 2020-02-18)", false)]
     [ExecuteAlways]
     [UpdateInGroup(typeof(PreAnimationSystemGroup))]
-    public class AnimationGraphSystem : AnimationGraphSystemBase<GraphOutput>
+    public class PreAnimationGraphSystem : AnimationSystemBase<
+        PreAnimationGraphSystem.Tag,
+        PreAnimationGraphSystem.ReadTransformHandle,
+        NotSupportedTransformHandle
+        >
     {
-    }
+        public struct Tag : IAnimationSystemTag { }
 
-    [ExecuteAlways]
-    [UpdateInGroup(typeof(PreAnimationSystemGroup))]
-    public class PreAnimationGraphSystem : GraphSystemBase<PreAnimationGraphTag>
-    {
+        public struct ReadTransformHandle : IReadTransformHandle
+        {
+            public Entity Entity { get; set; }
+            public int Index { get; set; }
+        }
     }
 
     [ExecuteAlways]
     [UpdateInGroup(typeof(PostAnimationSystemGroup))]
-    public class PostAnimationGraphSystem : GraphSystemBase<PostAnimationGraphTag>
+    public class PostAnimationGraphSystem : AnimationSystemBase<
+        PostAnimationGraphSystem.Tag,
+        PostAnimationGraphSystem.ReadTransformHandle,
+        PostAnimationGraphSystem.WriteTransformHandle
+        >
     {
+        public struct Tag : IAnimationSystemTag { }
+
+        public struct ReadTransformHandle : IReadTransformHandle
+        {
+            public Entity Entity { get; set; }
+            public int Index { get; set; }
+        }
+
+        public struct WriteTransformHandle : IWriteTransformHandle
+        {
+            public Entity Entity { get; set; }
+            public int Index { get; set; }
+        }
     }
 
     [ExecuteAlways]
