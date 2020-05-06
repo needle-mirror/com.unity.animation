@@ -1,0 +1,30 @@
+{
+    "name": "Unity.Animation.Graph.Tests",
+    "references": [
+        "Unity.Entities",
+        "Unity.Mathematics",
+        "Unity.DataFlowGraph",
+        "Unity.Animation",
+        "Unity.Animation.Hybrid",
+        "Unity.Animation.Graph",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.Animation.Tests",
+        "Unity.Animation.Curves",
+        "Unity.Animation.Curves.Hybrid",
+        "Unity.Animation.DefaultGraphPipeline"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,35 @@
+{
+    "name": "Unity.Animation.Hybrid.Tests",
+    "references": [
+        "Unity.Burst",
+        "Unity.Entities",
+        "Unity.Entities.Hybrid",
+        "Unity.Transforms",
+        "Unity.Mathematics",
+        "Unity.DataFlowGraph",
+        "Unity.Animation",
+        "Unity.Animation.Graph",
+        "Unity.Animation.DefaultGraphPipeline",
+        "Unity.Animation.Tests",
+        "Unity.PerformanceTesting",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.Animation.Editor",
+        "Unity.Animation.Hybrid"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

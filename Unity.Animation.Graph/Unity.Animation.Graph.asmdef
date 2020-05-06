@@ -1,0 +1,22 @@
+{
+    "name": "Unity.Animation.Graph",
+    "references": [
+        "Unity.Animation",
+        "Unity.Burst",
+        "Unity.Mathematics",
+        "Unity.DataFlowGraph",
+        "Unity.Entities",
+        "Unity.Transforms",
+        "Unity.Animation.Curves",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,28 @@
+// This file is generated. Do not modify by hand.
+// XML documentation file not found. To check if public methods have XML comments,
+// make sure the XML doc file is present and located next to the scraped dll
+namespace Unity.Animation.Editor
+{
+    public struct BakeOptions
+    {
+        public Unity.Animation.ClipConfiguration ClipConfiguration;
+        public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
+        public float SampleRate;
+        public bool NeedBaking { get; }
+    }
+
+    public static class BlendTreeConversion
+    {
+        public static int Convert(UnityEditor.Animations.BlendTree blendTree, Unity.Entities.Entity entity, Unity.Entities.EntityManager entityManager, Unity.Animation.Editor.BakeOptions bakeOptions = default(Unity.Animation.Editor.BakeOptions));
+    }
+
+    public static class BlendTreeMenu
+    {
+        [UnityEditor.MenuItem(@"Animation/Blend Tree/Create Blend Tree")] public static void CreateBlendTreeAsset();
+    }
+
+    public static class CreateSkeletonMenu
+    {
+        [UnityEditor.MenuItem(@"Animation/Rig/Setup Rig Transforms")] public static void FillRigBones();
+    }
+}

@@ -1,0 +1,75 @@
+// This file is generated. Do not modify by hand.
+// XML documentation file not found. To check if public methods have XML comments,
+// make sure the XML doc file is present and located next to the scraped dll
+namespace Unity.Animation
+{
+    [Unity.Entities.UpdateAfter(typeof(Unity.Animation.RigComputeMatricesSystem))] [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class ComputeSkinMatrixSystem : Unity.Animation.ComputeSkinMatrixSystemBase
+    {
+        public ComputeSkinMatrixSystem() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [Unity.Entities.UpdateInGroup(typeof(Unity.Entities.PresentationSystemGroup))] [UnityEngine.ExecuteAlways] public class FinalizePushSkinMatrixToRendererSystem : Unity.Animation.FinalizePushSkinMatrixToRendererSystemBase
+    {
+        protected virtual Unity.Animation.PrepareSkinMatrixToRendererSystemBase PrepareSkinMatrixToRenderSystem { get; }
+        public FinalizePushSkinMatrixToRendererSystem() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PostAnimationGraphSystem : Unity.Animation.AnimationSystemBase<Unity.Animation.PostAnimationGraphSystem.Tag, Unity.Animation.PostAnimationGraphSystem.ReadTransformHandle, Unity.Animation.PostAnimationGraphSystem.WriteTransformHandle>
+    {
+        public PostAnimationGraphSystem() {}
+        protected virtual void OnCreateForCompiler();
+        public struct ReadTransformHandle : Unity.Animation.IReadTransformHandle, Unity.Animation.ITransformHandle, Unity.Entities.IBufferElementData
+        {
+            public virtual Unity.Entities.Entity Entity { get; set; }
+            public virtual int Index { get; set; }
+        }
+        public struct Tag : Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData
+        {
+        }
+        public struct WriteTransformHandle : Unity.Animation.ITransformHandle, Unity.Animation.IWriteTransformHandle, Unity.Entities.IBufferElementData
+        {
+            public virtual Unity.Entities.Entity Entity { get; set; }
+            public virtual int Index { get; set; }
+        }
+    }
+
+    [Unity.Entities.UpdateAfter(typeof(Unity.Transforms.TransformSystemGroup))] [UnityEngine.ExecuteAlways] public class PostAnimationSystemGroup : Unity.Entities.ComponentSystemGroup
+    {
+        public PostAnimationSystemGroup() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PreAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PreAnimationGraphSystem : Unity.Animation.AnimationSystemBase<Unity.Animation.PreAnimationGraphSystem.Tag, Unity.Animation.PreAnimationGraphSystem.ReadTransformHandle, Unity.Animation.NotSupportedTransformHandle>
+    {
+        public PreAnimationGraphSystem() {}
+        protected virtual void OnCreateForCompiler();
+        public struct ReadTransformHandle : Unity.Animation.IReadTransformHandle, Unity.Animation.ITransformHandle, Unity.Entities.IBufferElementData
+        {
+            public virtual Unity.Entities.Entity Entity { get; set; }
+            public virtual int Index { get; set; }
+        }
+        public struct Tag : Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData
+        {
+        }
+    }
+
+    [Unity.Entities.UpdateBefore(typeof(Unity.Transforms.TransformSystemGroup))] [UnityEngine.ExecuteAlways] public class PreAnimationSystemGroup : Unity.Entities.ComponentSystemGroup
+    {
+        public PreAnimationSystemGroup() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [Unity.Entities.UpdateAfter(typeof(Unity.Animation.ComputeSkinMatrixSystem))] [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PrepareSkinMatrixToRendererSystem : Unity.Animation.PrepareSkinMatrixToRendererSystemBase
+    {
+        public PrepareSkinMatrixToRendererSystem() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [Unity.Entities.UpdateAfter(typeof(Unity.Animation.PostAnimationGraphSystem))] [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class RigComputeMatricesSystem : Unity.Animation.RigComputeMatricesSystemBase
+    {
+        public RigComputeMatricesSystem() {}
+        protected virtual void OnCreateForCompiler();
+    }
+}

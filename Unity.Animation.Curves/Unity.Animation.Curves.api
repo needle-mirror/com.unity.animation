@@ -1,0 +1,32 @@
+// This file is generated. Do not modify by hand.
+// XML documentation file not found. To check if public methods have XML comments,
+// make sure the XML doc file is present and located next to the scraped dll
+namespace Unity.Animation
+{
+    public struct AnimationCurve : System.IDisposable
+    {
+        public bool IsCreated { get; }
+        public virtual void Dispose();
+        public Unity.Entities.BlobAssetReference<Unity.Animation.AnimationCurveBlob> GetAnimationCurveBlobAssetRef();
+        public void SetAnimationCurveBlobAssetRef(Unity.Entities.BlobAssetReference<Unity.Animation.AnimationCurveBlob> curveBlob);
+    }
+
+    public struct AnimationCurveBlob
+    {
+        public Unity.Entities.BlobArray<Unity.Animation.KeyframeData> KeyframesData;
+        public Unity.Entities.BlobArray<float> KeyframesTime;
+    }
+
+    public struct AnimationCurveEvaluator
+    {
+        public static float Evaluate(float time, ref Unity.Animation.AnimationCurve animCurve);
+        public static float Evaluate(float time, Unity.Entities.BlobAssetReference<Unity.Animation.AnimationCurveBlob> curveBlob);
+    }
+
+    public struct KeyframeData
+    {
+        public float InTangent;
+        public float OutTangent;
+        public float Value;
+    }
+}

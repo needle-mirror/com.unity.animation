@@ -1,0 +1,28 @@
+{
+    "name": "Unity.Animation.Curves.Hybrid.Tests",
+    "references": [
+        "Unity.Animation.Curves",
+        "Unity.Animation.Curves.Hybrid",
+        "Unity.Entities",
+        "Unity.Entities.Hybrid",
+        "Unity.PerformanceTesting",
+        "Unity.Mathematics",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

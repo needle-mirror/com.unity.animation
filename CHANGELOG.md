@@ -5,6 +5,72 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-preview.1] - 2020-05-06
+
+### Added
+- Added 3 new assemblies: `Unity.Animation.Graph`, `Unity.Animation.DefaultGraphPipeline`, and `Unity.Animation.DefaultGraphPipeline.Hybrid`
+- Added Euler curve support for rotation bindings in `ClipBuilder`'s AnimationClip to DenseClip conversion.
+- Added velocity calculation functions to Core namespace:
+    - `Core.ComputeLocalToParentLinearVelocities`
+    - `Core.ComputeLocalToParentAngularVelocities`
+    - `Core.ComputeLocalToWorldLinearVelocities`
+    - `Core.ComputeLocalToWorldAngularVelocities`
+- Added experimental API to create and manage a set of sub-nodes associated with a GraphHandle. These nodes are either automatically released when disposing the animation system NodeSet or when you explicitly dispose the GraphHandle. Relevant functions added are:
+    - `AnimationSystemBase.CreateGraph()`
+    - `AnimationSystemBase.CreateNode<T>(GraphHandle)`
+    - `AnimationSystemBase.CreateNode(GraphHandle, Entity)`
+    - `AnimationSystemBase.Dispose(GraphHandle)`
+- Added BlobAssetStore extension methods to support `AnimationClip`, `AnimationCurve` and `RigComponent`:
+    - `BlobAssetStore.GetClip(AnimationClip)`
+    - `BlobAssetStore.GetAnimationCurve(AnimationCurve)`
+    - `BlobAssetStore.GetRigDefinition(RigComponent)`
+- Added `SynchronizationTag` to `Clip`: To use them you need to create Animation Events on your clips defined with an ObjectReferenceParameter that implements the `ISynchronizationTag` interface. Their main use are for continuous blending between motion of the same type but that aren't authored like Synchronize Motions. 
+- Added `ISynchronizationTag` to the `Unity.Animation.Hybrid` assembly. 
+- Added a twist bone solver `Core.SolveTwistCorrection` and relevant DFG node `TwistCorrectionNode` to redistribute a percentage of the source rotation over a leaf bone in order to correct *candy-wrapper* mesh deformation artifacts.
+
+### Changed
+- Moved following files from `Unity.Animation` to `Unity.Animation.Graph`:
+    - `AnimationSystemBase`
+    - All DFG nodes
+    - `NodeDefinitionAttribute`
+    - `IRigContextHandler`
+    - `DFGUtils` class
+    - NodeSet extension methods
+- Moved following files from `Unity.Animation` to `Unity.Animation.DefaultGraphPipeline`:
+    - `PreAnimationSystemGroup` and `PostAnimationSystemGroup`
+    - `PreAnimationGraphSystem` and `PostAnimationGraphSystem`
+    - `RigComputeMatricesSystem`
+    - `ComputeSkinMatrixSystem`
+    - `PrepareSkinMatrixToRendererSystem`
+    - `FinalizePushSkinMatrixToRendererSystem`
+- Moved following files from `Unity.Animation` to `Unity.Animation.DefaultGraphPipeline.Hybrid`:
+    - `PostAnimationGraphReadTransformHandle`
+    - `PostAnimationGraphWriteTransformHandle`
+    - `PreAnimationGraphReadTransformHandle`
+- Changed assembly `Unity.AnimationCurves.asmdef` to `Unity.Animation.Curves.asmdef`
+- Changed assembly `Unity.AnimationCurves.Hybdrid.asmdef` to `Unity.Animation.Curves.Hybrid.asmdef`
+- Changed assembly `Unity.AnimationCurves.Tests.asmdef` to `Unity.Animation.Curves.Tests.asmdef`
+- Removed dependency on `com.unity.rendering.hybrid` since common rendering structures are defined in `com.unity.entities`. **This means that all projects currently using `com.unity.animation` and HDRP for skinning should include `com.unity.rendering.hybrid` to their package manifests**.
+- Removed nested `BlobAssetReference<RigDefinition>` found in `ClipInstance`. Storing `RigHashCode` and `ClipHashCode` to know what data was used to generate the specific `ClipInstance`.
+- Changed `Unity.Animation.RigRemapUtils.CreateRemapTable` and `Unity.Animation.Hybrid.RigRemapUtils.CreateRemapTable` to take an extra optional parameter in order to remap specific channel types. By default all rig channels are used for matching.
+- Interface `IAnimationChannel` does not inherit from `System.IEquatable` anymore.
+- `LocalTranslationChannel` now implements `IEquatable<LocalTranslationChannel>`. The `Equals` function was changed to take an argument of type `LocalTranslationChannel` instead of the generic `IAnimationChannel`. Same for `LocalRotationChannel`, `LocalScaleChannel`, `FloatChannel` and `IntChannel`.
+- Deprecated `ClipBuilder.AnimationClipToDenseClip` which is replaced by extension method `AnimationClip.ToDenseClip` implemented in `Unity.Animation.Hybrid`.
+- Deprecated `ClipInstance.Create` which is replaced by `ClipInstanceBuilder.Create`.
+- `AnimationSystemBase`, `RigComputeMatricesSystemBase`, `ComputeSkinMatrixSystemBase`, `BoneRendererMatrixSystemBase` and `BoneRendererRenderingSystemBase` have been upgraded to `SystemBase`.
+- Upgraded com.unity.entities to 0.9.1-preview.15
+- Upgraded com.unity.jobs to 0.2.8-preview.3
+- Upgraded com.unity.collections to 0.7.1-preview.3
+- Upgraded com.unity.dataflowgraph to 0.14.0-preview.2
+- Upgraded com.unity.test-framework to 1.1.13
+- Upgraded com.unity.test-framework.performance to 2.0.8-preview
+
+### Fixed
+- Fixed StringHash so that both null and empty strings give the same default hash value (id = 0)
+- Fixed `SolveAimConstraint` to prevent rolling effects
+- Fixed copy of integer curves values to incorrect AnimationStream indices in `Core.EvaluateClip`
+- Fixed RigRemapperNode to output destination rig default values (or overridden default values) when the RemapTable, SourceRigDefintion or node input stream is invalid.
+
 ## [0.3.0-preview.9] - 2020-03-26
 
 ### Added
@@ -74,7 +140,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 - Fixed ComputeMatrixBuffer queries to include necessary `LocalToWorld` IComponentData to prevent errors from being thrown. Updated `RigEntityBuilder` creation functions to add the `LocalToWorld` IComponentData if it's not current on the entity.
 - Fixed race condition crash when deleting a LayerMixer caused by internal allocation jobs for kernel memory.
 
-### Know Issues
+### Known Issues
 - Global scale is unsupported while reading from Expose transform.
 
 ## [0.3.0-preview.7] - 2020-02-10
