@@ -1,9 +1,6 @@
 using NUnit.Framework;
-using Unity.Entities;
-using Unity.Animation;
 using Unity.Animation.Hybrid;
 
-using UnityEngine.TestTools;
 using UnityEngine;
 using UnityEditor;
 

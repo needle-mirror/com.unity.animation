@@ -5,6 +5,17 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-preview.3] - 2020-05-14
+
+### Fixed
+- Reverted changes for Hybrid.Editor assemblies because it a breaking changes for Dots Timeline.
+- Moved back `BlobAssetStoreExtensions` from `Unity.Animation.Hybrid.Editor` to `Unity.Animation.Hybrid`. Be aware that the `BlobAssetStoreExtensions` will only works in the editor and will throw an `NotImplementedException` if used in the standalone player.
+
+## [0.4.0-preview.2] - 2020-05-13
+
+### Fixed
+- Fixed standalone player builds and added Hybrid.Editor assemblies for codepaths depending on UnityEditor.
+
 ## [0.4.0-preview.1] - 2020-05-06
 
 ### Added

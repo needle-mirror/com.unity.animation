@@ -1,10 +1,10 @@
 using System;
 using System.IO;
-using Unity.Animation.Hybrid;
 using UnityEngine;
 
 #if UNITY_EDITOR
 using UnityEditor;
+using Unity.Animation.Hybrid;
 
 namespace Unity.Animation.Tests
 {

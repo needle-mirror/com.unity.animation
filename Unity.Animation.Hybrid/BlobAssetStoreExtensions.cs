@@ -65,6 +65,7 @@ namespace Unity.Animation.Hybrid
 
         static Entities.Hash128 GetAssetHash(UnityEngine.Object asset)
         {
+#if UNITY_EDITOR
             if (asset == null)
                 return default;
 
@@ -84,6 +85,9 @@ namespace Unity.Animation.Hybrid
             }
 
             return result;
+#else
+            throw new System.NotImplementedException("BlobAssetStoreExtensions are not supported in the Player. You need to convert your asset in the editor.");
+#endif
         }
     }
 }
