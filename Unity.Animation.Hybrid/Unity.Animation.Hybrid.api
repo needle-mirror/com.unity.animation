@@ -69,13 +69,21 @@ namespace Unity.Animation.Hybrid
         public IntChannel() {}
     }
 
+    public interface IReadExposeTransform : Unity.Animation.Hybrid.IExposeTransform
+    {
+    }
+
     public interface ISynchronizationTag
     {
         public abstract int State { get; set; }
         public abstract Unity.Animation.StringHash Type { get; }
     }
 
-    public class ReadExposeTransform<TTransformHandle> : UnityEngine.MonoBehaviour, Unity.Animation.Hybrid.IExposeTransform where TTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new()
+    public interface IWriteExposeTransform : Unity.Animation.Hybrid.IExposeTransform
+    {
+    }
+
+    public class ReadExposeTransform<TTransformHandle> : UnityEngine.MonoBehaviour, Unity.Animation.Hybrid.IExposeTransform, Unity.Animation.Hybrid.IReadExposeTransform where TTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new()
     {
         public ReadExposeTransform() {}
         public virtual void AddExposeTransform(Unity.Entities.EntityManager entityManager, Unity.Entities.Entity rig, Unity.Entities.Entity transform, int index);
@@ -92,9 +100,16 @@ namespace Unity.Animation.Hybrid
         public RigComponent() {}
     }
 
-    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversion", 5)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class RigConversion : GameObjectConversionSystem
+    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversion", 8)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class RigConversion : GameObjectConversionSystem
     {
         public RigConversion() {}
+        protected virtual void OnCreateForCompiler();
+        protected virtual void OnUpdate();
+    }
+
+    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversionCleanup", 2)] [Unity.Entities.UpdateInGroup(typeof(GameObjectAfterConversionGroup))] public class RigConversionCleanup : GameObjectConversionSystem
+    {
+        public RigConversionCleanup() {}
         protected virtual void OnCreateForCompiler();
         protected virtual void OnUpdate();
     }
@@ -135,14 +150,14 @@ namespace Unity.Animation.Hybrid
         public SkinnedMesh() {}
     }
 
-    [System.Obsolete(@"SkinnedMeshConversion has been deprecated. (RemovedAfter 2020-06-24)")] [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.SkinnedMeshConversion", 1)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class SkinnedMeshConversion : GameObjectConversionSystem
+    [System.Obsolete(@"SkinnedMeshConversion has been deprecated. (RemovedAfter 2020-06-24)")] [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.SkinnedMeshConversion", 2)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class SkinnedMeshConversion : GameObjectConversionSystem
     {
         public SkinnedMeshConversion() {}
         protected virtual void OnCreateForCompiler();
         protected virtual void OnUpdate();
     }
 
-    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.SkinnedMeshRendererConversion", 2)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class SkinnedMeshRendererConversion : GameObjectConversionSystem
+    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.SkinnedMeshRendererConversion", 5)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class SkinnedMeshRendererConversion : GameObjectConversionSystem
     {
         public SkinnedMeshRendererConversion() {}
         protected virtual void OnCreateForCompiler();
@@ -156,7 +171,7 @@ namespace Unity.Animation.Hybrid
         public TranslationChannel() {}
     }
 
-    public class WriteExposeTransform<TTransformHandle> : UnityEngine.MonoBehaviour, Unity.Animation.Hybrid.IExposeTransform where TTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new()
+    public class WriteExposeTransform<TTransformHandle> : UnityEngine.MonoBehaviour, Unity.Animation.Hybrid.IExposeTransform, Unity.Animation.Hybrid.IWriteExposeTransform where TTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new()
     {
         public WriteExposeTransform() {}
         public virtual void AddExposeTransform(Unity.Entities.EntityManager entityManager, Unity.Entities.Entity rig, Unity.Entities.Entity transform, int index);

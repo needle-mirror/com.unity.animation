@@ -27,7 +27,7 @@ namespace Unity.Animation
         public StringHash MotionID;
     }
 
-    [NodeDefinition(category: "Animation Core", description: "Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden: true)]
+    [NodeDefinition(guid: "859141ab001b4967b5ea5798db0e5879", version: 1, category: "Animation Core", description: "Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden: true)]
     public class UberClipNode
         : NodeDefinition<UberClipNode.Data, UberClipNode.SimPorts, UberClipNode.KernelData, UberClipNode.KernelDefs, UberClipNode.Kernel>
         , IMsgHandler<BlobAssetReference<Clip>>
@@ -37,24 +37,24 @@ namespace Unity.Animation
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "3e1fda046ee345d7868bede5248b110b", isHidden: true)]
             public MessageInput<UberClipNode, Rig> Rig;
-            [PortDefinition(description: "Clip to sample")]
+            [PortDefinition(guid: "1ed1dbc98c954b40aa5b7da1ea927487", description: "Clip to sample")]
             public MessageInput<UberClipNode, BlobAssetReference<Clip>> Clip;
-            [PortDefinition(description: "Clip configuration data")]
+            [PortDefinition(guid: "e9e28a1a30ed4ad3b48bc7e86a30bf30", description: "Clip configuration data")]
             public MessageInput<UberClipNode, ClipConfiguration> Configuration;
-            [PortDefinition(description: "Is this an additive clip", defaultValue: false)]
+            [PortDefinition(guid: "b932e67455d24b0a818f6b04725231db", description: "Is this an additive clip", defaultValue: false)]
             public MessageInput<UberClipNode, bool> Additive;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Unbound time")]
+            [PortDefinition(guid: "9f83a135cc284cd587e0c4c03d98f335", description: "Unbound time")]
             public DataInput<UberClipNode, float> Time;
-            [PortDefinition(description: "Delta time")]
+            [PortDefinition(guid: "c82bccad0b5f4b839e76eb1da59010e9", description: "Delta time")]
             public DataInput<UberClipNode, float> DeltaTime;
 
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "ab8b8a72b06c43079fa00e5667330677", description: "Resulting animation stream")]
             public DataOutput<UberClipNode, Buffer<AnimatedData>> Output;
         }
 
@@ -214,9 +214,9 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            var nodeData = GetNodeData(handle);
+            var nodeData = GetNodeData(ctx.Handle);
 
             Set.Destroy(nodeData.TimeNode);
             Set.Destroy(nodeData.DeltaTimeNode);
@@ -455,6 +455,9 @@ namespace Unity.Animation
             clip.Bindings = clip.CreateBindingSet(translationBindingsCount, rotationBindingsCount, scaleBindingsCount, floatBindingsCount, intBindingsCount);
 
             blobBuilder.Allocate(ref clip.Samples, clip.Bindings.CurveCount * (clip.FrameCount + 1));
+
+            var syncTags = blobBuilder.Allocate(ref clip.SynchronizationTags, sourceClip.Value.SynchronizationTags.Length);
+            syncTags.CopyFrom(ref sourceClip.Value.SynchronizationTags);
 
             var clipAsset = blobBuilder.CreateBlobAssetReference<Clip>(Allocator.Persistent);
             blobBuilder.Dispose();

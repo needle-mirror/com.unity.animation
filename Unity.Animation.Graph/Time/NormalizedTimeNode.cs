@@ -8,7 +8,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Time", description: "Computes normalized time [0, 1] given an input time and duration")]
+    [NodeDefinition(guid: "7f966a89b3ed4a6bb24144f7ca8749ba", version: 1, category: "Animation Core/Time", description: "Computes normalized time [0, 1] given an input time and duration")]
     public class NormalizedTimeNode
         : NodeDefinition<NormalizedTimeNode.Data, NormalizedTimeNode.SimPorts, NormalizedTimeNode.KernelData, NormalizedTimeNode.KernelDefs, NormalizedTimeNode.Kernel>
         , IMsgHandler<float>
@@ -19,15 +19,15 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(description: "Duration")]
+            [PortDefinition(guid: "28656bd191824b79a53bb0b5bb610400", description: "Duration")]
             public MessageInput<NormalizedTimeNode, float> Duration;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Unbound time")]
+            [PortDefinition(guid: "5a7635b182b746a49513f4b650da4fc0", description: "Unbound time")]
             public DataInput<NormalizedTimeNode, float> InputTime;
-            [PortDefinition(description: "Normalized time")]
+            [PortDefinition(guid: "9e835dcf0e9c44dfa3bfaf679a355e5f", description: "Normalized time")]
             public DataOutput<NormalizedTimeNode, float> OutputTime;
         }
 

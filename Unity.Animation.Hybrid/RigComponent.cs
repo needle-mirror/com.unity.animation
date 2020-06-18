@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Unity.Animation.Hybrid
@@ -39,12 +40,12 @@ namespace Unity.Animation.Hybrid
 
     public class RigComponent : MonoBehaviour
     {
-        public Transform[] Bones;
+        public Transform[] Bones = Array.Empty<Transform>();
 
-        public TranslationChannel[] TranslationChannels;
-        public RotationChannel[] RotationChannels;
-        public ScaleChannel[] ScaleChannels;
-        public FloatChannel[] FloatChannels;
-        public IntChannel[] IntChannels;
+        public TranslationChannel[] TranslationChannels = Array.Empty<TranslationChannel>();
+        public RotationChannel[] RotationChannels = Array.Empty<RotationChannel>();
+        public ScaleChannel[] ScaleChannels = Array.Empty<ScaleChannel>();
+        public FloatChannel[] FloatChannels = Array.Empty<FloatChannel>();
+        public IntChannel[] IntChannels = Array.Empty<IntChannel>();
     }
 }

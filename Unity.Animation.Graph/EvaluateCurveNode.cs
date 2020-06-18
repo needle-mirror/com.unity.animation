@@ -8,7 +8,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core", description: "Samples an AnimationCurve at a given time")]
+    [NodeDefinition(guid: "7e669400e5a54932a5cbfd21ef5ec64a", version: 1, category: "Animation Core", description: "Samples an AnimationCurve at a given time")]
     public class EvaluateCurveNode
         : NodeDefinition<EvaluateCurveNode.Data, EvaluateCurveNode.SimPorts, EvaluateCurveNode.KernelData, EvaluateCurveNode.KernelDefs, EvaluateCurveNode.Kernel>
         , IMsgHandler<AnimationCurve>
@@ -19,16 +19,16 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(description: "The AnimationCurve to sample")]
+            [PortDefinition(guid: "a28d3cca5864417d91350f603503a984", description: "The AnimationCurve to sample")]
             public MessageInput<EvaluateCurveNode, AnimationCurve> AnimationCurve;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Sample time", defaultValue: 0f)]
+            [PortDefinition(guid: "b2e7e6a9a5f445d9a30562b665cf3420", description: "Sample time", defaultValue: 0f)]
             public DataInput<EvaluateCurveNode, float> Time;
 
-            [PortDefinition(description: "Curve value at given time")]
+            [PortDefinition(guid: "38e583f3a02b44da9a5d2efc72981767", description: "Curve value at given time")]
             public DataOutput<EvaluateCurveNode, float> Output;
         }
 

@@ -52,7 +52,7 @@ namespace Unity.Animation
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.Begin();
 #endif
-            Dependency.Complete();
+            CompleteDependency();
 
             var boneWireMaterial = BoneRendererUtils.GetBoneWireMaterial();
             var boneFaceMaterial = BoneRendererUtils.GetBoneFaceMaterial();
@@ -63,8 +63,8 @@ namespace Unity.Animation
                 m_Query.SetSharedComponentFilter(new BoneRenderer.BoneShape { Value = boneShape });
                 var chunks = m_Query.CreateArchetypeChunkArray(Allocator.TempJob);
 
-                var boneColorType = GetArchetypeChunkComponentType<BoneRenderer.BoneColor>(true);
-                var entityType = GetArchetypeChunkComponentType<BoneRenderer.BoneRendererEntity>(true);
+                var boneColorType = GetComponentTypeHandle<BoneRenderer.BoneColor>(true);
+                var entityType = GetComponentTypeHandle<BoneRenderer.BoneRendererEntity>(true);
 
                 var srcOffset = 0;
                 var destOffset = 0;
@@ -141,5 +141,9 @@ namespace Unity.Animation
             k_Marker.End();
 #endif
         }
+
+#if !UNITY_ENTITIES_0_12_OR_NEWER
+        ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : struct, IComponentData => new ComponentTypeHandle<T> { Value = GetArchetypeChunkComponentType<T>(isReadOnly) };
+#endif
     }
 }

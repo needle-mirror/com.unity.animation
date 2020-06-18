@@ -158,8 +158,8 @@ namespace Unity.Animation.Tests
 
             var animationChannels = new IAnimationChannel[]
             {
-                new FloatChannel {DefaultValue = 1.0f, Id = "Float"},
-                new IntChannel {DefaultValue = 1, Id = "Int"}
+                new FloatChannel {DefaultValue = 1.0f, Id = "Float/floatVar"},
+                new IntChannel {DefaultValue = 1, Id = "Int/intVar"}
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels);

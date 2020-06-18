@@ -13,7 +13,7 @@ using System;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Constraints", description: "Twist correction is mainly used to redistribute a percentage of the source rotation over a leaf bone in order to correct mesh deformation artifacts.")]
+    [NodeDefinition(guid: "6f515a98326e46108f9f2f9c251c3afb", version: 1, category: "Animation Core/Constraints", description: "Twist correction is mainly used to redistribute a percentage of the source rotation over a leaf bone in order to correct mesh deformation artifacts.")]
     [PortGroupDefinition(portGroupSizeDescription: "Twist Bone Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class TwistCorrectionNode
         : NodeDefinition<TwistCorrectionNode.Data, TwistCorrectionNode.SimPorts, TwistCorrectionNode.KernelData, TwistCorrectionNode.KernelDefs, TwistCorrectionNode.Kernel>
@@ -29,30 +29,30 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "caa9251733f2457ea17846b8218f21f5", isHidden: true)]
             public MessageInput<TwistCorrectionNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Constrained animation stream")]
+            [PortDefinition(guid: "fb3aa28263ca41c597334c64fa72f2d6", description: "Constrained animation stream")]
             public DataInput<TwistCorrectionNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "ef48a63dba7342ac98daee94e04e032d", description: "Resulting animation stream")]
             public DataOutput<TwistCorrectionNode, Buffer<AnimatedData>> Output;
 
-            [PortDefinition(description: "Constraint Weight", defaultValue: 1f)]
+            [PortDefinition(guid: "80d8c2d01696487c80650d88d90ffaf1", description: "Constraint Weight", defaultValue: 1f)]
             public DataInput<TwistCorrectionNode, float> Weight;
-            [PortDefinition(description: "Local Twist Axis", isStatic: true, defaultValue: TwistCorrectionNode.TwistAxis.Y)]
+            [PortDefinition(guid: "54d9a28f88b14fbcb7891b22cb8f6c0e", description: "Local Twist Axis", isStatic: true, defaultValue: TwistCorrectionNode.TwistAxis.Y)]
             public DataInput<TwistCorrectionNode, TwistAxis> LocalTwistAxis;
 
-            [PortDefinition(displayName: "Source Rotation", description: "Current rotation of the source")]
+            [PortDefinition(guid: "66c5ef437395453dbcfbb8db213d0302", displayName: "Source Rotation", description: "Current rotation of the source")]
             public DataInput<TwistCorrectionNode, quaternion> SourceRotation;
-            [PortDefinition(displayName: "Source Default Rotation", description: "Default or initial rotation of the source at setup. This is used to compute the delta twist rotation")]
+            [PortDefinition(guid: "288e5ce189d9433aa08d5b91223d8e4d", displayName: "Source Default Rotation", description: "Default or initial rotation of the source at setup. This is used to compute the delta twist rotation")]
             public DataInput<TwistCorrectionNode, quaternion> SourceDefaultRotation;
 
-            [PortDefinition(displayName: "Twist Bone Index", description: "Twist bones driven by the source", portGroupIndex: 1, defaultValue: -1)]
+            [PortDefinition(guid: "12e0b4566cfb45858d9673aa403bc2fa", displayName: "Twist Bone Index", description: "Twist bones driven by the source", portGroupIndex: 1, defaultValue: -1)]
             public PortArray<DataInput<TwistCorrectionNode, int>>  TwistIndices;
-            [PortDefinition(displayName: "Twist Bone Weight", description: "Twist bone weights", portGroupIndex: 1, defaultValue: 0f, minValueUI: -1f, maxValueUI: 1f)]
+            [PortDefinition(guid: "d7ca08c609794eed8c1128a43651ae83", displayName: "Twist Bone Weight", description: "Twist bone weights", portGroupIndex: 1, defaultValue: 0f, minValueUI: -1f, maxValueUI: 1f)]
             public PortArray<DataInput<TwistCorrectionNode, float>> TwistWeights;
         }
 

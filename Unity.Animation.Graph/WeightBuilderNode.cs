@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Creates weight masks based on passed channel indices and weights")]
+    [NodeDefinition(guid: "7921f59316444412ae7120293a3cfe74", version: 1, category: "Animation Core/Utils", description: "Creates weight masks based on passed channel indices and weights")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of channels", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class WeightBuilderNode
         : NodeDefinition<WeightBuilderNode.Data, WeightBuilderNode.SimPorts, WeightBuilderNode.KernelData, WeightBuilderNode.KernelDefs, WeightBuilderNode.Kernel>
@@ -18,20 +18,20 @@ namespace Unity.Animation
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "197cf10d665a4f4981fad39738643998", isHidden: true)]
             public MessageInput<WeightBuilderNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Default weight that is applied to all channels", defaultValue: 1f)]
+            [PortDefinition(guid: "2e023389c8bc4077b1a2e6b0107a0f7d", description: "Default weight that is applied to all channels", defaultValue: 1f)]
             public DataInput<WeightBuilderNode, float> DefaultWeight;
-            [PortDefinition(displayName: "Channel Index", description: "Channel index in rig definition", portGroupIndex: 1)]
+            [PortDefinition(guid: "4a113099c106421596a3e0354e0a3e39", displayName: "Channel Index", description: "Channel index in rig definition", portGroupIndex: 1)]
             public PortArray<DataInput<WeightBuilderNode, int>> ChannelIndices;
-            [PortDefinition(displayName: "Channel Weight", description: "Weight value for this channel", portGroupIndex: 1)]
+            [PortDefinition(guid: "4facdf4f067e42b290e8d7cbdf320ef8", displayName: "Channel Weight", description: "Weight value for this channel", portGroupIndex: 1)]
             public PortArray<DataInput<WeightBuilderNode, float>> ChannelWeights;
 
-            [PortDefinition(description: "Resulting weight data")]
+            [PortDefinition(guid: "0c1edff7de2a4184b203814dcc77ac1e", description: "Resulting weight data")]
             public DataOutput<WeightBuilderNode, Buffer<WeightData>> Output;
         }
 
@@ -67,9 +67,9 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, data.ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.Output);
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            var nodeData = GetNodeData(handle);
+            var nodeData = GetNodeData(ctx.Handle);
             Set.Destroy(nodeData.ConvertNode);
             Set.Destroy(nodeData.ComputeWeightDataNode);
         }

@@ -8,7 +8,6 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(isHidden: true)]
     public class SimPassThroughNode<T>
         : NodeDefinition<SimPassThroughNode<T>.Data, SimPassThroughNode<T>.SimPorts>
         , IMsgHandler<T>
@@ -26,7 +25,6 @@ namespace Unity.Animation
             ctx.EmitMessage(SimulationPorts.Output, msg);
     }
 
-    [NodeDefinition(isHidden: true)]
     public abstract class KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>
         : NodeDefinition<KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.Data, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelDefs, TKernel>
         where TFinalNodeDefinition : NodeDefinition
@@ -52,7 +50,7 @@ namespace Unity.Animation
     }
 
     // Until this is fixed in Burst, we must avoid IGraphKernel implementations which include any generics.
-    [NodeDefinition(isHidden: true)]
+    [NodeDefinition(guid: "3c094ff41dd2403c81c356e60d66d222", version: 1, isHidden: true)]
     public class KernelPassThroughNodeFloat : KernelPassThroughNode<KernelPassThroughNodeFloat, float, KernelPassThroughNodeFloat.Kernel>
     {
 #if !UNITY_DISABLE_ANIMATION_PROFILING
@@ -86,7 +84,6 @@ namespace Unity.Animation
 #endif
     }
 
-    [NodeDefinition(isHidden: true)]
     public abstract class KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>
         : NodeDefinition<KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.Data, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelDefs, TKernel>
         , IMsgHandler<int>
@@ -124,7 +121,7 @@ namespace Unity.Animation
 
 
     // Until this is fixed in Burst, we must avoid IGraphKernel implementations which include any generics.
-    [NodeDefinition(isHidden: true)]
+    [NodeDefinition(guid: "d998849d1bc04708acf7e23da56c0a87", version: 1, isHidden: true)]
     public class KernelPassThroughNodeBufferFloat : KernelPassThroughNodeBuffer<KernelPassThroughNodeBufferFloat, AnimatedData, KernelPassThroughNodeBufferFloat.Kernel>
     {
 #if !UNITY_DISABLE_ANIMATION_PROFILING

@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Mixers", description: "Blends two animation streams given an input weight value")]
+    [NodeDefinition(guid: "fd4af8a57de143148add1ffef327bd73", version: 1, category: "Animation Core/Mixers", description: "Blends two animation streams given an input weight value")]
     public class MixerNode
         : NodeDefinition<MixerNode.Data, MixerNode.SimPorts, MixerNode.KernelData, MixerNode.KernelDefs, MixerNode.Kernel>
         , IRigContextHandler
@@ -20,20 +20,20 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "f77388cf9f22485d924e530a5906cad1", isHidden: true)]
             public MessageInput<MixerNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream 0")]
+            [PortDefinition(guid: "929d52c8aa744becbaa7cd9cb041c4b9", description: "Input stream 0")]
             public DataInput<MixerNode, Buffer<AnimatedData>> Input0;
-            [PortDefinition(description: "Input stream 1")]
+            [PortDefinition(guid: "ca260edfcfe04ddd8252601b85c4c314", description: "Input stream 1")]
             public DataInput<MixerNode, Buffer<AnimatedData>> Input1;
-            [PortDefinition(description: "Blend weight")]
+            [PortDefinition(guid: "8be16b6cc26742f290ddfb2fc51abbc7", description: "Blend weight")]
             public DataInput<MixerNode, float> Weight;
 
-            [PortDefinition(description: "Resulting stream")]
+            [PortDefinition(guid: "f9393266c7ed4984afb26bc952b294f6", description: "Resulting stream")]
             public DataOutput<MixerNode, Buffer<AnimatedData>> Output;
         }
 
@@ -66,6 +66,7 @@ namespace Unity.Animation
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfileMixPose.Begin();
 #endif
+                outputStream.ClearChannelMasks();
 
                 if (inputStream1.IsNull && inputStream2.IsNull)
                     AnimationStreamUtils.SetDefaultValues(ref outputStream);

@@ -17,27 +17,38 @@ namespace Unity.Animation
             All = new ComponentType[]
             {
                 ComponentType.ReadOnly<Rig>(),
-                ComponentType.ReadOnly<LocalToWorld>(),
+                ComponentType.ReadOnly<RigRootEntity>(),
                 ComponentType.ReadOnly<AnimatedData>(),
                 ComponentType.ReadOnly<TWriteTransformHandle>(),
                 ComponentType.ReadWrite<AnimatedLocalToWorld>()
             }
         };
 
-        [ReadOnly] public ArchetypeChunkComponentType<Rig> Rigs;
-        [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> RigLocalToWorlds;
-        [ReadOnly] public ArchetypeChunkBufferType<AnimatedData> AnimatedData;
-        [ReadOnly] public ArchetypeChunkBufferType<TWriteTransformHandle> WriteTransforms;
+        [ReadOnly] public ComponentTypeHandle<Rig> Rigs;
+        [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRoots;
+        [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
+        [ReadOnly] public BufferTypeHandle<TWriteTransformHandle> WriteTransforms;
 
-        public ArchetypeChunkBufferType<AnimatedLocalToWorld> AnimatedLocalToWorlds;
+        public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorlds;
 
         [NativeDisableContainerSafetyRestriction]
         public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
 
+        [NativeDisableContainerSafetyRestriction]
+        public ComponentDataFromEntity<LocalToParent> EntityLocalToParent;
+        [NativeDisableContainerSafetyRestriction]
+        public ComponentDataFromEntity<Translation> EntityTranslation;
+        [NativeDisableContainerSafetyRestriction]
+        public ComponentDataFromEntity<Rotation> EntityRotation;
+        [NativeDisableContainerSafetyRestriction]
+        public ComponentDataFromEntity<Scale> EntityScale;
+        [NativeDisableContainerSafetyRestriction]
+        public ComponentDataFromEntity<NonUniformScale> EntityNonUniformScale;
+
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
         {
             var rigs = chunk.GetNativeArray(Rigs);
-            var rigLocalToWorlds = chunk.GetNativeArray(RigLocalToWorlds);
+            var rigRoots = chunk.GetNativeArray(RigRoots);
             var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
             var writeTransformAccessor = chunk.GetBufferAccessor(WriteTransforms);
             var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorlds);
@@ -46,7 +57,9 @@ namespace Unity.Animation
             {
                 var animatedLocalToWorlds = animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray();
                 var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());
-                Core.ComputeLocalToWorld(rigLocalToWorlds[i].Value, ref stream, animatedLocalToWorlds);
+                var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
+
+                Core.ComputeLocalToWorld(rootLocalToWorld, ref stream, animatedLocalToWorlds);
 
                 var writeTransforms = writeTransformAccessor[i].AsNativeArray();
                 for (int j = 0; j < writeTransforms.Length; ++j)
@@ -56,6 +69,45 @@ namespace Unity.Animation
                         EntityLocalToWorld[writeTransforms[j].Entity] = new LocalToWorld
                         {
                             Value = animatedLocalToWorlds[writeTransforms[j].Index]
+                        };
+                    }
+
+                    if (EntityLocalToParent.HasComponent(writeTransforms[j].Entity))
+                    {
+                        EntityLocalToParent[writeTransforms[j].Entity] = new LocalToParent
+                        {
+                            Value = mathex.float4x4(stream.GetLocalToParentMatrix(writeTransforms[j].Index))
+                        };
+                    }
+
+                    if (EntityTranslation.HasComponent(writeTransforms[j].Entity))
+                    {
+                        EntityTranslation[writeTransforms[j].Entity] = new Translation
+                        {
+                            Value = stream.GetLocalToParentTranslation(writeTransforms[j].Index)
+                        };
+                    }
+
+                    if (EntityRotation.HasComponent(writeTransforms[j].Entity))
+                    {
+                        EntityRotation[writeTransforms[j].Entity] = new Rotation
+                        {
+                            Value = stream.GetLocalToParentRotation(writeTransforms[j].Index)
+                        };
+                    }
+
+                    if (EntityScale.HasComponent(writeTransforms[j].Entity))
+                    {
+                        EntityScale[writeTransforms[j].Entity] = new Scale
+                        {
+                            Value = stream.GetLocalToParentScale(writeTransforms[j].Index).x
+                        };
+                    }
+                    else if (EntityNonUniformScale.HasComponent(writeTransforms[j].Entity))
+                    {
+                        EntityNonUniformScale[writeTransforms[j].Entity] = new NonUniformScale
+                        {
+                            Value = stream.GetLocalToParentScale(writeTransforms[j].Index)
                         };
                     }
                 }

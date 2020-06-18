@@ -20,7 +20,7 @@ namespace Unity.Animation
             }
         };
 
-        public ArchetypeChunkBufferType<TReadTransformHandle> ReadTransforms;
+        public BufferTypeHandle<TReadTransformHandle> ReadTransforms;
         public uint LastSystemVersion;
 
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
@@ -54,22 +54,22 @@ namespace Unity.Animation
             {
                 ComponentType.ReadOnly<Rig>(),
                 ComponentType.ReadOnly<TReadTransformHandle>(),
-                ComponentType.ReadOnly<LocalToWorld>(),
+                ComponentType.ReadOnly<RigRootEntity>(),
                 ComponentType.ReadWrite<AnimatedData>()
             }
         };
 
-        [ReadOnly] public ArchetypeChunkComponentType<Rig> Rigs;
-        [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> RigLocalToWorlds;
-        [ReadOnly] public ArchetypeChunkBufferType<TReadTransformHandle> ReadTransforms;
+        [ReadOnly] public ComponentTypeHandle<Rig> Rigs;
+        [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRoots;
+        [ReadOnly] public BufferTypeHandle<TReadTransformHandle> ReadTransforms;
         [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
 
-        public ArchetypeChunkBufferType<AnimatedData> AnimatedData;
+        public BufferTypeHandle<AnimatedData> AnimatedData;
 
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
         {
             var rigs = chunk.GetNativeArray(Rigs);
-            var rigLocalToWorlds = chunk.GetNativeArray(RigLocalToWorlds);
+            var rigRoots = chunk.GetNativeArray(RigRoots);
             var readTransformAccessor = chunk.GetBufferAccessor(ReadTransforms);
             var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
 
@@ -77,7 +77,7 @@ namespace Unity.Animation
             {
                 var readTransformArray = readTransformAccessor[i].AsNativeArray();
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());
-                var invRigLocalToWorld = math.inverse(rigLocalToWorlds[i].Value);
+                var invRootLocalToWorld = math.inverse(EntityLocalToWorld[rigRoots[i].Value].Value);
 
                 var localToRootCache = new NativeArray<float4x4>(stream.Rig.Value.Skeleton.BoneCount, Allocator.Temp);
 
@@ -115,7 +115,7 @@ namespace Unity.Animation
                     {
                         if (EntityLocalToWorld.HasComponent(readTransform.Entity))
                         {
-                            var localToRoot = math.mul(invRigLocalToWorld, EntityLocalToWorld[readTransform.Entity].Value);
+                            var localToRoot = math.mul(invRootLocalToWorld, EntityLocalToWorld[readTransform.Entity].Value);
 
                             if (b > 0)
                             {
@@ -136,7 +136,7 @@ namespace Unity.Animation
                     }
                     else
                     {
-                        localToRootCache[b] = math.mul(parentLocalToRoot, stream.GetLocalToParentMatrix(b));
+                        localToRootCache[b] = math.mul(parentLocalToRoot, mathex.float4x4(stream.GetLocalToParentMatrix(b)));
                     }
 
                     ++b;

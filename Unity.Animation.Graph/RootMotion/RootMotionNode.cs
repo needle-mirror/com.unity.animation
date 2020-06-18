@@ -10,7 +10,8 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Root Motion", description: "Extracts root motion values from animation stream so these can be used for different operations (i.e store state values in entity components)")]
+    [System.Obsolete("RootMotionNode has been deprecated. Use the IAnimatedRootMotion component instead. (RemovedAfter 2020-08-16)")]
+    [NodeDefinition(guid: "bcaa66b19c1947a9bd447f543602b7d3", version: 1, category: "Animation Core/Root Motion", description: "Extracts root motion values from animation stream so these can be used for different operations (i.e store state values in entity components)")]
     public class RootMotionNode
         : NodeDefinition<RootMotionNode.Data, RootMotionNode.SimPorts, RootMotionNode.KernelData, RootMotionNode.KernelDefs, RootMotionNode.Kernel>
         , IRigContextHandler
@@ -21,22 +22,22 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "efbce8bfa97f4514999bf6d60a35a29a", isHidden: true)]
             public MessageInput<RootMotionNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "The current animation stream with delta root motion values")]
+            [PortDefinition(guid: "60d7a34c8716403bbaea02a7cd0d3369", description: "The current animation stream with delta root motion values")]
             public DataInput<RootMotionNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream without root motion")]
+            [PortDefinition(guid: "ce074fc0bc0e422f915527256409c159", description: "Resulting animation stream without root motion")]
             public DataOutput<RootMotionNode, Buffer<AnimatedData>> Output;
-            [PortDefinition(displayName: "Previous Root Motion Transform", description: "Previous root motion")]
+            [PortDefinition(guid: "3fa402c9c39e496f961cf7e64f4e4221", displayName: "Previous Root Motion Transform", description: "Previous root motion")]
             public DataInput<RootMotionNode, float4x4> PrevRootX;
 
-            [PortDefinition(displayName: "Delta Root Motion Transform", description: "Current delta root motion")]
+            [PortDefinition(guid: "74887b6c68d6496283dc64b56286968a", displayName: "Delta Root Motion Transform", description: "Current delta root motion")]
             public DataOutput<RootMotionNode, float4x4> DeltaRootX;
-            [PortDefinition(displayName: "Root Motion Transform", description: "Current root motion")]
+            [PortDefinition(guid: "7702d041834c41ae978f353eec0e839a", displayName: "Root Motion Transform", description: "Current root motion")]
             public DataOutput<RootMotionNode, float4x4> RootX;
         }
 

@@ -1,13 +1,10 @@
 using Unity.Entities;
 using Unity.Transforms;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Unity.Animation
 {
-    // TODO : Eventually the animation pipeline should be defined outside
-    // of the core animation package as users can implement
-    // their own custom ones.
-
     [ExecuteAlways]
     [UpdateBefore(typeof(TransformSystemGroup))]
     public class PreAnimationSystemGroup : ComponentSystemGroup
@@ -25,7 +22,8 @@ namespace Unity.Animation
     public class PreAnimationGraphSystem : AnimationSystemBase<
         PreAnimationGraphSystem.Tag,
         PreAnimationGraphSystem.ReadTransformHandle,
-        NotSupportedTransformHandle
+        PreAnimationGraphSystem.WriteTransformHandle,
+        PreAnimationGraphSystem.AnimatedRootMotion
     >
     {
         public struct Tag : IAnimationSystemTag {}
@@ -34,6 +32,23 @@ namespace Unity.Animation
         {
             public Entity Entity { get; set; }
             public int Index { get; set; }
+        }
+
+        public struct WriteTransformHandle : IWriteTransformHandle
+        {
+            public Entity Entity { get; set; }
+            public int Index { get; set; }
+        }
+
+        /// <summary>
+        /// PreAnimationGraphSystem root motion component to add in order to
+        /// accumulate the delta root transform evaluated at graph rendering
+        /// in the entity transform components.
+        /// This works when the rig entity does not hold a DisableRootTransformReadWriteTag component.
+        /// </summary>
+        public struct AnimatedRootMotion : IAnimatedRootMotion
+        {
+            public RigidTransform Delta { get; set; }
         }
     }
 
@@ -70,22 +85,24 @@ namespace Unity.Animation
     [ExecuteAlways]
     [UpdateInGroup(typeof(PostAnimationSystemGroup))]
     [UpdateAfter(typeof(RigComputeMatricesSystem))]
-    public class ComputeSkinMatrixSystem : ComputeSkinMatrixSystemBase
+    public class ComputeSkinMatrixSystem : ComputeDeformationDataSystemBase
     {
     }
 
+#if !UNITY_ENTITIES_0_12_OR_NEWER
     [ExecuteAlways]
     [UpdateInGroup(typeof(PostAnimationSystemGroup))]
     [UpdateAfter(typeof(ComputeSkinMatrixSystem))]
-    public class PrepareSkinMatrixToRendererSystem : PrepareSkinMatrixToRendererSystemBase
+    internal class PrepareSkinMatrixToRendererSystem : PrepareSkinMatrixToRendererSystemBase
     {
     }
 
     [ExecuteAlways]
     [UpdateInGroup(typeof(PresentationSystemGroup))]
-    public class FinalizePushSkinMatrixToRendererSystem : FinalizePushSkinMatrixToRendererSystemBase
+    internal class FinalizePushSkinMatrixToRendererSystem : FinalizePushSkinMatrixToRendererSystemBase
     {
         protected override PrepareSkinMatrixToRendererSystemBase PrepareSkinMatrixToRenderSystem =>
             World.GetExistingSystem<PrepareSkinMatrixToRendererSystem>();
     }
+#endif
 }

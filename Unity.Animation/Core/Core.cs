@@ -10,6 +10,12 @@ namespace Unity.Animation
     static public partial class Core
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static int AlignUp(int a, int b)
+        {
+            return ((a + b - 1) / b) * b;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void SetDataInSample<T>(ref BlobArray<float> samples, int offset, T data)
             where T : unmanaged
         {
@@ -68,6 +74,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.lerp(input1Rot[i], input2Rot[i], wMask[wIdx] * weight);
             }
+
+            output.OrChannelMasks(ref input1, ref input2);
         }
 
         unsafe static public void Blend(
@@ -100,6 +108,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.lerp(inputRot1[i], inputRot2[i], weight);
             }
+
+            output.OrChannelMasks(ref input1, ref input2);
         }
 
         static unsafe public void BlendOverrideLayer(
@@ -133,6 +143,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.lerp(outputRot[i], inputRot[i], wMask[wIdx] * weight);
             }
+
+            output.OrChannelMasks(ref input);
         }
 
         static unsafe public void BlendOverrideLayer(
@@ -161,6 +173,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.lerp(outputRot[i], inputRot[i], weight);
             }
+
+            output.OrChannelMasks(ref input);
         }
 
         static unsafe public void BlendAdditiveLayer(
@@ -194,6 +208,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.mul(outputRot[i], mathex.quatWeight(inputRot[i], wMask[wIdx] * weight));
             }
+
+            output.OrChannelMasks(ref input);
         }
 
         static unsafe public void BlendAdditiveLayer(
@@ -224,6 +240,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.mul(outputRot[i], mathex.quatWeight(inputRot[i], weight));
             }
+
+            output.OrChannelMasks(ref input);
         }
 
         static public void RigRemapper(
@@ -587,10 +605,15 @@ namespace Unity.Animation
             Assert.AreEqual(clipInstance.Value.RigHashCode, stream.Rig.Value.GetHashCode());
 #endif
 
-            if (additive != 0)
-                AnimationStreamUtils.MemClear(ref stream);
-            else
+            if (additive == 0)
+            {
                 AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ClearChannelMasks();
+            }
+            else
+            {
+                AnimationStreamUtils.MemClear(ref stream);
+            }
 
             ref var clip = ref clipInstance.Value.Clip;
             ref var bindings = ref clip.Bindings;
@@ -801,7 +824,7 @@ namespace Unity.Animation
                 // TODO: Find the algorithm we want. Right now take the left most key.
                 for (; i + 4 < count; i += 4, curveIndex += BindingSet.IntKeyFloatCount * 4)
                 {
-                    var leftKey = *(int4*)(samplesPtr + curveIndex + keyframe.Left);
+                    var leftKey = *(float4*)(samplesPtr + curveIndex + keyframe.Left);
 
                     var i0 = clipInstance.Value.IntBindingMap[i + 0];
                     var i1 = clipInstance.Value.IntBindingMap[i + 1];
@@ -815,10 +838,10 @@ namespace Unity.Animation
                     Assert.IsTrue(i3 != -1);
 #endif
 
-                    stream.SetInt(i0, leftKey.x);
-                    stream.SetInt(i1, leftKey.y);
-                    stream.SetInt(i2, leftKey.z);
-                    stream.SetInt(i3, leftKey.w);
+                    stream.SetInt(i0, (int)leftKey.x);
+                    stream.SetInt(i1, (int)leftKey.y);
+                    stream.SetInt(i2, (int)leftKey.z);
+                    stream.SetInt(i3, (int)leftKey.w);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
@@ -908,6 +931,8 @@ namespace Unity.Animation
                 outputRot[i] = mathex.add(outputRot[i], addRot[i] * weight);
             }
 
+            output.OrChannelMasks(ref add);
+
             return sumWeight + weight;
         }
 
@@ -941,6 +966,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.mul(inputARot[i], inputBRot[i]);
             }
+
+            output.OrChannelMasks(ref inputA, ref inputB);
         }
 
         static unsafe public void InversePose(
@@ -969,6 +996,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.conjugate(inputRot[i]);
             }
+
+            output.OrChannelMasks(ref input);
         }
 
         static unsafe public void WeightPose(
@@ -1002,6 +1031,8 @@ namespace Unity.Animation
             {
                 outputRot[i] = mathex.quatWeight(inputRot[i], weight[wIdx]);
             }
+
+            output.OrChannelMasks(ref input);
         }
 
         static public void ComputeLocalToWorld(
@@ -1019,11 +1050,11 @@ namespace Unity.Animation
 #endif
 
             // Compute world space transforms
-            outLocalToWorlds[0] = math.mul(localToWorld, stream.GetLocalToParentMatrix(0));
+            outLocalToWorlds[0] = math.mul(localToWorld, mathex.float4x4(stream.GetLocalToParentMatrix(0)));
             for (int i = 1; i != count; ++i)
             {
                 var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
-                outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], stream.GetLocalToParentMatrix(i));
+                outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], mathex.float4x4(stream.GetLocalToParentMatrix(i)));
             }
         }
 
@@ -1041,11 +1072,11 @@ namespace Unity.Animation
 #endif
 
             // Compute object space transforms
-            outLocalToRoots[0] = stream.GetLocalToParentMatrix(0);
+            outLocalToRoots[0] = mathex.float4x4(stream.GetLocalToParentMatrix(0));
             for (int i = 1; i != count; ++i)
             {
                 var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
-                outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], stream.GetLocalToParentMatrix(i));
+                outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], mathex.float4x4(stream.GetLocalToParentMatrix(i)));
             }
         }
 
@@ -1065,7 +1096,7 @@ namespace Unity.Animation
             Assert.AreEqual(outLocalToRoots.Length, count);
 #endif
 
-            var mat = stream.GetLocalToParentMatrix(0);
+            var mat = mathex.float4x4(stream.GetLocalToParentMatrix(0));
             outLocalToWorlds[0] = math.mul(localToWorld, mat);
             outLocalToRoots[0] = mat;
 
@@ -1073,7 +1104,7 @@ namespace Unity.Animation
             for (int i = 1; i != count; ++i)
             {
                 var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
-                mat = stream.GetLocalToParentMatrix(i);
+                mat = mathex.float4x4(stream.GetLocalToParentMatrix(i));
 
                 outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], mat);
                 outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], mat);

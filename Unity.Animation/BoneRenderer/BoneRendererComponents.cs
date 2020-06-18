@@ -30,11 +30,6 @@ namespace Unity.Animation
             public float4x4 Value;
         }
 
-        public struct RigEntity : IComponentData
-        {
-            public Entity Value;
-        }
-
         public struct RigIndex : IBufferElementData
         {
             public int Value;
@@ -43,6 +38,12 @@ namespace Unity.Animation
         public struct RigParentIndex : IBufferElementData
         {
             public int Value;
+        }
+
+        [System.Obsolete("Unity.Animation.BoneRenderer.RigEntity is deprecated use Unity.Animation.RigEntity instead. (RemovedAfter 2020-08-19).", false)]
+        public struct RigEntity : IComponentData
+        {
+            public Entity Value;
         }
     }
 }

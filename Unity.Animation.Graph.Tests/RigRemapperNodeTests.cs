@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Unity.Mathematics;
+using Unity.Entities;
 
 namespace Unity.Animation.Tests
 {
@@ -79,7 +80,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -143,7 +144,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -205,7 +206,7 @@ namespace Unity.Animation.Tests
 
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -273,7 +274,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -337,7 +338,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -399,7 +400,7 @@ namespace Unity.Animation.Tests
 
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -466,7 +467,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -530,7 +531,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -592,7 +593,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -655,7 +656,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -717,7 +718,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -780,7 +781,7 @@ namespace Unity.Animation.Tests
             };
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -864,7 +865,7 @@ namespace Unity.Animation.Tests
             var destinationRig = new Rig { Value = RigBuilder.CreateRigDefinition(destinationChannels) };
 
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -1050,8 +1051,8 @@ namespace Unity.Animation.Tests
 
             var rigEntity = m_Manager.CreateEntity();
             var defaultValuesOverrideEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
-            RigEntityBuilder.SetupRigEntity(defaultValuesOverrideEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
+            SetupRigEntity(defaultValuesOverrideEntity, destinationRig, Entity.Null);
 
             var rigRemapQuery = new RigRemapQuery
             {
@@ -1203,7 +1204,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(remapTable.Value.IntMappings.Length, 2);
 
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var defaultValuesNode = CreateNode<DefaultValuesNode>();
             Set.SendMessage(defaultValuesNode, DefaultValuesNode.SimulationPorts.Rig, sourceRig);
@@ -1316,7 +1317,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(remapTable.Value.IntMappings.Length, hasInts ? 2 : 0);
 
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var defaultValuesNode = CreateNode<DefaultValuesNode>();
             Set.SendMessage(defaultValuesNode, DefaultValuesNode.SimulationPorts.Rig, sourceRig);
@@ -1394,7 +1395,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(remapTable.Value.RotationOffsets.Length - 1, 1); // First offset is mute (since OffsetIndex = 0 is irrelevant)
 
             var rigEntity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, destinationRig);
+            SetupRigEntity(rigEntity, destinationRig, Entity.Null);
 
             var defaultValuesNode = CreateNode<DefaultValuesNode>();
             Set.SendMessage(defaultValuesNode, DefaultValuesNode.SimulationPorts.Rig, sourceRig);

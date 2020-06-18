@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Root Motion", description: "Computes and sets the total root motion offset amount based on the number of cycles for a given clip. This node is internally used by the UberClipNode.")]
+    [NodeDefinition(guid: "147518e22e1c492ab58d348c8a60a0ff", version: 1, category: "Animation Core/Root Motion", description: "Computes and sets the total root motion offset amount based on the number of cycles for a given clip. This node is internally used by the UberClipNode.")]
     public class CycleRootMotionNode
         : NodeDefinition<CycleRootMotionNode.Data, CycleRootMotionNode.SimPorts, CycleRootMotionNode.KernelData, CycleRootMotionNode.KernelDefs, CycleRootMotionNode.Kernel>
         , IRigContextHandler
@@ -21,22 +21,22 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "98d02bd676584f3ba67f8d116d66260e", isHidden: true)]
             public MessageInput<CycleRootMotionNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Clip cycle count")]
+            [PortDefinition(guid: "f3875741d6e74043b55c0bfe2889efcd", description: "Clip cycle count")]
             public DataInput<CycleRootMotionNode, int> Cycle;
-            [PortDefinition(description: "Animation stream at the start of the clip, when t = 0")]
+            [PortDefinition(guid: "72dd27ce795844129161fd037ae6c018", description: "Animation stream at the start of the clip, when t = 0")]
             public DataInput<CycleRootMotionNode, Buffer<AnimatedData>> Start;
-            [PortDefinition(description: "Animation stream at the end of the clip, when t = duration")]
+            [PortDefinition(guid: "7968d4d4eb3642d5a424524ac6e396c9", description: "Animation stream at the end of the clip, when t = duration")]
             public DataInput<CycleRootMotionNode, Buffer<AnimatedData>> Stop;
-            [PortDefinition(description: "The current animation stream")]
+            [PortDefinition(guid: "9a3bd2dae1aa4432805d64fe535a953e", description: "The current animation stream")]
             public DataInput<CycleRootMotionNode, Buffer<AnimatedData>> Input;
 
-            [PortDefinition(description: "Resulting animation stream with updated root motion values")]
+            [PortDefinition(guid: "72914f27b609451bbe91432e44319c0f", description: "Resulting animation stream with updated root motion values")]
             public DataOutput<CycleRootMotionNode, Buffer<AnimatedData>> Output;
         }
 

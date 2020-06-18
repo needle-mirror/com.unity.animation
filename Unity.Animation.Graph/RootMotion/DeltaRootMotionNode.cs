@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Root Motion", description: "Computes the delta root motion from a previous and current animation stream. This node is internally used by the UberClipNode.")]
+    [NodeDefinition(guid: "0d7b1e6e91364decbb7284a9014ebbce", version: 1, category: "Animation Core/Root Motion", description: "Computes the delta root motion from a previous and current animation stream. This node is internally used by the UberClipNode.")]
     public class DeltaRootMotionNode
         : NodeDefinition<DeltaRootMotionNode.Data, DeltaRootMotionNode.SimPorts, DeltaRootMotionNode.KernelData, DeltaRootMotionNode.KernelDefs, DeltaRootMotionNode.Kernel>
         , IRigContextHandler
@@ -21,18 +21,18 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "e9eb8fd87a844058a675a311bd9b641a", isHidden: true)]
             public MessageInput<DeltaRootMotionNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Previous animation stream with root motion")]
+            [PortDefinition(guid: "c5b993e40ed84ce088ed1e0656c5d12c", description: "Previous animation stream with root motion")]
             public DataInput<DeltaRootMotionNode, Buffer<AnimatedData>> Previous;
-            [PortDefinition(description: "Current animation stream with root motion")]
+            [PortDefinition(guid: "0d6c7a4cfeec4974ac5cc5561a5a72e7", description: "Current animation stream with root motion")]
             public DataInput<DeltaRootMotionNode, Buffer<AnimatedData>> Current;
 
-            [PortDefinition(description: "Resulting animation stream with updated delta root motion values")]
+            [PortDefinition(guid: "1360ef37a50a4942a87fd07f5c0fb2cd", description: "Resulting animation stream with updated delta root motion values")]
             public DataOutput<DeltaRootMotionNode, Buffer<AnimatedData>> Output;
         }
 

@@ -8,7 +8,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(isHidden: true)]
+    [NodeDefinition(guid: "0df2a515c02040f28f0f30fff4653b6e", version: 1,   isHidden: true)]
     public class FloatMulNode
         : NodeDefinition<FloatMulNode.Data, FloatMulNode.SimPorts, FloatMulNode.KernelData, FloatMulNode.KernelDefs, FloatMulNode.Kernel>
     {

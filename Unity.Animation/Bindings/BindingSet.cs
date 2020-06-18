@@ -45,9 +45,11 @@ namespace Unity.Animation
         public int ScaleSamplesOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int FloatSamplesOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int IntSamplesOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
+        public int ChannelMaskOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
 
         public int RotationChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int DataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
+        public int ChannelSize { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int StreamSize { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
     }
 
@@ -68,13 +70,15 @@ namespace Unity.Animation
             dataLayout.RotationChunkCount = 0;
             dataLayout.DataChunkCount = 0;
 
-            dataLayout.StreamSize = dataLayout.CurveCount;
+            dataLayout.ChannelSize = dataLayout.CurveCount;
+            dataLayout.StreamSize  = dataLayout.CurveCount;
 
             dataLayout.TranslationSamplesOffset = 0;
             dataLayout.ScaleSamplesOffset = dataLayout.TranslationSamplesOffset + dataLayout.TranslationCurveCount;
             dataLayout.FloatSamplesOffset = dataLayout.ScaleSamplesOffset + dataLayout.ScaleCurveCount;
             dataLayout.IntSamplesOffset = dataLayout.FloatSamplesOffset + dataLayout.FloatCurveCount;
             dataLayout.RotationSamplesOffset = dataLayout.IntSamplesOffset + dataLayout.IntCurveCount;
+            dataLayout.ChannelMaskOffset = 0;
 
             dataLayout.TranslationBindingIndex = 0;
             dataLayout.ScaleBindingIndex = dataLayout.TranslationBindingIndex + translationCount;
@@ -109,13 +113,14 @@ namespace Unity.Animation
             dataLayout.DataChunkCount = math.select((int)dataChunkCount, (int)dataChunkCount + 1, hasDataPadding);
             dataLayout.RotationChunkCount = math.select((int)rotationChunkCount, (int)rotationChunkCount + 1, hasRotationPadding);
 
-            dataLayout.StreamSize = dataLayout.DataChunkCount * BindingSet.k_DataPadding + dataLayout.RotationChunkCount * BindingSet.k_RotationPadding;
+            dataLayout.ChannelSize = dataLayout.DataChunkCount * BindingSet.k_DataPadding + dataLayout.RotationChunkCount * BindingSet.k_RotationPadding;
 
             dataLayout.TranslationSamplesOffset = 0;
             dataLayout.ScaleSamplesOffset = dataLayout.TranslationSamplesOffset + dataLayout.TranslationCurveCount;
             dataLayout.FloatSamplesOffset = dataLayout.ScaleSamplesOffset + dataLayout.ScaleCurveCount;
             dataLayout.IntSamplesOffset = dataLayout.FloatSamplesOffset + dataLayout.FloatCurveCount;
             dataLayout.RotationSamplesOffset = dataLayout.DataChunkCount * BindingSet.k_DataPadding;
+            dataLayout.ChannelMaskOffset = dataLayout.RotationSamplesOffset + dataLayout.RotationChunkCount * BindingSet.k_RotationPadding;
 
             dataLayout.TranslationBindingIndex = 0;
             dataLayout.ScaleBindingIndex = dataLayout.TranslationBindingIndex + translationCount;
@@ -123,6 +128,8 @@ namespace Unity.Animation
             dataLayout.IntBindingIndex = dataLayout.FloatBindingIndex + floatCount;
             dataLayout.RotationBindingIndex = dataLayout.IntBindingIndex + intCount;
             dataLayout.BindingCount = translationCount + rotationCount + scaleCount + floatCount + intCount;
+
+            dataLayout.StreamSize = dataLayout.ChannelSize + Core.AlignUp(dataLayout.BindingCount / sizeof(byte) * 8, 8);
 
             return dataLayout;
         }

@@ -4,26 +4,26 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Computes the delta animation stream given two input streams")]
+    [NodeDefinition(guid: "fd66a28a123c416a9860c6e090650266", version: 1, category: "Animation Core/Utils", description: "Computes the delta animation stream given two input streams")]
     public class DeltaPoseNode
         : NodeDefinition<DeltaPoseNode.Data, DeltaPoseNode.SimPorts, DeltaPoseNode.KernelData, DeltaPoseNode.KernelDefs, DeltaPoseNode.Kernel>
         , IRigContextHandler
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "7e89282e80fa40619ea8e2e3426ab9b7", isHidden: true)]
             public MessageInput<DeltaPoseNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "f6827edbb1414f7aa286e2886447ab77", description: "Input stream")]
             public DataInput<DeltaPoseNode, Buffer<AnimatedData>> Input;
 
-            [PortDefinition(description: "Stream to substract")]
+            [PortDefinition(guid: "6cc739a7f24f4b9db9e4b39e399c900f", description: "Stream to subtract")]
             public DataInput<DeltaPoseNode, Buffer<AnimatedData>> Subtract;
 
-            [PortDefinition(description: "Resulting delta stream")]
+            [PortDefinition(guid: "2364845e84e147328da308491cd5b4bd", description: "Resulting delta stream")]
             public DataOutput<DeltaPoseNode, Buffer<AnimatedData>> Output;
         }
 
@@ -64,9 +64,9 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, nodeData.AddNode, AddPoseNode.KernelPorts.Output);
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            var nodeData = GetNodeData(handle);
+            var nodeData = GetNodeData(ctx.Handle);
 
             Set.Destroy(nodeData.RigNode);
             Set.Destroy(nodeData.AddNode);

@@ -157,7 +157,7 @@ namespace Unity.Animation.Tests
             var expectedLocalScale = math.lerp(m_ClipRootLocalScale1, m_ClipRootLocalScale2, weight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var clipNode1 = CreateNode<ClipNode>();
@@ -202,7 +202,7 @@ namespace Unity.Animation.Tests
             var expectedLocalScale = math.lerp(m_ClipChildLocalScale1, m_ClipChildLocalScale2, weight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var clipNode1 = CreateNode<ClipNode>();
@@ -266,7 +266,7 @@ namespace Unity.Animation.Tests
             var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes) };
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var mixer = CreateNode<MixerNode>();
@@ -303,7 +303,7 @@ namespace Unity.Animation.Tests
             var expectedLocalScale = math.lerp(new float3(1), m_ClipChildLocalScale2, weight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -343,7 +343,7 @@ namespace Unity.Animation.Tests
             var expectedLocalScale = math.lerp(m_ClipChildLocalScale1, new float3(1), weight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 

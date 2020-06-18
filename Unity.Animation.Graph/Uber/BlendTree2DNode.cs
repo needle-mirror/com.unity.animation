@@ -7,7 +7,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Blend Trees", description: "Evaluates a 2D BlendTree based on X and Y blend parameters")]
+    [NodeDefinition(guid: "dd965a2ebf994f77ad87f02fce11ce9a", version: 1, category: "Animation Core/Blend Trees", description: "Evaluates a 2D BlendTree based on X and Y blend parameters")]
     public class BlendTree2DNode
         : NodeDefinition<BlendTree2DNode.Data, BlendTree2DNode.SimPorts, BlendTree2DNode.KernelData, BlendTree2DNode.KernelDefs, BlendTree2DNode.Kernel>
         , IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectional>>
@@ -15,12 +15,12 @@ namespace Unity.Animation
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(description: "BlendTree data")]
+            [PortDefinition(guid: "28cb77b3c65c49fabe33810d9665efa5", description: "BlendTree data")]
             public MessageInput<BlendTree2DNode, BlobAssetReference<BlendTree2DSimpleDirectional>> BlendTree;
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "2efe136265d74ee6bf17610df0d2fcbe", isHidden: true)]
             public MessageInput<BlendTree2DNode, Rig> Rig;
 
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "e0f25365515b4009bcf8f99e8208bc68", isHidden: true)]
             public MessageOutput<BlendTree2DNode, Rig> RigOut;
         }
 
@@ -43,16 +43,16 @@ namespace Unity.Animation
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Normalized time")]
+            [PortDefinition(guid: "6d64e4d8dd1a4574ab065ce67c239a15", description: "Normalized time")]
             public DataInput<BlendTree2DNode, float> NormalizedTime;
-            [PortDefinition(displayName: "Blend X", description: "Blend parameter X value")]
+            [PortDefinition(guid: "20a3ff3a4a99432783ec25b41830a83b", displayName: "Blend X", description: "Blend parameter X value")]
             public DataInput<BlendTree2DNode, float> BlendParameterX;
-            [PortDefinition(displayName: "Blend Y", description: "Blend parameter Y value")]
+            [PortDefinition(guid: "ed4275b3425a431ea5e05c3a9e7dc65f", displayName: "Blend Y", description: "Blend parameter Y value")]
             public DataInput<BlendTree2DNode, float> BlendParameterY;
 
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "8279a2f700f14b81bb2f4db467d2fb7a", description: "Resulting animation stream")]
             public DataOutput<BlendTree2DNode, Buffer<AnimatedData>> Output;
-            [PortDefinition(description: "Current motion duration, used to compute normalized time")]
+            [PortDefinition(guid: "8a3c6c2b60ee493ca8eed9f5488fb39e", description: "Current motion duration, used to compute normalized time")]
             public DataOutput<BlendTree2DNode, float> Duration;
         }
 
@@ -90,9 +90,9 @@ namespace Unity.Animation
             data.MotionDurationNodes = new List<NodeHandle<GetBufferElementValueNode>>();
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            var data = GetNodeData(handle);
+            var data = GetNodeData(ctx.Handle);
 
             Set.Destroy(data.NormalizedTimeNode);
             Set.Destroy(data.NMixerNode);

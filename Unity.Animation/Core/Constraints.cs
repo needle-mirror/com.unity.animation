@@ -332,17 +332,16 @@ namespace Unity.Animation
                 accumTx = math.mul(math.inverse(parentTx), accumTx);
             }
 
-            stream.GetLocalToParentTRS(data.Index, out float3 currentLocalT, out quaternion currentLocalR, out float3 currentLocalS);
+            stream.GetLocalToParentTR(data.Index, out float3 currentLocalT, out quaternion currentLocalR);
             if (!math.all(data.LocalTranslationAxesMask))
                 accumTx.pos = math.select(currentLocalT, accumTx.pos, data.LocalTranslationAxesMask);
             if (!math.all(data.LocalRotationAxesMask))
                 accumTx.rot = quaternion.Euler(math.select(mathex.toEuler(currentLocalR), mathex.toEuler(accumTx.rot), data.LocalRotationAxesMask));
 
-            stream.SetLocalToParentTRS(
+            stream.SetLocalToParentTR(
                 data.Index,
                 math.lerp(currentLocalT, accumTx.pos, weight),
-                mathex.lerp(currentLocalR, accumTx.rot, weight),
-                currentLocalS
+                mathex.lerp(currentLocalR, accumTx.rot, weight)
             );
         }
 

@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 using NUnit.Framework;
 using UnityEngine;
 using Unity.Entities;
@@ -136,3 +138,5 @@ namespace Unity.Animation.Tests
         }
     }
 }
+
+#endif

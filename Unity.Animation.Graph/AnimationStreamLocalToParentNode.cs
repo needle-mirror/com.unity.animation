@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Gets the local to parent information of a bone in the AnimationStream")]
+    [NodeDefinition(guid: "207a2a8e462e4792969396869af3c382", version: 1, category: "Animation Core/Utils", description: "Gets the local to parent information of a bone in the AnimationStream")]
     public class GetAnimationStreamLocalToParentNode
         : NodeDefinition<GetAnimationStreamLocalToParentNode.Data, GetAnimationStreamLocalToParentNode.SimPorts, GetAnimationStreamLocalToParentNode.KernelData, GetAnimationStreamLocalToParentNode.KernelDefs, GetAnimationStreamLocalToParentNode.Kernel>
         , IRigContextHandler
@@ -21,24 +21,24 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "1490ecf735fd471a8dbda4daa4d8f41b", isHidden: true)]
             public MessageInput<GetAnimationStreamLocalToParentNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "944ef56f25ca4554a501cb52b3305c83", description: "Input stream")]
             public DataInput<GetAnimationStreamLocalToParentNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Bone index in stream")]
+            [PortDefinition(guid: "49a3863112204790842b906d44900dec", description: "Bone index in stream")]
             public DataInput<GetAnimationStreamLocalToParentNode, int> Index;
 
-            [PortDefinition(description: "Local to parent translation")]
+            [PortDefinition(guid: "4b3278258ce14e5b822a905fe30ccb85", description: "Local to parent translation")]
             public DataOutput<GetAnimationStreamLocalToParentNode, float3> Translation;
-            [PortDefinition(description: "Local to parent rotation")]
+            [PortDefinition(guid: "dc4a5b68c0834fc6937e85c43e2975ee", description: "Local to parent rotation")]
             public DataOutput<GetAnimationStreamLocalToParentNode, quaternion> Rotation;
-            [PortDefinition(description: "Local to parent scale")]
+            [PortDefinition(guid: "dccfc0d90fc9470683597f2ef7b54bef", description: "Local to parent scale")]
             public DataOutput<GetAnimationStreamLocalToParentNode, float3> Scale;
-            [PortDefinition(description: "Local to parent transform")]
+            [PortDefinition(guid: "8b36e749b18540298133e86302da6a66", description: "Local to parent transform")]
             public DataOutput<GetAnimationStreamLocalToParentNode, float4x4> Transform;
         }
 
@@ -97,7 +97,7 @@ namespace Unity.Animation
             (InputPortID)SimulationPorts.Rig;
     }
 
-    [NodeDefinition(category: "Animation Core/Utils", description: "Sets the local to parent information of a bone in the AnimationStream")]
+    [NodeDefinition(guid: "fc3d9f8ad36e447096859f24a9566068", version: 1, category: "Animation Core/Utils", description: "Sets the local to parent information of a bone in the AnimationStream")]
     public class SetAnimationStreamLocalToParentNode
         : NodeDefinition<SetAnimationStreamLocalToParentNode.Data, SetAnimationStreamLocalToParentNode.SimPorts, SetAnimationStreamLocalToParentNode.KernelData, SetAnimationStreamLocalToParentNode.KernelDefs, SetAnimationStreamLocalToParentNode.Kernel>
         , IRigContextHandler
@@ -119,27 +119,27 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "876518107b494d45b5fcddbe84924824", isHidden: true)]
             public MessageInput<SetAnimationStreamLocalToParentNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "53ee976a6c6f4dc2bd4e46b685c1b595", description: "Input stream")]
             public DataInput<SetAnimationStreamLocalToParentNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Bone index in stream")]
+            [PortDefinition(guid: "9e6ce1ec7bf6416590447fda93b31f82", description: "Bone index in stream")]
             public DataInput<SetAnimationStreamLocalToParentNode, int> Index;
-            [PortDefinition(description: "Modes to set local to parent information", isStatic: true, defaultValue: SetFromMode.TranslationRotationScale)]
+            [PortDefinition(guid: "a2b35e5c66a54af7b2f02343501c4ea1", description: "Modes to set local to parent information", isStatic: true, defaultValue: SetFromMode.TranslationRotationScale)]
             public DataInput<SetAnimationStreamLocalToParentNode, SetFromMode> Mode;
 
-            [PortDefinition(description: "Local to parent translation", defaultValue: "zero", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "de0d324ccae34bf09b7df554ec85ed77", description: "Local to parent translation", defaultValue: "zero", defaultValueType: DefaultValueType.Reference)]
             public DataInput<SetAnimationStreamLocalToParentNode, float3> Translation;
-            [PortDefinition(description: "Local to parent rotation", defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "3d806bcf6f354d52a0c6ebd0081fcb64", description: "Local to parent rotation", defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public DataInput<SetAnimationStreamLocalToParentNode, quaternion> Rotation;
-            [PortDefinition(description: "Local to parent scale", defaultValue: "1,1,1", defaultValueType: DefaultValueType.ComplexValue)]
+            [PortDefinition(guid: "ecd88ef3a0a944bbac78e29ffca67f6f", description: "Local to parent scale", defaultValue: "1,1,1", defaultValueType: DefaultValueType.ComplexValue)]
             public DataInput<SetAnimationStreamLocalToParentNode, float3> Scale;
 
-            [PortDefinition(description: "Resulting stream")]
+            [PortDefinition(guid: "4dfb549ef5fa46f9a4b3c5c1409a6d47", description: "Resulting stream")]
             public DataOutput<SetAnimationStreamLocalToParentNode, Buffer<AnimatedData>> Output;
         }
 

@@ -60,8 +60,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -92,8 +91,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             var entityIter = 0;
             for (; entityIter < 20; entityIter++)
@@ -135,8 +133,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -170,8 +167,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             Measure.Method(
                 () =>
@@ -195,8 +191,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -227,8 +222,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -262,8 +256,7 @@ namespace Unity.Animation.PerformanceTests
             var entityTransforms = CreateRigEntityTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
 
             Measure.Method(
                 () =>

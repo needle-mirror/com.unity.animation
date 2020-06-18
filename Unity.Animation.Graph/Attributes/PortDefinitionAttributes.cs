@@ -12,7 +12,7 @@ namespace Unity.DataFlowGraph.Attributes
     [AttributeUsage(AttributeTargets.Field)]
     public class PortDefinitionAttribute : Attribute
     {
-        public PortDefinitionAttribute(string displayName = null, string description = null, bool isHidden = false, int portGroupIndex = -1, object defaultValue = null, DefaultValueType defaultValueType = DefaultValueType.Value, bool isStatic = false, object minValueUI = null, object maxValueUI = null)
+        public PortDefinitionAttribute(string guid, string displayName = null, string description = null, bool isHidden = false, int portGroupIndex = -1, object defaultValue = null, DefaultValueType defaultValueType = DefaultValueType.Value, bool isStatic = false, object minValueUI = null, object maxValueUI = null)
         {
             DisplayName = displayName;
             Description = description;
@@ -23,6 +23,7 @@ namespace Unity.DataFlowGraph.Attributes
             IsStatic = isStatic;
             MinValueUI = minValueUI;
             MaxValueUI = maxValueUI;
+            Guid = guid;
         }
 
         public string DisplayName { get; }
@@ -34,6 +35,7 @@ namespace Unity.DataFlowGraph.Attributes
         public bool IsStatic { get; }
         public object MinValueUI { get; }
         public object MaxValueUI { get; }
+        public string Guid { get; }
     }
 
     [AttributeUsage(AttributeTargets.Class)]

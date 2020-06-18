@@ -126,8 +126,7 @@ namespace Unity.Animation.PerformanceTests
             Assert.That(clipInstance.Value.IntBindingMap.Length, Is.EqualTo(rig.Value.Bindings.IntBindings.Length));
 
             var entity = m_Manager.CreateEntity();
-
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, rig, Entity.Null);
 
             var stream = AnimationStream.Create(
                 rig,

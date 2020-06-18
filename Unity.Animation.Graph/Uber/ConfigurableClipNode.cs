@@ -5,7 +5,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core", description: "Evaluates a clip based on the clip configuration mask", isHidden: true)]
+    [NodeDefinition(guid: "792256a71ac546709adf975eed81325f", version: 1, category: "Animation Core", description: "Evaluates a clip based on the clip configuration mask", isHidden: true)]
     public class ConfigurableClipNode
         : NodeDefinition<ConfigurableClipNode.Data, ConfigurableClipNode.SimPorts, ConfigurableClipNode.KernelData, ConfigurableClipNode.KernelDefs, ConfigurableClipNode.Kernel>
         , IMsgHandler<BlobAssetReference<Clip>>
@@ -15,22 +15,22 @@ namespace Unity.Animation
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "5040b6577c8c43458d62bda53ec0cc6d", isHidden: true)]
             public MessageInput<ConfigurableClipNode, Rig> Rig;
-            [PortDefinition(description: "Clip to sample")]
+            [PortDefinition(guid: "f2efaeb1e1684f218c329edf87ee8517", description: "Clip to sample")]
             public MessageInput<ConfigurableClipNode, BlobAssetReference<Clip>> Clip;
-            [PortDefinition(description: "Clip configuration data")]
+            [PortDefinition(guid: "2f01ade105d14c2ea42217b644bcea25", description: "Clip configuration data")]
             public MessageInput<ConfigurableClipNode, ClipConfiguration> Configuration;
-            [PortDefinition(description: "Is this an additive clip", defaultValue: false)]
+            [PortDefinition(guid: "97417cbc0ad5408bba9a9a1a10603ca0", description: "Is this an additive clip", defaultValue: false)]
             public MessageInput<ConfigurableClipNode, bool> Additive;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Unbound time")]
+            [PortDefinition(guid: "6da950f7ac294fc1a867e8a3923d5345", description: "Unbound time")]
             public DataInput<ConfigurableClipNode, float> Time;
 
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "95f138d338bd4db1a0717e28f667df46", description: "Resulting animation stream")]
             public DataOutput<ConfigurableClipNode, Buffer<AnimatedData>> Output;
         }
 
@@ -360,9 +360,9 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, data.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            ref var nodeData = ref GetNodeData(handle);
+            ref var nodeData = ref GetNodeData(ctx.Handle);
 
             Set.Destroy(nodeData.TimeNode);
             Set.Destroy(nodeData.OutputNode);

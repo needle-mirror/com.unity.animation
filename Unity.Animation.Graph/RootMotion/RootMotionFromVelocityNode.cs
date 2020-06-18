@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Root Motion", description: "Computes root motion values from a baked clip. Used internally by the UberClipNode.")]
+    [NodeDefinition(guid: "5dfa885842654d86b6b2921233ff4994", version: 1, category: "Animation Core/Root Motion", description: "Computes root motion values from a baked clip. Used internally by the UberClipNode.")]
     public class RootMotionFromVelocityNode
         : NodeDefinition<RootMotionFromVelocityNode.Data, RootMotionFromVelocityNode.SimPorts, RootMotionFromVelocityNode.KernelData, RootMotionFromVelocityNode.KernelDefs, RootMotionFromVelocityNode.Kernel>
         , IMsgHandler<float>
@@ -22,19 +22,19 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "c43f6e41afb2491b93787e74af1cf755", isHidden: true)]
             public MessageInput<RootMotionFromVelocityNode, Rig> Rig;
-            [PortDefinition(description: "Clip sample rate")]
+            [PortDefinition(guid: "053eb86f39254af8b28ba650d6bb619e", description: "Clip sample rate")]
             public MessageInput<RootMotionFromVelocityNode, float> SampleRate;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "The current delta time")]
+            [PortDefinition(guid: "d331e6acbd5b46b2a096434df4b126f3", description: "The current delta time")]
             public DataInput<RootMotionFromVelocityNode, float> DeltaTime;
-            [PortDefinition(description: "The current animation stream")]
+            [PortDefinition(guid: "e53e6ee6a0ae489e8ce0e3eb303d4f5e", description: "The current animation stream")]
             public DataInput<RootMotionFromVelocityNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream with updated root motion values")]
+            [PortDefinition(guid: "0792d80403b84722ac3d5a930d232b0d", description: "Resulting animation stream with updated root motion values")]
             public DataOutput<RootMotionFromVelocityNode, Buffer<AnimatedData>> Output;
         }
 

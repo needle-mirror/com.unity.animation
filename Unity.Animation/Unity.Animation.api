@@ -3,6 +3,27 @@
 // make sure the XML doc file is present and located next to the scraped dll
 namespace Unity.Animation
 {
+    public struct AffineTransform : System.IEquatable<Unity.Animation.AffineTransform>, System.IFormattable
+    {
+        public static readonly Unity.Animation.AffineTransform identity;
+        public Unity.Mathematics.float3x3 rs;
+        public Unity.Mathematics.float3 t;
+        public AffineTransform(Unity.Mathematics.float3x3 m) {}
+        public AffineTransform(Unity.Mathematics.float3x4 m) {}
+        public AffineTransform(Unity.Mathematics.float4x4 m) {}
+        public AffineTransform(Unity.Mathematics.RigidTransform rigid) {}
+        public AffineTransform(Unity.Mathematics.float3 t, Unity.Mathematics.float3x3 rs) {}
+        public AffineTransform(Unity.Mathematics.float3 t, Unity.Mathematics.quaternion r) {}
+        public AffineTransform(Unity.Mathematics.float3 t, Unity.Mathematics.quaternion r, Unity.Mathematics.float3 s) {}
+        public virtual bool Equals(object x);
+        public virtual bool Equals(Unity.Animation.AffineTransform x);
+        public virtual int GetHashCode();
+        public static Unity.Mathematics.float3x4 op_Implicit(Unity.Animation.AffineTransform m);
+        public static Unity.Mathematics.float4x4 op_Implicit(Unity.Animation.AffineTransform m);
+        public virtual string ToString();
+        public virtual string ToString(string format, System.IFormatProvider formatProvider);
+    }
+
     public struct AnimatedData : Unity.Entities.IBufferElementData
     {
         public float Value;
@@ -18,6 +39,14 @@ namespace Unity.Animation
         public Unity.Mathematics.float4x4 Value;
     }
 
+    [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToParent))] public struct AnimationLocalToParentOverride : Unity.Entities.IComponentData
+    {
+    }
+
+    [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToWorld))] public struct AnimationLocalToWorldOverride : Unity.Entities.IComponentData
+    {
+    }
+
     [System.Diagnostics.DebuggerTypeProxy(typeof(Unity.Animation.AnimationStreamDebugView))] public struct AnimationStream
     {
         public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> Rig;
@@ -30,32 +59,56 @@ namespace Unity.Animation
         public int RotationCount { get; }
         public int ScaleCount { get; }
         public int TranslationCount { get; }
+        public void AndChannelMasks(ref Unity.Animation.AnimationStream other);
+        public void AndChannelMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
+        public void ClearChannelMasks();
+        public void CopyChannelMasksFrom(ref Unity.Animation.AnimationStream src);
         public static Unity.Animation.AnimationStream Create(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Collections.NativeArray<Unity.Animation.AnimatedData> buffer);
         public static Unity.Animation.AnimationStream CreateReadOnly(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Collections.NativeArray<Unity.Animation.AnimatedData> buffer);
         public static Unity.Animation.AnimationStream FromDefaultValues(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig);
+        public int GetChannelMaskBitCount();
         public Unity.Mathematics.float4* GetDataChunkUnsafePtr();
         public float GetFloat(int index);
+        public bool GetFloatChannelMask(int index);
         public int GetInt(int index);
-        public Unity.Mathematics.float4x4 GetLocalToParentMatrix(int index);
+        public bool GetIntChannelMask(int index);
+        public Unity.Animation.AffineTransform GetLocalToParentInverseMatrix(int index);
+        public Unity.Animation.AffineTransform GetLocalToParentMatrix(int index);
         public Unity.Mathematics.quaternion GetLocalToParentRotation(int index);
         public Unity.Mathematics.float3 GetLocalToParentScale(int index);
+        public void GetLocalToParentTR(int index, out Unity.Mathematics.float3 translation, out Unity.Mathematics.quaternion rotation);
         public Unity.Mathematics.float3 GetLocalToParentTranslation(int index);
         public void GetLocalToParentTRS(int index, out Unity.Mathematics.float3 translation, out Unity.Mathematics.quaternion rotation, out Unity.Mathematics.float3 scale);
-        public Unity.Mathematics.float4x4 GetLocalToRootMatrix(int index);
+        public Unity.Animation.AffineTransform GetLocalToRootInverseMatrix(int index);
+        public Unity.Animation.AffineTransform GetLocalToRootMatrix(int index);
         public Unity.Mathematics.quaternion GetLocalToRootRotation(int index);
+        public Unity.Mathematics.float3 GetLocalToRootScale(int index);
         public void GetLocalToRootTR(int index, out Unity.Mathematics.float3 translation, out Unity.Mathematics.quaternion rotation);
         public Unity.Mathematics.float3 GetLocalToRootTranslation(int index);
+        public void GetLocalToRootTRS(int index, out Unity.Mathematics.float3 translation, out Unity.Mathematics.quaternion rotation, out Unity.Mathematics.float3 scale);
+        public bool GetRotationChannelMask(int index);
         public Unity.Animation.quaternion4* GetRotationChunkUnsafePtr();
+        public bool GetScaleChannelMask(int index);
+        public bool GetTranslationChannelMask(int index);
         public void* GetUnsafePtr();
+        public bool HasAllChannelMasks();
+        public bool HasAnyChannelMasks();
+        public bool HasNoChannelMasks();
+        public void OrChannelMasks(ref Unity.Animation.AnimationStream other);
+        public void OrChannelMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
+        public void SetChannelMasks(bool value);
         public void SetFloat(int index, ref float value);
         public void SetInt(int index, ref int value);
         public void SetLocalToParentRotation(int index, ref Unity.Mathematics.quaternion rotation);
         public void SetLocalToParentScale(int index, ref Unity.Mathematics.float3 scale);
+        public void SetLocalToParentTR(int index, ref Unity.Mathematics.float3 translation, ref Unity.Mathematics.quaternion rotation);
         public void SetLocalToParentTranslation(int index, ref Unity.Mathematics.float3 translation);
         public void SetLocalToParentTRS(int index, ref Unity.Mathematics.float3 translation, ref Unity.Mathematics.quaternion rotation, ref Unity.Mathematics.float3 scale);
         public void SetLocalToRootRotation(int index, ref Unity.Mathematics.quaternion rotation);
+        public void SetLocalToRootScale(int index, ref Unity.Mathematics.float3 scale);
         public void SetLocalToRootTR(int index, ref Unity.Mathematics.float3 translation, ref Unity.Mathematics.quaternion rotation);
         public void SetLocalToRootTranslation(int index, ref Unity.Mathematics.float3 translation);
+        public void SetLocalToRootTRS(int index, ref Unity.Mathematics.float3 translation, ref Unity.Mathematics.quaternion rotation, ref Unity.Mathematics.float3 scale);
     }
 
     public static class AnimationStreamUtils
@@ -65,7 +118,7 @@ namespace Unity.Animation
         public static void SetDefaultValues(ref Unity.Animation.AnimationStream stream);
     }
 
-    [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToParent))] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToWorld))] public struct AnimationTransformOverride : Unity.Entities.IComponentData
+    [System.Obsolete(@"AnimationTransformOverride has been deprecated. Use AnimationLocalToParentOverrideand AnimationLocalToWorldOverride instead. (RemovedAfter 2020-08-26)")] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToParent))] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToWorld))] public struct AnimationTransformOverride : Unity.Entities.IComponentData
     {
     }
 
@@ -92,6 +145,8 @@ namespace Unity.Animation
         public Unity.Entities.BlobArray<Unity.Animation.StringHash> TranslationBindings;
         public static readonly int TranslationKeyFloatCount;
         public int BindingCount { get; }
+        public int ChannelMaskOffset { get; }
+        public int ChannelSize { get; }
         public int CurveCount { get; }
         public int DataChunkCount { get; }
         public int FloatBindingIndex { get; }
@@ -310,10 +365,17 @@ namespace Unity.Animation
         public static Unity.Entities.BlobAssetReference<Unity.Animation.Clip> Reverse(Unity.Entities.BlobAssetReference<Unity.Animation.Clip> source);
     }
 
-    public abstract class ComputeSkinMatrixSystemBase : Unity.Entities.SystemBase
+    public abstract class ComputeDeformationDataSystemBase : Unity.Entities.SystemBase
+    {
+        protected ComputeDeformationDataSystemBase() {}
+        protected virtual void OnCreate();
+        protected virtual void OnCreateForCompiler();
+        protected virtual void OnUpdate();
+    }
+
+    [System.Obsolete(@"ComputeSkinMatrixSystemBase is deprecated use ComputeDeformationDataSystemBase instead. (RemovedAfter 2020-08-19). ComputeDeformationDataSystemBase (UnityUpgradable)", false)] public abstract class ComputeSkinMatrixSystemBase : Unity.Entities.SystemBase
     {
         protected ComputeSkinMatrixSystemBase() {}
-        protected virtual void OnCreate();
         protected virtual void OnCreateForCompiler();
         protected virtual void OnUpdate();
     }
@@ -436,13 +498,8 @@ namespace Unity.Animation
         public static void LogWarning(string message);
     }
 
-    public abstract class FinalizePushSkinMatrixToRendererSystemBase : Unity.Entities.ComponentSystem
+    public struct DisableRootTransformReadWriteTag : Unity.Entities.IComponentData
     {
-        protected abstract Unity.Animation.PrepareSkinMatrixToRendererSystemBase PrepareSkinMatrixToRenderSystem { get; }
-        protected FinalizePushSkinMatrixToRendererSystemBase() {}
-        protected virtual void OnCreate();
-        protected virtual void OnCreateForCompiler();
-        protected virtual void OnUpdate();
     }
 
     public struct FloatChannel : System.IEquatable<Unity.Animation.FloatChannel>, Unity.Animation.IAnimationChannel, Unity.Animation.IAnimationChannel<float>
@@ -450,6 +507,11 @@ namespace Unity.Animation
         public virtual float DefaultValue { get; set; }
         public virtual Unity.Animation.StringHash Id { get; set; }
         public virtual bool Equals(Unity.Animation.FloatChannel other);
+    }
+
+    public interface IAnimatedRootMotion : Unity.Entities.IComponentData
+    {
+        public abstract Unity.Mathematics.RigidTransform Delta { get; set; }
     }
 
     public interface IAnimationChannel
@@ -460,6 +522,10 @@ namespace Unity.Animation
     public interface IAnimationChannel<T> : Unity.Animation.IAnimationChannel where T : System.ValueType, new()
     {
         public abstract T DefaultValue { get; set; }
+    }
+
+    public interface IAnimationSystemTag : Unity.Entities.IComponentData
+    {
     }
 
     public struct IntChannel : System.IEquatable<Unity.Animation.IntChannel>, Unity.Animation.IAnimationChannel, Unity.Animation.IAnimationChannel<int>
@@ -508,21 +574,35 @@ namespace Unity.Animation
     {
         public static Unity.Animation.quaternion4 add(Unity.Animation.quaternion4 q1, Unity.Animation.quaternion4 q2);
         public static Unity.Mathematics.quaternion add(Unity.Mathematics.quaternion p, Unity.Mathematics.quaternion q);
+        public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3x4 m);
+        public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float4x4 m);
+        public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3 translation, Unity.Mathematics.float3x3 rs);
+        public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3 translation, Unity.Mathematics.quaternion rotation);
+        public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3 translation, Unity.Mathematics.quaternion rotation, Unity.Mathematics.float3 scale);
         public static float angle(Unity.Mathematics.float3 from, Unity.Mathematics.float3 to);
         public static Unity.Mathematics.float3 chgsign(Unity.Mathematics.float3 val, Unity.Mathematics.float3 sign);
         public static Unity.Mathematics.float4 chgsign(Unity.Mathematics.float4 val, Unity.Mathematics.float4 sign);
         public static Unity.Animation.quaternion4 conjugate(Unity.Animation.quaternion4 q);
         public static Unity.Mathematics.float4 cross(Unity.Mathematics.float4 p0, Unity.Mathematics.float4 p1);
         public static Unity.Mathematics.float4 dot(Unity.Animation.quaternion4 q1, Unity.Animation.quaternion4 q2);
+        public static Unity.Mathematics.float3x4 float3x4(Unity.Animation.AffineTransform transform);
+        public static Unity.Mathematics.float4x4 float4x4(Unity.Animation.AffineTransform transform);
         public static Unity.Mathematics.float4x4 float4x4(Unity.Animation.quaternion4 q);
         public static Unity.Mathematics.quaternion fromTo(Unity.Mathematics.float3 a, Unity.Mathematics.float3 b);
+        public static System.UInt32 hash(Unity.Animation.AffineTransform a);
         public static System.UInt32 hash(Unity.Animation.quaternion4 q);
+        public static Unity.Mathematics.uint4 hashwide(Unity.Animation.AffineTransform a);
         public static Unity.Mathematics.uint4 hashwide(Unity.Animation.quaternion4 q);
+        public static Unity.Animation.AffineTransform inverse(Unity.Animation.AffineTransform a);
+        public static Unity.Mathematics.float3x3 inverse(Unity.Mathematics.float3x3 m);
         public static Unity.Animation.quaternion4 lerp(Unity.Animation.quaternion4 q1, Unity.Animation.quaternion4 q2, Unity.Mathematics.float4 blend);
         public static Unity.Mathematics.quaternion lerp(Unity.Mathematics.quaternion p, Unity.Mathematics.quaternion q, float blend);
+        public static Unity.Animation.AffineTransform mul(Unity.Animation.AffineTransform a, Unity.Animation.AffineTransform b);
+        public static Unity.Animation.AffineTransform mul(Unity.Animation.AffineTransform a, Unity.Mathematics.float3x3 rs);
+        public static Unity.Animation.AffineTransform mul(Unity.Mathematics.float3x3 rs, Unity.Animation.AffineTransform b);
         public static Unity.Animation.quaternion4 mul(Unity.Animation.quaternion4 lhs, Unity.Animation.quaternion4 rhs);
+        public static Unity.Mathematics.float3 mul(Unity.Animation.AffineTransform a, Unity.Mathematics.float3 v);
         public static Unity.Mathematics.quaternion mul(Unity.Mathematics.quaternion q1, Unity.Mathematics.quaternion q2);
-        public static Unity.Mathematics.float3x3 mulScale(Unity.Mathematics.float3x3 m, float s);
         public static Unity.Mathematics.float3x3 mulScale(Unity.Mathematics.float3x3 m, Unity.Mathematics.float3 s);
         public static Unity.Animation.quaternion4 normalize(Unity.Animation.quaternion4 q);
         public static Unity.Animation.quaternion4 normalizesafe(Unity.Animation.quaternion4 q);
@@ -533,8 +613,10 @@ namespace Unity.Animation
         public static Unity.Animation.quaternion4 quaternion4(Unity.Mathematics.quaternion q1, Unity.Mathematics.quaternion q2, Unity.Mathematics.quaternion q3, Unity.Mathematics.quaternion q4);
         public static Unity.Animation.quaternion4 quatWeight(Unity.Animation.quaternion4 q, Unity.Mathematics.float4 weight);
         public static Unity.Mathematics.quaternion quatWeight(Unity.Mathematics.quaternion q, float weight);
+        public static Unity.Mathematics.float3 rcpsafe(Unity.Mathematics.float3 x);
         public static Unity.Mathematics.float3 right();
         public static Unity.Mathematics.RigidTransform rigidPow(Unity.Mathematics.RigidTransform x, System.UInt32 pow);
+        public static Unity.Mathematics.float3x3 scaleMul(Unity.Mathematics.float3 s, Unity.Mathematics.float3x3 m);
         public static Unity.Mathematics.quaternion scaleMulQuat(Unity.Mathematics.float3 scale, Unity.Mathematics.quaternion q);
         public static Unity.Animation.quaternion4 select(Unity.Animation.quaternion4 a, Unity.Animation.quaternion4 b, Unity.Mathematics.bool4 c);
         public static Unity.Mathematics.quaternion select(Unity.Mathematics.quaternion a, Unity.Mathematics.quaternion b, bool c);
@@ -548,20 +630,15 @@ namespace Unity.Animation
         public Unity.Entities.BlobAssetReference<Unity.Animation.Clip> Clip;
     }
 
+    public struct NotSupportedRootMotion : Unity.Animation.IAnimatedRootMotion, Unity.Entities.IComponentData
+    {
+        public virtual Unity.Mathematics.RigidTransform Delta { get; set; }
+    }
+
     public struct NotSupportedTransformHandle : Unity.Animation.IReadTransformHandle, Unity.Animation.ITransformHandle, Unity.Animation.IWriteTransformHandle, Unity.Entities.IBufferElementData
     {
         public virtual Unity.Entities.Entity Entity { get; set; }
         public virtual int Index { get; set; }
-    }
-
-    public abstract class PrepareSkinMatrixToRendererSystemBase : Unity.Entities.JobComponentSystem
-    {
-        protected PrepareSkinMatrixToRendererSystemBase() {}
-        public static Unity.Entities.EntityQuery <>GetEntityQuery_ForOnUpdate_LambdaJob0_From(Unity.Entities.ComponentSystemBase componentSystem);
-        protected virtual void OnCreate();
-        protected virtual void OnCreateForCompiler();
-        protected virtual void OnDestroy();
-        protected virtual Unity.Jobs.JobHandle OnUpdate(Unity.Jobs.JobHandle inputDeps);
     }
 
     public struct quaternion4 : System.IEquatable<Unity.Animation.quaternion4>, System.IFormattable
@@ -625,6 +702,11 @@ namespace Unity.Animation
     [System.Runtime.CompilerServices.Extension] public static class RigDefinitionExt
     {
         [System.Runtime.CompilerServices.Extension] public static Unity.Animation.BindingSet CreateBindingSet(ref Unity.Animation.RigDefinition _, int translationCount, int rotationCount, int scaleCount, int floatCount, int intCount);
+    }
+
+    public struct RigEntity : Unity.Entities.IComponentData
+    {
+        public Unity.Entities.Entity Value;
     }
 
     public static class RigEntityBuilder
@@ -712,6 +794,11 @@ namespace Unity.Animation
         }
     }
 
+    public struct RigRootEntity : Unity.Entities.IComponentData
+    {
+        public Unity.Entities.Entity Value;
+    }
+
     public struct RigRotationOffset
     {
         public Unity.Mathematics.quaternion PostRotation;
@@ -730,6 +817,11 @@ namespace Unity.Animation
     {
         public static Unity.Entities.Entity InstantiateDebugRigEntity(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rigDefinition, Unity.Entities.EntityManager entityManager, ref Unity.Animation.BoneRendererProperties props, Unity.Collections.NativeList<Unity.Animation.StringHash> ids = default(Unity.Collections.NativeList<Unity.Animation.StringHash>));
         public static Unity.Entities.Entity InstantiateDebugRigEntity(Unity.Entities.Entity rigEntity, Unity.Entities.EntityManager entityManager, ref Unity.Animation.BoneRendererProperties props, Unity.Collections.NativeList<Unity.Animation.StringHash> ids = default(Unity.Collections.NativeList<Unity.Animation.StringHash>));
+    }
+
+    public struct RootMotionOffset : Unity.Entities.IComponentData
+    {
+        public Unity.Mathematics.RigidTransform Value;
     }
 
     public struct SharedRigHash : Unity.Entities.ISharedComponentData
@@ -756,19 +848,20 @@ namespace Unity.Animation
         public int ParentIndex;
     }
 
-    public struct SkinMatrix : Unity.Entities.IBufferElementData
+    [System.Obsolete(@"SkinMatrix is deprecated use Unity.Deformations.SkinMatrix instead. (RemovedAfter 2020-08-19)", false)] public struct SkinMatrix : Unity.Entities.IBufferElementData
     {
         public Unity.Mathematics.float3x4 Value;
     }
 
-    public struct SkinnedMeshRigEntity : Unity.Entities.IComponentData
+    [System.Obsolete(@"SkinnedMeshRigEntity is deprecated use RigEntity instead. (RemovedAfter 2020-08-19). (UnityUpgradable) -> RigEntity", false)] public struct SkinnedMeshRigEntity : Unity.Entities.IComponentData
     {
         public Unity.Entities.Entity Value;
     }
 
-    public struct SkinnedMeshToRigIndex : Unity.Entities.IBufferElementData
+    public struct SkinnedMeshToRigIndexMapping : Unity.Entities.IBufferElementData
     {
-        public int Value;
+        public int RigIndex;
+        public int SkinMeshIndex;
     }
 
     public struct StringHash : System.IEquatable<Unity.Animation.StringHash>
@@ -831,7 +924,7 @@ namespace Unity.Animation.BoneRenderer
         public Unity.Mathematics.float4x4 Value;
     }
 
-    public struct RigEntity : Unity.Entities.IComponentData
+    [System.Obsolete(@"Unity.Animation.BoneRenderer.RigEntity is deprecated use Unity.Animation.RigEntity instead. (RemovedAfter 2020-08-19).", false)] public struct RigEntity : Unity.Entities.IComponentData
     {
         public Unity.Entities.Entity Value;
     }

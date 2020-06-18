@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Unity.DataFlowGraph;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -78,12 +79,12 @@ namespace Unity.Animation.Tests
             Assert.That(resRootT, Is.EqualTo(defaultStream.GetLocalToParentTranslation(0)).Using(TranslationComparer));
             Assert.That(resRootR, Is.EqualTo(defaultStream.GetLocalToParentRotation(0)).Using(RotationComparer));
             Assert.That(resRootS, Is.EqualTo(defaultStream.GetLocalToParentScale(0)).Using(ScaleComparer));
-            Assert.AreEqual(resRootTx, defaultStream.GetLocalToParentMatrix(0));
+            Assert.AreEqual(resRootTx, mathex.float4x4(defaultStream.GetLocalToParentMatrix(0)));
 
             Assert.That(resChildT, Is.EqualTo(defaultStream.GetLocalToParentTranslation(1)).Using(TranslationComparer));
             Assert.That(resChildR, Is.EqualTo(defaultStream.GetLocalToParentRotation(1)).Using(RotationComparer));
             Assert.That(resChildS, Is.EqualTo(defaultStream.GetLocalToParentScale(1)).Using(ScaleComparer));
-            Assert.AreEqual(resChildTx, defaultStream.GetLocalToParentMatrix(1));
+            Assert.AreEqual(resChildTx, mathex.float4x4(defaultStream.GetLocalToParentMatrix(1)));
 
             Set.ReleaseGraphValue(outRootT);
             Set.ReleaseGraphValue(outRootR);
@@ -114,39 +115,47 @@ namespace Unity.Animation.Tests
 
             var outRootT = Set.CreateGraphValue(localToRootRootNode, GetAnimationStreamLocalToRootNode.KernelPorts.Translation);
             var outRootR = Set.CreateGraphValue(localToRootRootNode, GetAnimationStreamLocalToRootNode.KernelPorts.Rotation);
+            var outRootS = Set.CreateGraphValue(localToRootRootNode, GetAnimationStreamLocalToRootNode.KernelPorts.Scale);
             var outRootTx = Set.CreateGraphValue(localToRootRootNode, GetAnimationStreamLocalToRootNode.KernelPorts.Transform);
 
             var outChildT = Set.CreateGraphValue(localToRootChildNode, GetAnimationStreamLocalToRootNode.KernelPorts.Translation);
             var outChildR = Set.CreateGraphValue(localToRootChildNode, GetAnimationStreamLocalToRootNode.KernelPorts.Rotation);
+            var outChildS = Set.CreateGraphValue(localToRootChildNode, GetAnimationStreamLocalToRootNode.KernelPorts.Scale);
             var outChildTx = Set.CreateGraphValue(localToRootChildNode, GetAnimationStreamLocalToRootNode.KernelPorts.Transform);
 
             Set.Update(default);
 
             var resRootT = Set.GetValueBlocking(outRootT);
             var resRootR = Set.GetValueBlocking(outRootR);
+            var resRootS = Set.GetValueBlocking(outRootS);
             var resRootTx = Set.GetValueBlocking(outRootTx);
 
             var resChildT = Set.GetValueBlocking(outChildT);
             var resChildR = Set.GetValueBlocking(outChildR);
+            var resChildS = Set.GetValueBlocking(outChildS);
             var resChildTx = Set.GetValueBlocking(outChildTx);
 
             var defaultStream = AnimationStream.FromDefaultValues(m_Rig);
 
-            defaultStream.GetLocalToRootTR(0, out float3 testT, out quaternion testR);
+            defaultStream.GetLocalToRootTRS(0, out float3 testT, out quaternion testR, out float3 testS);
             Assert.That(resRootT, Is.EqualTo(testT).Using(TranslationComparer));
             Assert.That(resRootR, Is.EqualTo(testR).Using(RotationComparer));
-            Assert.AreEqual(resRootTx, new float4x4(testR, testT));
+            Assert.That(resRootS, Is.EqualTo(testS).Using(ScaleComparer));
+            Assert.AreEqual(resRootTx, float4x4.TRS(testT, testR, testS));
 
-            defaultStream.GetLocalToRootTR(1, out testT, out testR);
+            defaultStream.GetLocalToRootTRS(1, out testT, out testR, out testS);
             Assert.That(resChildT, Is.EqualTo(testT).Using(TranslationComparer));
             Assert.That(resChildR, Is.EqualTo(testR).Using(RotationComparer));
-            Assert.AreEqual(resChildTx, new float4x4(testR, testT));
+            Assert.That(resChildS, Is.EqualTo(testS).Using(ScaleComparer));
+            Assert.AreEqual(resChildTx, float4x4.TRS(testT, testR, testS));
 
             Set.ReleaseGraphValue(outRootT);
             Set.ReleaseGraphValue(outRootR);
+            Set.ReleaseGraphValue(outRootS);
             Set.ReleaseGraphValue(outRootTx);
             Set.ReleaseGraphValue(outChildT);
             Set.ReleaseGraphValue(outChildR);
+            Set.ReleaseGraphValue(outChildS);
             Set.ReleaseGraphValue(outChildTx);
         }
 
@@ -316,21 +325,24 @@ namespace Unity.Animation.Tests
 
             float3 newT = new float3(5f, 0f, 0f);
             quaternion newR = quaternion.RotateZ(math.radians(90f));
+            float3 newS = new float3(5f, 6f, 5f);
 
-            // Test T and R modes
+            // Test T, R, S modes
             var localToRootRootNode = CreateNode<SetAnimationStreamLocalToRootNode>();
             Set.SendMessage(localToRootRootNode, SetAnimationStreamLocalToRootNode.SimulationPorts.Rig, m_Rig);
             Set.SetData(localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Index, 0);
             Set.SetData(localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Mode, SetAnimationStreamLocalToRootNode.SetFromMode.Translation);
             Set.SetData(localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Translation, newT);
             Set.SetData(localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Rotation, newR);
+            Set.SetData(localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Scale, newS);
 
             var localToRootChildNode = CreateNode<SetAnimationStreamLocalToRootNode>();
             Set.SendMessage(localToRootChildNode, SetAnimationStreamLocalToRootNode.SimulationPorts.Rig, m_Rig);
             Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Index, 1);
-            Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Mode, SetAnimationStreamLocalToRootNode.SetFromMode.Rotation);
+            Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Mode, SetAnimationStreamLocalToRootNode.SetFromMode.Rotation | SetAnimationStreamLocalToRootNode.SetFromMode.Scale);
             Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Translation, newT);
             Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Rotation, newR);
+            Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Scale, newS);
 
             Set.Connect(defaultValuesNode, DefaultValuesNode.KernelPorts.Output, localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Input);
             Set.Connect(localToRootRootNode, SetAnimationStreamLocalToRootNode.KernelPorts.Output, localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Input);
@@ -342,18 +354,30 @@ namespace Unity.Animation.Tests
 
             Assert.That(outputStream.GetLocalToRootTranslation(0), Is.EqualTo(newT).Using(TranslationComparer));
             Assert.That(outputStream.GetLocalToRootRotation(0), Is.EqualTo(defaultStream.GetLocalToRootRotation(0)).Using(RotationComparer));
+            Assert.That(outputStream.GetLocalToRootScale(0), Is.EqualTo(defaultStream.GetLocalToRootScale(0)).Using(ScaleComparer));
 
-            Assert.That(outputStream.GetLocalToParentTranslation(1), Is.EqualTo(defaultStream.GetLocalToParentTranslation(1)).Using(TranslationComparer));
+            Assert.That(outputStream.GetLocalToRootTranslation(1), Is.EqualTo(mathex.mul(outputStream.GetLocalToRootMatrix(0), defaultStream.GetLocalToParentTranslation(1))).Using(TranslationComparer));
             Assert.That(outputStream.GetLocalToRootRotation(1), Is.EqualTo(newR).Using(RotationComparer));
+            Assert.That(outputStream.GetLocalToRootScale(1), Is.EqualTo(newS).Using(ScaleComparer));
 
             // Test TR mode
             Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Mode, SetAnimationStreamLocalToRootNode.SetFromMode.TranslationRotation);
+
+            handle = Set.Update(handle);
+            outputStream = AnimationStream.CreateReadOnly(m_Rig, DFGUtils.GetGraphValueTempNativeBuffer(Set, output));
+
+            Assert.That(outputStream.GetLocalToRootTranslation(1), Is.EqualTo(newT).Using(TranslationComparer));
+            Assert.That(outputStream.GetLocalToRootRotation(1), Is.EqualTo(newR).Using(RotationComparer));
+
+            // Test TRS mode
+            Set.SetData(localToRootChildNode, SetAnimationStreamLocalToRootNode.KernelPorts.Mode, SetAnimationStreamLocalToRootNode.SetFromMode.TranslationRotationScale);
 
             Set.Update(handle);
             outputStream = AnimationStream.CreateReadOnly(m_Rig, DFGUtils.GetGraphValueTempNativeBuffer(Set, output));
 
             Assert.That(outputStream.GetLocalToRootTranslation(1), Is.EqualTo(newT).Using(TranslationComparer));
             Assert.That(outputStream.GetLocalToRootRotation(1), Is.EqualTo(newR).Using(RotationComparer));
+            Assert.That(outputStream.GetLocalToRootScale(1), Is.EqualTo(newS).Using(ScaleComparer));
 
             Set.ReleaseGraphValue(output);
         }
@@ -432,6 +456,60 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(outputStream.GetFloat(1), kNewChildFloat);
 
             Set.ReleaseGraphValue(output);
+        }
+
+        internal class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
+        {
+#pragma warning disable 0649
+            public struct SimPorts : ISimulationPortDefinition
+            {
+                public MessageInput<TestNode, Rig> Rig;
+            }
+
+            public struct KernelDefs : IKernelPortDefinition
+            {
+                public DataOutput<TestNode, Buffer<AnimatedData>> Output;
+            }
+#pragma warning restore 0649
+
+            public struct Data : INodeData {}
+
+            public struct KernelData : IKernelData
+            {
+                public BlobAssetReference<RigDefinition> RigDefinition;
+            }
+
+            public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+            {
+                public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+                {
+                    // Test to validate that output is initialized with 0 if nobody write to the buffer
+                }
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                GetKernelData(ctx.Handle).RigDefinition = rig.Value;
+                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0));
+            }
+
+            InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
+                (InputPortID)SimulationPorts.Rig;
+        }
+
+        [Test]
+        public void NodeOutputIsInitializedToZero()
+        {
+            var node = CreateNode<TestNode>();
+            Set.SendMessage(node, TestNode.SimulationPorts.Rig, m_Rig);
+
+            var output = CreateGraphValue(node, TestNode.KernelPorts.Output);
+
+            Set.Update(default);
+
+            var outputStream = AnimationStream.CreateReadOnly(m_Rig, DFGUtils.GetGraphValueTempNativeBuffer(Set, output));
+
+            Assert.That(outputStream.HasNoChannelMasks(), Is.True);
         }
     }
 }

@@ -137,7 +137,7 @@ namespace Unity.Animation.Tests
         TestData CreateSimpleBlendTreeGraph(float blendValue, BlobAssetReference<RigDefinition> rig)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var blendTreeNode = CreateNode<BlendTree1DNode>();
             var entityNode = CreateComponentNode(entity);

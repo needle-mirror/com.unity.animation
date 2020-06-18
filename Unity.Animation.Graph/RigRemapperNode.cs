@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Remaps one animation stream to another given a known remapping table")]
+    [NodeDefinition(guid: "8d7926b8dbcf4072b7cf1a10e29de888", version: 1, category: "Animation Core/Utils", description: "Remaps one animation stream to another given a known remapping table")]
     public class RigRemapperNode
         : NodeDefinition<RigRemapperNode.Data, RigRemapperNode.SimPorts, RigRemapperNode.KernelData, RigRemapperNode.KernelDefs, RigRemapperNode.Kernel>
         , IMsgHandler<BlobAssetReference<RigRemapTable>>
@@ -21,22 +21,22 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(displayName: "Source Rig", description: "Source rig to remap animation from")]
+            [PortDefinition(guid: "29d7c6f4946c46d199d9d13e11332983", displayName: "Source Rig", description: "Source rig to remap animation from")]
             public MessageInput<RigRemapperNode, Rig> SourceRig;
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "a5532ac30bf242b6b276a4803d0a0582", isHidden: true)]
             public MessageInput<RigRemapperNode, Rig> DestinationRig;
 
-            [PortDefinition(displayName: "Rig Remap Table", description: "Remap table between source and destination rigs")]
+            [PortDefinition(guid: "a158ddc749144e2b8553a117d0d3d297", displayName: "Rig Remap Table", description: "Remap table between source and destination rigs")]
             public MessageInput<RigRemapperNode, BlobAssetReference<RigRemapTable>> RemapTable;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(displayName: "Default Pose", description: "Override default animation stream output values. If not provided output animation stream is populated with default values from the rig destination rig definition.")]
+            [PortDefinition(guid: "774b612d90fe4e91a79cbacbc9de2b05", displayName: "Default Pose", description: "Override default animation stream output values. If not provided output animation stream is populated with default values from the rig destination rig definition.")]
             public DataInput<RigRemapperNode, Buffer<AnimatedData>> DefaultPoseInput;
-            [PortDefinition(description: "Animation stream to remap from")]
+            [PortDefinition(guid: "43fff4c80729422a860e00c0bb1c1bd5", description: "Animation stream to remap from")]
             public DataInput<RigRemapperNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "611e6adea3394f9b91be3e2e2db34a56", description: "Resulting animation stream")]
             public DataOutput<RigRemapperNode, Buffer<AnimatedData>> Output;
         }
 

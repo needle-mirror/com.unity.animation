@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Blend Trees", description: "Computes 2D BlendTree weights based on parameter input", isHidden: true)]
+    [NodeDefinition(guid: "79412b5295e542daad10167c1b418522", version: 1, category: "Animation Core/Blend Trees", description: "Computes 2D BlendTree weights based on parameter input", isHidden: true)]
     public class ComputeBlendTree2DWeightsNode
         : NodeDefinition<ComputeBlendTree2DWeightsNode.Data, ComputeBlendTree2DWeightsNode.SimPorts, ComputeBlendTree2DWeightsNode.KernelData, ComputeBlendTree2DWeightsNode.KernelDefs, ComputeBlendTree2DWeightsNode.Kernel>
         , IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectional>>
@@ -21,7 +21,7 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(description: "BlendTree 2D properties")]
+            [PortDefinition(guid: "de45bb03e06142c1bd27361e890369fd", description: "BlendTree 2D properties")]
             public MessageInput<ComputeBlendTree2DWeightsNode, BlobAssetReference<BlendTree2DSimpleDirectional>> BlendTree;
         }
 
@@ -31,16 +31,16 @@ namespace Unity.Animation
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Blend parameter X value")]
+            [PortDefinition(guid: "5db3565dc5a148f0acf662ae66c0a1d9", description: "Blend parameter X value")]
             public DataInput<ComputeBlendTree2DWeightsNode, float> BlendParameterX;
-            [PortDefinition(description: "Blend parameter Y value")]
+            [PortDefinition(guid: "87fd5d8fe6ba44b9ae86d5d7bf680ca0", description: "Blend parameter Y value")]
             public DataInput<ComputeBlendTree2DWeightsNode, float> BlendParameterY;
-            [PortDefinition(displayName: "Motion Duration", description: "Duration of each motion used by this BlendTree")]
+            [PortDefinition(guid: "e2ce9ea098cc422b9daa5fddd9e03c71", displayName: "Motion Duration", description: "Duration of each motion used by this BlendTree")]
             public PortArray<DataInput<ComputeBlendTree2DWeightsNode, float>> MotionDurations;
 
-            [PortDefinition(description: "Resulting motion weights, size of buffer is equal to the amount of motions")]
+            [PortDefinition(guid: "0c799b1077314f9b819c960b8c2039cb", description: "Resulting motion weights, size of buffer is equal to the amount of motions")]
             public DataOutput<ComputeBlendTree2DWeightsNode, Buffer<float>> Weights;
-            [PortDefinition(description: "Current motion duration")]
+            [PortDefinition(guid: "263544bcaef14db5982111b2ca206e2a", description: "Current motion duration")]
             public DataOutput<ComputeBlendTree2DWeightsNode, float> Duration;
         }
         public struct KernelData : IKernelData

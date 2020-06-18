@@ -10,7 +10,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Root Motion", description: "Extracts motion from a specified transform and projects it's values on the root transform. This node is internally used by the UberClipNode.")]
+    [NodeDefinition(guid: "d02f3e16b7044fcd9acd09adf22f2a30", version: 1, category: "Animation Core/Root Motion", description: "Extracts motion from a specified transform and projects it's values on the root transform. This node is internally used by the UberClipNode.")]
     public class InPlaceMotionNode
         : NodeDefinition<InPlaceMotionNode.Data, InPlaceMotionNode.SimPorts, InPlaceMotionNode.KernelData, InPlaceMotionNode.KernelDefs, InPlaceMotionNode.Kernel>
         , IMsgHandler<ClipConfiguration>
@@ -22,17 +22,17 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "df8397b840e1401ca4884771eaf7d90f", isHidden: true)]
             public MessageInput<InPlaceMotionNode, Rig> Rig;
-            [PortDefinition(description: "Clip configuration mask")]
+            [PortDefinition(guid: "71fecbce80b4477ebf85c2b0f13dce8b", description: "Clip configuration mask")]
             public MessageInput<InPlaceMotionNode, ClipConfiguration> Configuration;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "The current animation stream")]
+            [PortDefinition(guid: "b9bdb0c630ec4b42873e20447bd74bb1", description: "The current animation stream")]
             public DataInput<InPlaceMotionNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream with updated root transform")]
+            [PortDefinition(guid: "a20f24488e7b400abef60bdf1365b91e", description: "Resulting animation stream with updated root transform")]
             public DataOutput<InPlaceMotionNode, Buffer<AnimatedData>> Output;
         }
 
@@ -80,8 +80,8 @@ namespace Unity.Animation
 
                 ProjectMotionNode(motionTranslation, defaultRotation, out float3 motionProjTranslation, out quaternion motionProjRotation, (data.Configuration.Mask & ClipConfigurationMask.BankPivot) != 0);
 
-                outputStream.SetLocalToRootTranslation(0, motionProjTranslation);
-                outputStream.SetLocalToRootRotation(0, motionProjRotation);
+                outputStream.SetLocalToParentTranslation(0, motionProjTranslation);
+                outputStream.SetLocalToParentRotation(0, motionProjRotation);
 
                 outputStream.SetLocalToRootTranslation(data.TranslationIndex, motionTranslation);
                 outputStream.SetLocalToRootRotation(data.RotationIndex, motionRotation);

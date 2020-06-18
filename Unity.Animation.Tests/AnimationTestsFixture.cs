@@ -6,6 +6,7 @@ using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using UnityEngine;
 using System;
+using Unity.Collections;
 
 namespace Unity.Animation.Tests
 {
@@ -72,17 +73,52 @@ namespace Unity.Animation.Tests
         }
     }
 
+    public class Float4x4AbsoluteEqualityComparer : IEqualityComparer<float4x4>
+    {
+        private readonly float m_AllowedError;
+
+        public Float4x4AbsoluteEqualityComparer(float allowedError)
+        {
+            m_AllowedError = allowedError;
+        }
+
+        public bool Equals(float4x4 expected, float4x4 actual)
+        {
+            return
+                Equals(expected.c0, actual.c0, m_AllowedError) &&
+                Equals(expected.c1, actual.c1, m_AllowedError) &&
+                Equals(expected.c2, actual.c2, m_AllowedError) &&
+                Equals(expected.c3, actual.c3, m_AllowedError);
+        }
+
+        public int GetHashCode(float4x4 value)
+        {
+            return 0;
+        }
+
+        static bool Equals(float4 expected, float4 actual, float allowedError)
+        {
+            return
+                math.abs(expected.x - actual.x) < allowedError &&
+                math.abs(expected.y - actual.y) < allowedError &&
+                math.abs(expected.z - actual.z) < allowedError &&
+                math.abs(expected.w - actual.w) < allowedError;
+        }
+    }
+
     public abstract class AnimationTestsFixture
     {
         private const float kTranslationTolerance = 1e-5f;
         private const float kRotationTolerance = 1e-4f;
         private const float kScaleTolerance = 1e-5f;
+        private const float kFloat4x4Tolerance = 1e-5f;
         protected const float kTimeTolerance = 1e-5f;
 
         protected readonly Float3AbsoluteEqualityComparer TranslationComparer;
         protected readonly QuaternionAbsoluteEqualityComparer RotationComparer;
         protected readonly Float3AbsoluteEqualityComparer ScaleComparer;
         protected readonly FloatAbsoluteEqualityComparer FloatComparer;
+        protected readonly Float4x4AbsoluteEqualityComparer Float4x4Comparer;
 
         protected World World;
         protected EntityManager m_Manager;
@@ -127,6 +163,7 @@ namespace Unity.Animation.Tests
             RotationComparer = new QuaternionAbsoluteEqualityComparer(kRotationTolerance);
             ScaleComparer = new Float3AbsoluteEqualityComparer(kScaleTolerance);
             FloatComparer = new FloatAbsoluteEqualityComparer(kTranslationTolerance);
+            Float4x4Comparer = new Float4x4AbsoluteEqualityComparer(kFloat4x4Tolerance);
         }
 
         [OneTimeSetUp]
@@ -171,7 +208,7 @@ namespace Unity.Animation.Tests
             m_PreAnimationGraph.RemoveRef();
             m_PostAnimationGraph.RemoveRef();
 
-            if (m_Manager != null)
+            if (World != null)
             {
                 // Clean up systems before calling CheckInternalConsistency because we might have filters etc
                 // holding on SharedComponentData making checks fail
@@ -186,13 +223,19 @@ namespace Unity.Animation.Tests
 
                 World.Dispose();
                 World = null;
-                m_Manager = null;
             }
         }
 
         protected GameObject CreateGameObject()
         {
             var go = new GameObject();
+            m_GameObjects.Add(go);
+            return go;
+        }
+
+        protected GameObject CreatePrimitive(PrimitiveType type)
+        {
+            var go = GameObject.CreatePrimitive(type);
             m_GameObjects.Add(go);
             return go;
         }
@@ -266,6 +309,23 @@ namespace Unity.Animation.Tests
                 UnityEngine.Object.DestroyImmediate(m_Objects[i]);
         }
 
+        protected void SetupRigEntity(Entity rigEntity, BlobAssetReference<RigDefinition> rig, Entity rigRoot)
+        {
+            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
+
+            if (rigRoot != Entity.Null)
+            {
+                m_Manager.AddComponentData(rigEntity, new RigRootEntity { Value = rigRoot });
+            }
+            else
+            {
+                // Tests sometimes validate root transform values in the animation stream
+                // Adding this component will prevent these values from being moved to the
+                // rig root transform components
+                m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rigEntity);
+            }
+        }
+
 #if UNITY_EDITOR
         protected static UnityEngine.AnimationCurve GetConstantCurve(float value)
         {
@@ -296,12 +356,12 @@ namespace Unity.Animation.Tests
 
         protected static void AddFloatConstantCurves(AnimationClip clip, string relativePath, float value)
         {
-            clip.SetCurve(relativePath, typeof(Animator), relativePath, GetConstantCurve(value));
+            clip.SetCurve(relativePath, typeof(Animator), "", GetConstantCurve(value));
         }
 
         protected static void AddIntegerConstantCurves(AnimationClip clip, string relativePath, int value)
         {
-            clip.SetCurve(relativePath, typeof(UnityEngine.Animation), relativePath, GetConstantCurve((float)value));
+            clip.SetCurve(relativePath, typeof(UnityEngine.Animation), "", GetConstantCurve((float)value));
         }
 
         protected static BlobAssetReference<Clip> CreateConstantDenseClip((string, float3)[] translations, (string, quaternion)[] rotations, (string, float3)[] scales)
@@ -401,12 +461,12 @@ namespace Unity.Animation.Tests
 
         protected static void AddFloatLinearCurves(AnimationClip clip, LinearBinding<float> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(Animator), binding.Path, GetLinearCurve(binding.ValueStart, binding.ValueEnd, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(Animator), "", GetLinearCurve(binding.ValueStart, binding.ValueEnd, timeStart, timeStop));
         }
 
         protected static void AddIntegerLinearCurves(AnimationClip clip, LinearBinding<int> binding, float timeStart = 0, float timeStop = 1.0f)
         {
-            clip.SetCurve(binding.Path, typeof(UnityEngine.Animation), binding.Path, GetLinearCurve((float)binding.ValueStart, (float)binding.ValueEnd, timeStart, timeStop));
+            clip.SetCurve(binding.Path, typeof(UnityEngine.Animation), "", GetLinearCurve((float)binding.ValueStart, (float)binding.ValueEnd, timeStart, timeStop));
         }
 
         protected static BlobAssetReference<Clip> CreateLinearDenseClip(

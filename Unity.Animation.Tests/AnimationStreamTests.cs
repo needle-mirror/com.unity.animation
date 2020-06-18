@@ -8,21 +8,18 @@ namespace Unity.Animation.Tests
 {
     public class AnimationStreamTests : AnimationTestsFixture, IPrebuildSetup
     {
-        static void Decompose(float4x4 m, out float3 translation, out quaternion rotation, out float3 scale)
+        // Very simple decomposition, not very precise but good enough with relatively small scales (< 2f)
+        // should not be used elsewhere
+        static void Decompose(AffineTransform m, out float3 translation, out quaternion rotation, out float3 scale)
         {
-            translation = new float3(m.c3.x, m.c3.y, m.c3.z);
-
-            float3x3 rMat = new float3x3(
-                new float3(m.c0.x, m.c0.y, m.c0.z),
-                new float3(m.c1.x, m.c1.y, m.c1.z),
-                new float3(m.c2.x, m.c2.y, m.c2.z)
-            );
+            translation = m.t;
 
             // Consider signed scale
-            scale = new float3(math.length(rMat.c0), math.length(rMat.c1), math.length(rMat.c2));
+            scale = new float3(math.length(m.rs.c0), math.length(m.rs.c1), math.length(m.rs.c2));
             if (math.determinant(m) < 0f)
                 scale = -scale;
 
+            float3x3 rMat = m.rs;
             if (math.all(scale))
             {
                 rMat.c0 /= scale.x;
@@ -112,7 +109,7 @@ namespace Unity.Animation.Tests
         TestData CreateAndEvaluateSimpleClipGraph(float time, in Rig rig, BlobAssetReference<Clip> clip)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, rig, Entity.Null);
 
             var clipNode = CreateNode<ClipNode>();
             var entityNode = CreateComponentNode(entity);
@@ -223,15 +220,15 @@ namespace Unity.Animation.Tests
             float kTranslationTolerance = 1e-4f;
             float kRotationTolerance = 1e-4f;
 
-            var translationComparer = new Float3AbsoluteEqualityComparer(kTranslationTolerance);
-            var rotationComparer = new QuaternionAbsoluteEqualityComparer(kRotationTolerance);
+            var float3Comparer = new Float3AbsoluteEqualityComparer(kTranslationTolerance);
+            var quaternionComparer = new QuaternionAbsoluteEqualityComparer(kRotationTolerance);
 
             var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
-            float4x4 rootLocalTx = float4x4.TRS(m_ClipRootLocalTranslation, m_ClipRootLocalRotation, m_ClipRootLocalScale);
-            float4x4 childLocalTx = float4x4.TRS(m_ClipChildLocalTranslation, m_ClipChildLocalRotation, m_ClipChildLocalScale);
-            float4x4 childTx = math.mul(rootLocalTx, childLocalTx);
-            Decompose(childTx, out float3 childTRef, out quaternion childRRef, out float3 _);
+            AffineTransform rootLocalTx = mathex.AffineTransform(m_ClipRootLocalTranslation, m_ClipRootLocalRotation, m_ClipRootLocalScale);
+            AffineTransform childLocalTx = mathex.AffineTransform(m_ClipChildLocalTranslation, m_ClipChildLocalRotation, m_ClipChildLocalScale);
+            AffineTransform childTx = mathex.mul(rootLocalTx, childLocalTx);
+            Decompose(childTx, out float3 childTRef, out quaternion childRRef, out float3 childSRef);
 
             var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
@@ -239,23 +236,27 @@ namespace Unity.Animation.Tests
             );
 
             Assert.IsFalse(streamECS.IsNull);
-            Assert.That(streamECS.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(translationComparer));
-            Assert.That(streamECS.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(childRRef).Using(rotationComparer));
+            Assert.That(streamECS.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(float3Comparer));
+            Assert.That(streamECS.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(childRRef).Using(quaternionComparer));
+            Assert.That(streamECS.GetLocalToRootScale(k_Child1Id), Is.EqualTo(childSRef).Using(float3Comparer));
 
-            streamECS.GetLocalToRootTR(k_Child1Id, out float3 childT, out quaternion childR);
-            Assert.That(childT, Is.EqualTo(childTRef).Using(translationComparer));
-            Assert.That(childR, Is.EqualTo(childRRef).Using(rotationComparer));
+            streamECS.GetLocalToRootTRS(k_Child1Id, out float3 childT, out quaternion childR, out float3 childS);
+            Assert.That(childT, Is.EqualTo(childTRef).Using(float3Comparer));
+            Assert.That(childR, Is.EqualTo(childRRef).Using(quaternionComparer));
+            Assert.That(childS, Is.EqualTo(childSRef).Using(float3Comparer));
 
             var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
             var graphStream = AnimationStream.CreateReadOnly(m_Rig, readWriteBuffer);
 
             Assert.IsFalse(graphStream.IsNull);
-            Assert.That(graphStream.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(translationComparer));
-            Assert.That(graphStream.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(childRRef).Using(rotationComparer));
+            Assert.That(graphStream.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(childTRef).Using(float3Comparer));
+            Assert.That(graphStream.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(childRRef).Using(quaternionComparer));
+            Assert.That(graphStream.GetLocalToRootScale(k_Child1Id), Is.EqualTo(childSRef).Using(float3Comparer));
 
-            graphStream.GetLocalToRootTR(k_Child1Id, out childT, out childR);
-            Assert.That(childT, Is.EqualTo(childTRef).Using(translationComparer));
-            Assert.That(childR, Is.EqualTo(childRRef).Using(rotationComparer));
+            graphStream.GetLocalToRootTRS(k_Child1Id, out childT, out childR, out childS);
+            Assert.That(childT, Is.EqualTo(childTRef).Using(float3Comparer));
+            Assert.That(childR, Is.EqualTo(childRRef).Using(quaternionComparer));
+            Assert.That(childS, Is.EqualTo(childSRef).Using(float3Comparer));
 
             readWriteBuffer.Dispose();
         }
@@ -267,13 +268,11 @@ namespace Unity.Animation.Tests
 
             float3 newRootTranslation = new float3(5f, 3f, 2f);
             quaternion newRootRotation = quaternion.RotateY(math.radians(45));
-            float4x4 rootTx = float4x4.TRS(newRootTranslation, newRootRotation, mathex.one());
+            float3 newRootScale = new float3(0.5f, 2f, 1f);
 
             float3 newChildTranslation = new float3(0f, 1f, 2f);
             quaternion newChildRotation = quaternion.RotateZ(math.radians(20));
-            float4x4 childTx = float4x4.TRS(newChildTranslation, newChildRotation, mathex.one());
-
-            float4x4 localTx = math.mul(math.inverse(rootTx), childTx);
+            float3 newChildScale = new float3(1f, 0.5f, 2f);
 
             var streamECS = AnimationStream.CreateReadOnly(
                 m_Rig,
@@ -282,64 +281,57 @@ namespace Unity.Animation.Tests
 
             Assert.IsFalse(streamECS.IsNull);
 
-            // Set child Tx in rig space
-            streamECS.SetLocalToRootTranslation(k_Child1Id, newChildTranslation);
-            streamECS.SetLocalToRootRotation(k_Child1Id, newChildRotation);
+            // Set root Tx in root space
+            streamECS.SetLocalToRootTRS(k_RootId, newRootTranslation, newRootRotation, newRootScale);
 
-            streamECS.GetLocalToRootTR(k_Child1Id, out float3 outTranslation, out quaternion outRotation);
-            Assert.That(outTranslation, Is.EqualTo(newChildTranslation).Using(TranslationComparer));
-            Assert.That(outRotation, Is.EqualTo(newChildRotation).Using(RotationComparer));
-            Assert.That(streamECS.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
-            Assert.That(streamECS.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
-
-            // Set root Tx in rig space
-            streamECS.SetLocalToRootTranslation(k_RootId, newRootTranslation);
-            streamECS.SetLocalToRootRotation(k_RootId, newRootRotation);
-
-            streamECS.GetLocalToRootTR(k_RootId, out outTranslation, out outRotation);
+            streamECS.GetLocalToRootTRS(k_RootId, out float3 outTranslation, out quaternion outRotation, out float3 outScale);
             Assert.That(outTranslation, Is.EqualTo(newRootTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newRootRotation).Using(RotationComparer));
+            Assert.That(outScale, Is.EqualTo(newRootScale).Using(ScaleComparer));
             Assert.That(streamECS.GetLocalToRootTranslation(k_RootId), Is.EqualTo(newRootTranslation).Using(TranslationComparer));
             Assert.That(streamECS.GetLocalToRootRotation(k_RootId), Is.EqualTo(newRootRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToRootScale(k_RootId), Is.EqualTo(newRootScale).Using(ScaleComparer));
 
-            // Since root has moved, reset child to wanted TR
-            streamECS.SetLocalToRootTR(k_Child1Id, newChildTranslation, newChildRotation);
+            // Set child Tx in root space (using individual TRS function calls)
+            streamECS.SetLocalToRootTranslation(k_Child1Id, newChildTranslation);
+            streamECS.SetLocalToRootRotation(k_Child1Id, newChildRotation);
+            streamECS.SetLocalToRootScale(k_Child1Id, newChildScale);
 
-            // Test localTx between root and child
-            Assert.That(streamECS.GetLocalToParentTranslation(k_Child1Id), Is.EqualTo(new float3(localTx.c3.x, localTx.c3.y, localTx.c3.z)).Using(TranslationComparer));
-            Assert.That(streamECS.GetLocalToParentRotation(k_Child1Id), Is.EqualTo(new quaternion(localTx)).Using(RotationComparer));
+            streamECS.GetLocalToRootTRS(k_Child1Id, out outTranslation, out outRotation, out outScale);
+            Assert.That(outTranslation, Is.EqualTo(newChildTranslation).Using(TranslationComparer));
+            Assert.That(outRotation, Is.EqualTo(newChildRotation).Using(RotationComparer));
+            Assert.That(outScale, Is.EqualTo(newChildScale).Using(ScaleComparer));
+            Assert.That(streamECS.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
+            Assert.That(streamECS.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
+            Assert.That(streamECS.GetLocalToRootScale(k_Child1Id), Is.EqualTo(newChildScale).Using(ScaleComparer));
 
             var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
-
             var graphStream = AnimationStream.Create(m_Rig, readWriteBuffer);
             Assert.IsFalse(graphStream.IsNull);
 
-            // Set child Tx in rig space
-            graphStream.SetLocalToRootTranslation(k_Child1Id, newChildTranslation);
-            graphStream.SetLocalToRootRotation(k_Child1Id, newChildRotation);
+            // Set child Tx in root space
+            graphStream.SetLocalToRootTRS(k_Child1Id, newChildTranslation, newChildRotation, newChildScale);
 
-            graphStream.GetLocalToRootTR(k_Child1Id, out outTranslation, out outRotation);
+            graphStream.GetLocalToRootTRS(k_Child1Id, out outTranslation, out outRotation, out outScale);
             Assert.That(outTranslation, Is.EqualTo(newChildTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newChildRotation).Using(RotationComparer));
+            Assert.That(outScale, Is.EqualTo(newChildScale).Using(ScaleComparer));
             Assert.That(graphStream.GetLocalToRootTranslation(k_Child1Id), Is.EqualTo(newChildTranslation).Using(TranslationComparer));
             Assert.That(graphStream.GetLocalToRootRotation(k_Child1Id), Is.EqualTo(newChildRotation).Using(RotationComparer));
+            Assert.That(graphStream.GetLocalToRootScale(k_Child1Id), Is.EqualTo(newChildScale).Using(ScaleComparer));
 
-            // Set root Tx in rig space
+            // Set root Tx in root space (using individual TRS function calls)
             graphStream.SetLocalToRootTranslation(k_RootId, newRootTranslation);
             graphStream.SetLocalToRootRotation(k_RootId, newRootRotation);
+            graphStream.SetLocalToRootScale(k_RootId, newRootScale);
 
-            graphStream.GetLocalToRootTR(k_RootId, out outTranslation, out outRotation);
+            graphStream.GetLocalToRootTRS(k_RootId, out outTranslation, out outRotation, out outScale);
             Assert.That(outTranslation, Is.EqualTo(newRootTranslation).Using(TranslationComparer));
             Assert.That(outRotation, Is.EqualTo(newRootRotation).Using(RotationComparer));
+            Assert.That(outScale, Is.EqualTo(newRootScale).Using(ScaleComparer));
             Assert.That(graphStream.GetLocalToRootTranslation(k_RootId), Is.EqualTo(newRootTranslation).Using(TranslationComparer));
             Assert.That(graphStream.GetLocalToRootRotation(k_RootId), Is.EqualTo(newRootRotation).Using(RotationComparer));
-
-            // Since root has moved, reset child to wanted TR
-            graphStream.SetLocalToRootTR(k_Child1Id, newChildTranslation, newChildRotation);
-
-            // Test localTx between root and child
-            Assert.That(graphStream.GetLocalToParentTranslation(k_Child1Id), Is.EqualTo(new float3(localTx.c3.x, localTx.c3.y, localTx.c3.z)).Using(TranslationComparer));
-            Assert.That(graphStream.GetLocalToParentRotation(k_Child1Id), Is.EqualTo(new quaternion(localTx)).Using(RotationComparer));
+            Assert.That(graphStream.GetLocalToRootScale(k_RootId), Is.EqualTo(newRootScale).Using(ScaleComparer));
 
             readWriteBuffer.Dispose();
         }
@@ -401,6 +393,102 @@ namespace Unity.Animation.Tests
             Assert.That(graphStream.GetInt(k_IntId), Is.EqualTo(k_NewInt));
 
             readWriteBuffer.Dispose();
+        }
+
+        [Test]
+        public void CanComputeLocalToParentInverseMatrix()
+        {
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
+
+            var stream = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+            );
+
+            var mat0 = stream.GetLocalToParentMatrix(0);
+            var invMat0 = stream.GetLocalToParentInverseMatrix(0);
+            var mat1 = stream.GetLocalToParentMatrix(1);
+            var invMat1 = stream.GetLocalToParentInverseMatrix(1);
+
+            var identity0 = mathex.mul(mat0, invMat0);
+            Assert.That(identity0.rs.c0.x, Is.EqualTo(1f).Using(FloatComparer));
+            Assert.That(identity0.rs.c0.y, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.rs.c0.z, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.rs.c1.x, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.rs.c1.y, Is.EqualTo(1f).Using(FloatComparer));
+            Assert.That(identity0.rs.c1.z, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.rs.c2.x, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.rs.c2.y, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.rs.c2.z, Is.EqualTo(1f).Using(FloatComparer));
+
+            Assert.That(identity0.t.x, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.t.y, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity0.t.z, Is.EqualTo(0f).Using(FloatComparer));
+
+            var identity1 = mathex.mul(mat1, invMat1);
+            Assert.That(identity1.rs.c0.x, Is.EqualTo(1f).Using(FloatComparer));
+            Assert.That(identity1.rs.c0.y, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.rs.c0.z, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.rs.c1.x, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.rs.c1.y, Is.EqualTo(1f).Using(FloatComparer));
+            Assert.That(identity1.rs.c1.z, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.rs.c2.x, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.rs.c2.y, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.rs.c2.z, Is.EqualTo(1f).Using(FloatComparer));
+
+            Assert.That(identity1.t.x, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.t.y, Is.EqualTo(0f).Using(FloatComparer));
+            Assert.That(identity1.t.z, Is.EqualTo(0f).Using(FloatComparer));
+        }
+
+        [Test]
+        public void CanComputeLocalToRootInverseMatrix()
+        {
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
+
+            var stream = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+            );
+
+            // Need to lower tolerance a bit
+            const float tolerance = 1e-4f;
+            var floatComparer = new FloatAbsoluteEqualityComparer(tolerance);
+
+            var mat0 = stream.GetLocalToRootMatrix(0);
+            var invMat0 = stream.GetLocalToRootInverseMatrix(0);
+            var mat1 = stream.GetLocalToRootMatrix(1);
+            var invMat1 = stream.GetLocalToRootInverseMatrix(1);
+
+            var identity0 = mathex.mul(mat0, invMat0);
+            Assert.That(identity0.rs.c0.x, Is.EqualTo(1f).Using(floatComparer));
+            Assert.That(identity0.rs.c0.y, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.rs.c0.z, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.rs.c1.x, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.rs.c1.y, Is.EqualTo(1f).Using(floatComparer));
+            Assert.That(identity0.rs.c1.z, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.rs.c2.x, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.rs.c2.y, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.rs.c2.z, Is.EqualTo(1f).Using(floatComparer));
+
+            Assert.That(identity0.t.x, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.t.y, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity0.t.z, Is.EqualTo(0f).Using(floatComparer));
+
+            var identity1 = mathex.mul(mat1, invMat1);
+            Assert.That(identity1.rs.c0.x, Is.EqualTo(1f).Using(floatComparer));
+            Assert.That(identity1.rs.c0.y, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.rs.c0.z, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.rs.c1.x, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.rs.c1.y, Is.EqualTo(1f).Using(floatComparer));
+            Assert.That(identity1.rs.c1.z, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.rs.c2.x, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.rs.c2.y, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.rs.c2.z, Is.EqualTo(1f).Using(floatComparer));
+
+            Assert.That(identity1.t.x, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.t.y, Is.EqualTo(0f).Using(floatComparer));
+            Assert.That(identity1.t.z, Is.EqualTo(0f).Using(floatComparer));
         }
     }
 }

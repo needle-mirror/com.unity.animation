@@ -4,7 +4,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(isHidden: true)]
+    [NodeDefinition(guid: "e995e3e7e5d640e5b6123dfcef20eba7", version: 1, isHidden: true)]
     public class LoopNode
         : NodeDefinition<LoopNode.Data, LoopNode.SimPorts, LoopNode.KernelData, LoopNode.KernelDefs, LoopNode.Kernel>
         , IMsgHandler<int>
@@ -91,9 +91,9 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, nodeData.AddNode, AddPoseNode.KernelPorts.Output);
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            var nodeData = GetNodeData(handle);
+            var nodeData = GetNodeData(ctx.Handle);
 
             Set.Destroy(nodeData.RigNode);
             Set.Destroy(nodeData.DefaultWeightNode);

@@ -12,7 +12,8 @@
         "Unity.Animation.Tests",
         "Unity.Animation.Curves",
         "Unity.Animation.Curves.Hybrid",
-        "Unity.Animation.DefaultGraphPipeline"
+        "Unity.Animation.DefaultGraphPipeline",
+        "Unity.Transforms"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -5,7 +5,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core", description: "Evaluates an animation clip given a clip configuration and time value")]
+    [NodeDefinition(guid: "6e6e48c0c4c84663999acbb0d491ce79", version: 1, category: "Animation Core", description: "Evaluates an animation clip given a clip configuration and time value")]
     public class ClipPlayerNode
         : NodeDefinition<ClipPlayerNode.Data, ClipPlayerNode.SimPorts, ClipPlayerNode.KernelData, ClipPlayerNode.KernelDefs, ClipPlayerNode.Kernel>
         , IMsgHandler<BlobAssetReference<Clip>>
@@ -16,26 +16,26 @@ namespace Unity.Animation
     {
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "bd18527f905e42958967f3209e3e2749", isHidden: true)]
             public MessageInput<ClipPlayerNode, Rig> Rig;
-            [PortDefinition(description: "Clip to sample")]
+            [PortDefinition(guid: "d54d5e84fe9c41c98e7884cdb38d3cdb", description: "Clip to sample")]
             public MessageInput<ClipPlayerNode, BlobAssetReference<Clip>> Clip;
-            [PortDefinition(description: "Time to sample the clip at")]
+            [PortDefinition(guid: "dc9fbabe48b449b283ab713cd9149718", description: "Time to sample the clip at")]
             public MessageInput<ClipPlayerNode, float> Time;
-            [PortDefinition(description: "Clip configuration data")]
+            [PortDefinition(guid: "3564fb2d5d474e8f8f263788acc915d7", description: "Clip configuration data")]
             public MessageInput<ClipPlayerNode, ClipConfiguration> Configuration;
-            [PortDefinition(description: "Is an additive clip")]
+            [PortDefinition(guid: "5f1665002b224c16a5c85bd8ebe31c62", description: "Is an additive clip")]
             public MessageInput<ClipPlayerNode, bool> Additive;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Delta time")]
+            [PortDefinition(guid: "51283be210a94c1a8e0b78f1ac7f2ef4", description: "Delta time")]
             public DataInput<ClipPlayerNode, float> DeltaTime;
-            [PortDefinition(displayName: "Time scale", description: "Delta time scale factor")]
+            [PortDefinition(guid: "2d24fba28ea14bd7bbe8568026579ed9", displayName: "Time scale", description: "Delta time scale factor")]
             public DataInput<ClipPlayerNode, float> Speed;
 
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "8d62299023174e0dad6394c6065d0b49", description: "Resulting animation stream")]
             public DataOutput<ClipPlayerNode, Buffer<AnimatedData>> Output;
         }
 
@@ -79,9 +79,9 @@ namespace Unity.Animation
             ctx.ForwardOutput(KernelPorts.Output, data.ClipNode, UberClipNode.KernelPorts.Output);
         }
 
-        protected override void Destroy(NodeHandle handle)
+        protected override void Destroy(DestroyContext ctx)
         {
-            var data = GetNodeData(handle);
+            var data = GetNodeData(ctx.Handle);
 
             Set.Destroy(data.TimeNode);
             Set.Destroy(data.ClipNode);

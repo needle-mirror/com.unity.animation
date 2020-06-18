@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Computes the inverse animation stream")]
+    [NodeDefinition(guid: "e5053e4830af45c6aabd999397d54a3b", version: 1, category: "Animation Core/Utils", description: "Computes the inverse animation stream")]
     public class InversePoseNode
         : NodeDefinition<InversePoseNode.Data, InversePoseNode.SimPorts, InversePoseNode.KernelData, InversePoseNode.KernelDefs, InversePoseNode.Kernel>
         , IRigContextHandler
@@ -20,16 +20,16 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "6aed15c49e5041a098049f831fe80163", isHidden: true)]
             public MessageInput<InversePoseNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "232062db78b240dca4b1390b5d0e7133", description: "Input stream")]
             public DataInput<InversePoseNode, Buffer<AnimatedData>> Input;
 
-            [PortDefinition(description: "Resulting inversed stream")]
+            [PortDefinition(guid: "235370092edd4f1eb0ffdcadb9f20885", description: "Resulting inversed stream")]
             public DataOutput<InversePoseNode, Buffer<AnimatedData>> Output;
         }
 

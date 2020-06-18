@@ -110,7 +110,9 @@ namespace Unity.Animation
             where T : struct, IWriteTransformHandle
         {
             AddTransformHandle<T>(entityManager, rig, transform, index);
-            entityManager.AddComponent<AnimationTransformOverride>(transform);
+
+            entityManager.AddComponent<AnimationLocalToWorldOverride>(transform);
+            entityManager.AddComponent<AnimationLocalToParentOverride>(transform);
         }
     }
 }

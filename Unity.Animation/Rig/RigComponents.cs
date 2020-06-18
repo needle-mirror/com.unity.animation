@@ -150,6 +150,15 @@ namespace Unity.Animation
             rig.Value;
     }
 
+    /// <summary>
+    /// Entity reference to the rig root. In other words, the
+    /// first transform (or bone) specified in the RigComponent.
+    /// </summary>
+    public struct RigRootEntity : IComponentData
+    {
+        public Entity Value;
+    }
+
     public struct SharedRigHash : ISharedComponentData
     {
         public int Value;

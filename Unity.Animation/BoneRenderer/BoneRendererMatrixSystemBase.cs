@@ -1,5 +1,4 @@
 using Unity.Animation.BoneRenderer;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -28,7 +27,7 @@ namespace Unity.Animation
                 .WithReadOnly(LocalToWorldMatricesFromEntity)
                 .ForEach((Entity e, DynamicBuffer<BoneWorldMatrix> boneWorldMatrices, DynamicBuffer<RigIndex> rigIndices, DynamicBuffer<RigParentIndex> rigParentIndices, in RigEntity rigEntity, in BoneSize boneSize) =>
                 {
-                    if (LocalToWorldMatricesFromEntity.Exists(rigEntity.Value))
+                    if (LocalToWorldMatricesFromEntity.HasComponent(rigEntity.Value))
                     {
                         var rigTransforms = LocalToWorldMatricesFromEntity[rigEntity.Value].Reinterpret<float4x4>();
 
@@ -39,7 +38,7 @@ namespace Unity.Animation
                             boneWorldMatrices[i] = new BoneWorldMatrix { Value = BoneRendererUtils.ComputeBoneMatrix(start, end, boneSize.Value) };
                         }
                     }
-                }).Schedule(Dependency);
+                }).ScheduleParallel(Dependency);
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.End();

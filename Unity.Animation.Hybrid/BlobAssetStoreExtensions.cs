@@ -1,3 +1,5 @@
+#if UNITY_EDITOR
+
 using System;
 using Unity.Entities;
 using UnityEngine;
@@ -9,6 +11,8 @@ namespace Unity.Animation.Hybrid
         /// <summary>
         /// Gets the RigDefinition BlobAssetReference associated with the provided RigComponent. If it does not exist in the BlobAssetStore,
         /// the RigComponent will be converted to a BlobAssetReference and cached in the BlobAssetStore.
+        ///
+        /// NOTE: This extension is not supported in the Player.
         /// </summary>
         /// <param name="blobAssetStore">The BlobAssetStore</param>
         /// <param name="rigComponent">The RigComponent to convert and cache if not already present in the BlobAssetStore</param>
@@ -21,6 +25,8 @@ namespace Unity.Animation.Hybrid
         /// <summary>
         /// Gets the Clip BlobAssetReference associated with the provided AnimationClip. If it does not exist in the BlobAssetStore,
         /// the AnimationClip will be converted to a BlobAssetReference and cached in the BlobAssetStore.
+        ///
+        /// NOTE: This extension is not supported in the Player.
         /// </summary>
         /// <param name="blobAssetStore">The BlobAssetStore</param>
         /// <param name="clip">The AnimationClip to convert and cache if not already present in the BlobAssetStore</param>
@@ -65,7 +71,6 @@ namespace Unity.Animation.Hybrid
 
         static Entities.Hash128 GetAssetHash(UnityEngine.Object asset)
         {
-#if UNITY_EDITOR
             if (asset == null)
                 return default;
 
@@ -85,9 +90,8 @@ namespace Unity.Animation.Hybrid
             }
 
             return result;
-#else
-            throw new System.NotImplementedException("BlobAssetStoreExtensions are not supported in the Player. You need to convert your asset in the editor.");
-#endif
         }
     }
 }
+
+#endif

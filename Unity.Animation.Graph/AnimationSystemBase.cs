@@ -23,8 +23,6 @@ namespace Unity.Animation
         void Dispose(GraphHandle graph);
     }
 
-    public interface IAnimationSystemTag : IComponentData {}
-
     public interface IAnimationSystem<TTag> : IAnimationSystem
         where TTag : struct, IAnimationSystemTag
     {
@@ -38,20 +36,38 @@ namespace Unity.Animation
         internal static ushort Generate() => ++ s_AnimationSystemCounter;
     };
 
+    public abstract class AnimationSystemBase<TTag>
+        : AnimationSystemBase<TTag, NotSupportedTransformHandle, NotSupportedTransformHandle, NotSupportedRootMotion>
+        where TTag : struct, IAnimationSystemTag
+    {
+    }
+
     public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle>
+        : AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, NotSupportedRootMotion>
+        where TTag : struct, IAnimationSystemTag
+        where TReadTransformHandle : struct, IReadTransformHandle
+        where TWriteTransformHandle : struct, IWriteTransformHandle
+    {
+    }
+
+    public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion>
         : SystemBase, IAnimationSystem<TTag>
         where TTag : struct, IAnimationSystemTag
         where TReadTransformHandle : struct, IReadTransformHandle
         where TWriteTransformHandle : struct, IWriteTransformHandle
+        where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
 #if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("AnimationSystemBase");
 #endif
 
         EntityQuery m_EvaluateGraphQuery;
+        EntityQuery m_ReadRootTransformQuery;
         EntityQuery m_SortReadComponentDataQuery;
         EntityQuery m_ReadComponentDataQuery;
         EntityQuery m_WriteComponentDataQuery;
+        EntityQuery m_WriteRootTransformQuery;
+        EntityQuery m_AccumulateRootTransformQuery;
 
         internal readonly ushort m_SystemID;
         ushort m_GraphCounter;
@@ -66,10 +82,13 @@ namespace Unity.Animation
         protected override void OnCreate()
         {
             base.OnCreate();
-            m_EvaluateGraphQuery         = GetEntityQuery(ComponentType.ReadOnly<TTag>(), ComponentType.ReadOnly<Rig>());
-            m_SortReadComponentDataQuery = GetEntityQuery(SortReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
-            m_ReadComponentDataQuery     = GetEntityQuery(ReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
-            m_WriteComponentDataQuery    = GetEntityQuery(WriteTransformComponentJob<TWriteTransformHandle>.QueryDesc);
+            m_EvaluateGraphQuery           = GetEntityQuery(ComponentType.ReadOnly<TTag>(), ComponentType.ReadOnly<Rig>());
+            m_ReadRootTransformQuery       = GetEntityQuery(ReadRootTransformJob<TTag, TAnimatedRootMotion>.QueryDesc);
+            m_SortReadComponentDataQuery   = GetEntityQuery(SortReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
+            m_ReadComponentDataQuery       = GetEntityQuery(ReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
+            m_WriteComponentDataQuery      = GetEntityQuery(WriteTransformComponentJob<TWriteTransformHandle>.QueryDesc);
+            m_WriteRootTransformQuery      = GetEntityQuery(WriteRootTransformJob<TTag, TAnimatedRootMotion>.QueryDesc);
+            m_AccumulateRootTransformQuery = GetEntityQuery(AccumulateRootTransformJob<TTag, TAnimatedRootMotion>.QueryDesc);
         }
 
         protected override void OnUpdate()
@@ -187,35 +206,83 @@ namespace Unity.Animation
         {
             var sortJob = new SortReadTransformComponentJob<TReadTransformHandle>
             {
-                ReadTransforms = GetArchetypeChunkBufferType<TReadTransformHandle>(),
+                ReadTransforms = GetBufferTypeHandle<TReadTransformHandle>(),
                 LastSystemVersion = LastSystemVersion
-            }.Schedule(m_SortReadComponentDataQuery, inputDeps);
+            }.ScheduleParallel(m_SortReadComponentDataQuery, inputDeps);
 
             var readJob = new ReadTransformComponentJob<TReadTransformHandle>
             {
-                Rigs = GetArchetypeChunkComponentType<Rig>(true),
-                RigLocalToWorlds = GetArchetypeChunkComponentType<LocalToWorld>(true),
-                ReadTransforms = GetArchetypeChunkBufferType<TReadTransformHandle>(true),
+                Rigs = GetComponentTypeHandle<Rig>(true),
+                RigRoots = GetComponentTypeHandle<RigRootEntity>(true),
+                ReadTransforms = GetBufferTypeHandle<TReadTransformHandle>(true),
                 EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
-                AnimatedData = GetArchetypeChunkBufferType<AnimatedData>()
-            }.Schedule(m_ReadComponentDataQuery, sortJob);
+                AnimatedData = GetBufferTypeHandle<AnimatedData>()
+            }.ScheduleParallel(m_ReadComponentDataQuery, sortJob);
 
-            return readJob;
+            var readRootJob = new ReadRootTransformJob<TTag, TAnimatedRootMotion>
+            {
+                EntityTranslation = GetComponentDataFromEntity<Translation>(true),
+                EntityRotation = GetComponentDataFromEntity<Rotation>(true),
+                EntityScale = GetComponentDataFromEntity<Scale>(true),
+                EntityNonUniformScale = GetComponentDataFromEntity<NonUniformScale>(true),
+                RigType = GetComponentTypeHandle<Rig>(true),
+                RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
+                AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
+            }.ScheduleParallel(m_ReadRootTransformQuery, readJob);
+
+            return readRootJob;
         }
 
         protected JobHandle ScheduleWriteComponentDataJobs(JobHandle inputDeps)
         {
-            inputDeps = new WriteTransformComponentJob<TWriteTransformHandle>
+            var writeRootJob = new WriteRootTransformJob<TTag, TAnimatedRootMotion>
             {
-                Rigs = GetArchetypeChunkComponentType<Rig>(true),
-                RigLocalToWorlds = GetArchetypeChunkComponentType<LocalToWorld>(true),
-                AnimatedData = GetArchetypeChunkBufferType<AnimatedData>(true),
-                WriteTransforms = GetArchetypeChunkBufferType<TWriteTransformHandle>(true),
-                AnimatedLocalToWorlds = GetArchetypeChunkBufferType<AnimatedLocalToWorld>(),
-                EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>()
-            }.Schedule(m_WriteComponentDataQuery, inputDeps);
+                EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(),
+                EntityLocalToParent = GetComponentDataFromEntity<LocalToParent>(),
+                EntityTranslation = GetComponentDataFromEntity<Translation>(),
+                EntityRotation = GetComponentDataFromEntity<Rotation>(),
+                EntityScale = GetComponentDataFromEntity<Scale>(),
+                EntityNonUniformScale = GetComponentDataFromEntity<NonUniformScale>(),
+                RigType = GetComponentTypeHandle<Rig>(true),
+                RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
+                AnimatedDataType = GetBufferTypeHandle<AnimatedData>(),
+            }.ScheduleParallel(m_WriteRootTransformQuery, inputDeps);
 
-            return inputDeps;
+            var accumulateRootJob = new AccumulateRootTransformJob<TTag, TAnimatedRootMotion>
+            {
+                EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(),
+                EntityLocalToParent = GetComponentDataFromEntity<LocalToParent>(),
+                EntityTranslation = GetComponentDataFromEntity<Translation>(),
+                EntityRotation = GetComponentDataFromEntity<Rotation>(),
+                EntityScale = GetComponentDataFromEntity<Scale>(),
+                EntityNonUniformScale = GetComponentDataFromEntity<NonUniformScale>(),
+                RootMotionOffsetType = GetComponentTypeHandle<RootMotionOffset>(),
+#if UNITY_ENTITIES_0_12_OR_NEWER
+                RootMotionType = GetComponentTypeHandle<TAnimatedRootMotion>(),
+#else
+                RootMotionType = GetComponentTypeHandle<TAnimatedRootMotion>(true),
+#endif
+                RigType = GetComponentTypeHandle<Rig>(true),
+                RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
+                AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
+            }.ScheduleParallel(m_AccumulateRootTransformQuery, writeRootJob);
+
+            var writeComponentJob = new WriteTransformComponentJob<TWriteTransformHandle>
+            {
+                Rigs = GetComponentTypeHandle<Rig>(true),
+                RigRoots = GetComponentTypeHandle<RigRootEntity>(true),
+                AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
+                WriteTransforms = GetBufferTypeHandle<TWriteTransformHandle>(true),
+                AnimatedLocalToWorlds = GetBufferTypeHandle<AnimatedLocalToWorld>(),
+                EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(),
+                EntityLocalToParent = GetComponentDataFromEntity<LocalToParent>(),
+                EntityTranslation = GetComponentDataFromEntity<Translation>(),
+                EntityRotation = GetComponentDataFromEntity<Rotation>(),
+                EntityScale = GetComponentDataFromEntity<Scale>(),
+                EntityNonUniformScale = GetComponentDataFromEntity<NonUniformScale>()
+            }.ScheduleParallel(m_WriteComponentDataQuery, accumulateRootJob);
+
+            return writeComponentJob;
         }
 
         protected JobHandle ScheduleGraphEvaluationJobs(JobHandle inputDeps)
@@ -225,5 +292,10 @@ namespace Unity.Animation
 
             return Set.Update(inputDeps);
         }
+
+#if !UNITY_ENTITIES_0_12_OR_NEWER
+        ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool readOnly = false) where T : struct, IComponentData => new ComponentTypeHandle<T> { Value = GetArchetypeChunkComponentType<T>(readOnly) };
+        BufferTypeHandle<T> GetBufferTypeHandle<T>(bool readOnly = false) where T : struct, IBufferElementData => new BufferTypeHandle<T>() {Value = GetArchetypeChunkBufferType<T>(readOnly)};
+#endif
     }
 }

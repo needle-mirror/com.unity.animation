@@ -29,5 +29,26 @@ namespace Unity.Animation.Hybrid
         /// <returns>Hash value</returns>
         public static uint HashName(string path) =>
             StringHash.Hash(System.IO.Path.GetFileName(path));
+
+        /// <summary>
+        /// Builds binding property path
+        /// </summary>
+        /// <param name="path">Relative path from RigComponent</param>
+        /// <param name="property">Property name</param>
+        /// <returns></returns>
+        internal static string BuildPath(string path, string property)
+        {
+            bool nullPath = string.IsNullOrEmpty(path);
+            bool nullProperty = string.IsNullOrEmpty(property);
+
+            if (nullPath && nullProperty)
+                return string.Empty;
+            if (nullPath)
+                return property;
+            if (nullProperty)
+                return path;
+
+            return path + "/" + property;
+        }
     }
 }

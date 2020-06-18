@@ -13,7 +13,7 @@ using System;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Constraints", description: "Parent constraint based on multiple sources")]
+    [NodeDefinition(guid: "a9a00f02c612463b8c82e7e64a62dab9", version: 1, category: "Animation Core/Constraints", description: "Parent constraint based on multiple sources")]
     [PortGroupDefinition(portGroupSizeDescription: "Source Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class ParentConstraintNode
         : NodeDefinition<ParentConstraintNode.Data, ParentConstraintNode.SimPorts, ParentConstraintNode.KernelData, ParentConstraintNode.KernelDefs, ParentConstraintNode.Kernel>
@@ -34,27 +34,27 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "04c1c85db1f14360a9c5d86103c1412e", isHidden: true)]
             public MessageInput<ParentConstraintNode, Rig> Rig;
-            [PortDefinition(displayName: "Setup", description: "Parent constraint properties")]
+            [PortDefinition(guid: "f3ef40263ac8433ba9c94a225953a306", displayName: "Setup", description: "Parent constraint properties")]
             public MessageInput<ParentConstraintNode, SetupMessage> ConstraintSetup;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Constrained animation stream")]
+            [PortDefinition(guid: "2be76d458fb04c32a7ae30c604462cf5", description: "Constrained animation stream")]
             public DataInput<ParentConstraintNode, Buffer<AnimatedData>>  Input;
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "06c3a94d9cb34c4e9e7901b024f87601", description: "Resulting animation stream")]
             public DataOutput<ParentConstraintNode, Buffer<AnimatedData>> Output;
 
-            [PortDefinition(description: "Constraint weight", defaultValue: 1f)]
+            [PortDefinition(guid: "3be8ded6dda8451fb4c95e2895c64641", description: "Constraint weight", defaultValue: 1f)]
             public DataInput<ParentConstraintNode, float> Weight;
 
-            [PortDefinition(displayName: "Source Transform", description: "Transform of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "e975a3f4ed4e42c7b126d9a1e895b21a", displayName: "Source Transform", description: "Transform of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public PortArray<DataInput<ParentConstraintNode, float4x4>> SourceTx;
-            [PortDefinition(displayName: "Source Transform Offset", description: "Transform offset of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "e620b55354d24e61ab56a046ec4e3b02", displayName: "Source Transform Offset", description: "Transform offset of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public PortArray<DataInput<ParentConstraintNode, float4x4>> SourceOffsets;
-            [PortDefinition(displayName: "Source Weight", description: "Weight of source", portGroupIndex: 1, defaultValue: 1f)]
+            [PortDefinition(guid: "24fe5915a1c748829a66cc293883a16c", displayName: "Source Weight", description: "Weight of source", portGroupIndex: 1, defaultValue: 1f)]
             public PortArray<DataInput<ParentConstraintNode, float>> SourceWeights;
         }
 

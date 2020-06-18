@@ -25,7 +25,7 @@ namespace Unity.Animation
 
         static ComponentType[] s_BoneMatrixComponentTypes =
         {
-            typeof(BoneRenderer.RigEntity),
+            typeof(RigEntity),
             typeof(BoneRenderer.BoneSize),
             typeof(BoneRenderer.RigIndex),
             typeof(BoneRenderer.RigParentIndex),
@@ -95,7 +95,7 @@ namespace Unity.Animation
             ValidateTransformIndices(transformIndices, rigDefinition.Value.Skeleton.BoneCount);
 
             entityManager.AddComponents(boneDataEntity, new ComponentTypes(s_BoneMatrixComponentTypes));
-            entityManager.SetComponentData(boneDataEntity, new BoneRenderer.RigEntity { Value = rigEntity });
+            entityManager.SetComponentData(boneDataEntity, new RigEntity { Value = rigEntity });
             entityManager.SetComponentData(boneDataEntity, new BoneRenderer.BoneSize { Value = properties.Size });
 
             var bones = new NativeList<Bone>(transformIndices.Length, Allocator.Temp);

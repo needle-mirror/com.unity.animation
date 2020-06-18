@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Gets an integer value from the AnimationStream")]
+    [NodeDefinition(guid: "ad8ef6033fd64cff8c1bbcb0b2b30291", version: 1, category: "Animation Core/Utils", description: "Gets an integer value from the AnimationStream")]
     public class GetAnimationStreamIntNode
         : NodeDefinition<GetAnimationStreamIntNode.Data, GetAnimationStreamIntNode.SimPorts, GetAnimationStreamIntNode.KernelData, GetAnimationStreamIntNode.KernelDefs, GetAnimationStreamIntNode.Kernel>
         , IRigContextHandler
@@ -20,18 +20,18 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "40137712b11041f79fd9dd1267ed0cbc", isHidden: true)]
             public MessageInput<GetAnimationStreamIntNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "115d1c89a20249d29320e2c48f12a55f", description: "Input stream")]
             public DataInput<GetAnimationStreamIntNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Index in stream")]
+            [PortDefinition(guid: "b7a6a3c6e69d44139c8957a3e4f67e62", description: "Index in stream")]
             public DataInput<GetAnimationStreamIntNode, int> Index;
 
-            [PortDefinition(description: "Value")]
+            [PortDefinition(guid: "46dbcf94d6944c66b53d296597fdf75d", description: "Value")]
             public DataOutput<GetAnimationStreamIntNode, int> Output;
         }
 
@@ -86,7 +86,7 @@ namespace Unity.Animation
             (InputPortID)SimulationPorts.Rig;
     }
 
-    [NodeDefinition(category: "Animation Core/Utils", description: "Sets an integer value in the AnimationStream")]
+    [NodeDefinition(guid: "9be251e51f4c4285835e8ec200827c2b", version: 1, category: "Animation Core/Utils", description: "Sets an integer value in the AnimationStream")]
     public class SetAnimationStreamIntNode
         : NodeDefinition<SetAnimationStreamIntNode.Data, SetAnimationStreamIntNode.SimPorts, SetAnimationStreamIntNode.KernelData, SetAnimationStreamIntNode.KernelDefs, SetAnimationStreamIntNode.Kernel>
         , IRigContextHandler
@@ -97,20 +97,20 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "cbad1651d4cd461d9229170fe64b6d79", isHidden: true)]
             public MessageInput<SetAnimationStreamIntNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "71ae6c1a84f64fa392e0fde5ead8e569", description: "Input stream")]
             public DataInput<SetAnimationStreamIntNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Index in stream")]
+            [PortDefinition(guid: "91fd45ff2a5b478f93d062eb8d66c4ce", description: "Index in stream")]
             public DataInput<SetAnimationStreamIntNode, int> Index;
-            [PortDefinition(description: "Value to set")]
+            [PortDefinition(guid: "6243111b3c8d488f8714de4b7843fd03", description: "Value to set")]
             public DataInput<SetAnimationStreamIntNode, int> Value;
 
-            [PortDefinition(description: "Resulting stream")]
+            [PortDefinition(guid: "e748767ab74a49c29a02df90f7a45d38", description: "Resulting stream")]
             public DataOutput<SetAnimationStreamIntNode, Buffer<AnimatedData>> Output;
         }
 

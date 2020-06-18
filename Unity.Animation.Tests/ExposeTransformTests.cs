@@ -20,12 +20,28 @@ namespace Unity.Animation.Tests
         {
             var skeleton = new SkeletonNode[boneCount];
 
-            skeleton[0] = new SkeletonNode { Id = "Root", ParentIndex = -1, AxisIndex = -1, LocalTranslationDefaultValue = float3.zero, LocalRotationDefaultValue = quaternion.identity, LocalScaleDefaultValue = new float3(1) };
+            skeleton[0] = new SkeletonNode
+            {
+                Id = "Root", ParentIndex = -1,
+                AxisIndex = -1,
+                LocalTranslationDefaultValue = float3.zero,
+                LocalRotationDefaultValue = quaternion.identity,
+                LocalScaleDefaultValue = new float3(1)
+            };
+
+            // Create a chain of transforms.
             for (int i = 1; i < boneCount; i++)
             {
-                skeleton[i] = new SkeletonNode { Id = $"{i}", ParentIndex = i - 1, AxisIndex = -1, LocalTranslationDefaultValue = float3.zero, LocalRotationDefaultValue = quaternion.identity, LocalScaleDefaultValue = new float3(1) };
+                skeleton[i] = new SkeletonNode
+                {
+                    Id = $"{i}",
+                    ParentIndex = i - 1,
+                    AxisIndex = -1,
+                    LocalTranslationDefaultValue = float3.zero,
+                    LocalRotationDefaultValue = quaternion.identity,
+                    LocalScaleDefaultValue = new float3(1)
+                };
             }
-            ;
 
             return RigBuilder.CreateRigDefinition(skeleton);
         }
@@ -47,15 +63,16 @@ namespace Unity.Animation.Tests
                 list.Add(m_Manager.CreateEntity());
 
                 m_Manager.AddComponentData(list[i], new LocalToWorld { Value = i == 0 ? float4x4.identity : float4x4.TRS(math.float3(i), quaternion.identity, math.float3(1)) });
-                m_Manager.AddComponentData(list[i], new Translation { Value = i == 0 ? float3.zero : new float3(i) });
+                m_Manager.AddComponentData(list[i], new Translation { Value = i == 0 ? float3.zero : new float3(1) });
                 m_Manager.AddComponentData(list[i], new Rotation { Value = quaternion.identity });
                 m_Manager.AddComponentData(list[i], new NonUniformScale { Value = new float3(1) });
 
                 if (rig.Value.Skeleton.ParentIndexes[i] != -1)
                 {
                     var parent = list[rig.Value.Skeleton.ParentIndexes[i]];
+                    var l2p = float4x4.TRS(math.float3(1), quaternion.identity, math.float3(1));
                     m_Manager.AddComponentData(list[i], new Parent { Value = parent });
-                    m_Manager.AddComponentData(list[i], new LocalToParent());
+                    m_Manager.AddComponentData(list[i], new LocalToParent { Value = l2p });
                 }
             }
             return list;
@@ -65,21 +82,34 @@ namespace Unity.Animation.Tests
         {
             var list = new List<Entity>(rig.Value.Skeleton.BoneCount);
 
-            for (int i = 0; i < rig.Value.Skeleton.BoneCount; i++)
+            // Root
+            var root = m_Manager.CreateEntity();
+            SetupEntityTransformComponent(root);
+            list.Add(root);
+
+            for (int i = 1; i < rig.Value.Skeleton.BoneCount; i++)
             {
                 list.Add(m_Manager.CreateEntity());
 
-                m_Manager.AddComponentData(list[i], new LocalToWorld { Value = i == 0 ? float4x4.identity : float4x4.TRS(math.float3(i), quaternion.identity, math.float3(i)) });
-                m_Manager.AddComponentData(list[i], new Translation { Value = i == 0 ? float3.zero : new float3(i) });
-                m_Manager.AddComponentData(list[i], new Rotation { Value = quaternion.identity });
-                m_Manager.AddComponentData(list[i], new NonUniformScale { Value = i == 0 ? float3.zero : new float3(i) });
+                var translation = new float3(1);
+                var rotation = quaternion.identity;
+                var scale = 2.0f;
+                m_Manager.AddComponentData(list[i], new Translation { Value = translation});
+                m_Manager.AddComponentData(list[i], new Rotation { Value = rotation });
+                m_Manager.AddComponentData(list[i], new NonUniformScale { Value = scale });
 
-                if (rig.Value.Skeleton.ParentIndexes[i] != -1)
-                {
-                    var parent = list[rig.Value.Skeleton.ParentIndexes[i]];
-                    m_Manager.AddComponentData(list[i], new Parent { Value = parent });
-                    m_Manager.AddComponentData(list[i], new LocalToParent());
-                }
+                var parent = list[rig.Value.Skeleton.ParentIndexes[i]];
+                var l2p = float4x4.TRS(translation, rotation, scale);
+
+                m_Manager.AddComponentData(list[i], new Parent { Value = parent });
+                m_Manager.AddComponentData(list[i], new LocalToParent { Value = l2p });
+
+                // Translation is the geometric serie (sum of the geometric progression terms) with common ratio = 2.
+                // Let a be the first term, r the common ration, the progression is defined as a_i = a * r ^ (i-1)
+                // The sum of n components can be calculated with: a * (1 - r ^ n)/(1 - r)
+                // Here a = 1 (scale of the root) and r = 2 (scale of the children) so it can be simplified to 2^n - 1.
+                var l2w = float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i));
+                m_Manager.AddComponentData(list[i], new LocalToWorld { Value = l2w });
             }
             return list;
         }
@@ -98,19 +128,20 @@ namespace Unity.Animation.Tests
             }
         }
 
-        [NodeDefinition(category: "Tests", description: "ExposeTransform tests node", isHidden: true)]
-        public class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
+        internal class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
         {
+#pragma warning disable 0649
             public struct SimPorts : ISimulationPortDefinition
             {
-                [PortDefinition(isHidden: true)] public MessageInput<TestNode, Rig> Rig;
+                public MessageInput<TestNode, Rig> Rig;
             }
 
             public struct KernelDefs : IKernelPortDefinition
             {
-                [PortDefinition(description: "Input stream")]  public DataInput<TestNode, Buffer<AnimatedData>>  Input;
-                [PortDefinition(description: "Output stream")] public DataOutput<TestNode, Buffer<AnimatedData>> Output;
+                public DataInput<TestNode, Buffer<AnimatedData>>  Input;
+                public DataOutput<TestNode, Buffer<AnimatedData>> Output;
             }
+#pragma warning restore 0649
 
             public struct Data : INodeData {}
 
@@ -215,10 +246,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -258,6 +289,8 @@ namespace Unity.Animation.Tests
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -275,10 +308,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -321,6 +354,8 @@ namespace Unity.Animation.Tests
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -338,10 +373,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -369,6 +404,8 @@ namespace Unity.Animation.Tests
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem copy the transform value into the stream since we are targeting only PostAnimationGraphTag
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -390,10 +427,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -424,6 +461,8 @@ namespace Unity.Animation.Tests
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -445,11 +484,11 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
             m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -500,6 +539,8 @@ namespace Unity.Animation.Tests
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem copy the transform value into the stream
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -515,16 +556,16 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-        public void CanReadFromAnimationStreamAndWriteLocalToWorldToAllEntities()
+        public void CanReadFromAnimationStreamAndWriteLocalToWorldToAllEntitiesInPostAnim()
         {
             var rig = m_Rig;
             var entityTransforms = CreateRigTransformsWithScale(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -536,10 +577,12 @@ namespace Unity.Animation.Tests
             for (int i = 1; i < entityTransforms.Count; i++)
             {
                 var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
-                Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.float3(i), quaternion.identity, math.float3(i))));
+                Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
             }
 
             World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
             m_Manager.CompleteAllJobs();
 
@@ -547,22 +590,21 @@ namespace Unity.Animation.Tests
             for (int i = 1; i < entityTransforms.Count; i++)
             {
                 var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
-
                 Assert.That(localToWorld.Value, Is.EqualTo(float4x4.identity));
             }
         }
 
         [Test]
-        public void CanReadFromAnimationStreamAndWriteLocalToWorldToHalfEntities()
+        public void CanReadFromAnimationStreamAndWriteLocalToWorldToHalfEntitiesInPostAnim()
         {
             var rig = m_Rig;
             var entityTransforms = CreateRigTransformsWithScale(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -577,11 +619,12 @@ namespace Unity.Animation.Tests
             for (int i = 1; i < entityTransforms.Count; i++)
             {
                 var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
-
-                Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.float3(i), quaternion.identity, math.float3(i))));
+                Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
             }
 
             World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
             m_Manager.CompleteAllJobs();
 
@@ -595,7 +638,178 @@ namespace Unity.Animation.Tests
                 }
                 else
                 {
-                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.float3(i), quaternion.identity, math.float3(i))));
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+                }
+            }
+        }
+
+        [TestCase(1)]
+        [TestCase(5)]
+        [TestCase(9)]
+        public void CanReadFromAnimationStreamAndWriteLocalToWorldToEntityInPreAnim(int index)
+        {
+            var rig = m_Rig;
+            var entityTransforms = CreateRigTransformsWithScale(rig);
+
+            var rigEntity = m_Manager.CreateEntity();
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
+            SetupEntityTransformComponent(rigEntity);
+
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
+
+            // Writing to a transform in the hierarchy should update the children.
+            RigEntityBuilder.AddWriteTransformHandle<PreAnimationGraphSystem.WriteTransformHandle>(
+                m_Manager, rigEntity, entityTransforms[index], index
+            );
+
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+                Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+            }
+
+            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            m_Manager.CompleteAllJobs();
+
+            // After the pre-anim pass, only the entity that was written to has changed value.
+            // Its value is the identity because the animation stream starts with default values.
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+
+                if (i == index)
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.identity));
+                }
+                else
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+                }
+            }
+
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
+            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            m_Manager.CompleteAllJobs();
+
+            // The transform systems have updated the local to world of the children entities of the entity that was written to.
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+
+                if (i < index)
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+                }
+                else
+                {
+                    // Because we write the identity to the exposed entity, but the value of the local to parent of the
+                    // children don't change, we compute the "accumulation" for translation and scale from the index
+                    // of the exposed entity.
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i - index) - 1, quaternion.identity, math.pow(2, i - index))));
+                }
+            }
+        }
+
+        [TestCase(1, 1)]
+        [TestCase(5, 5)]
+        [TestCase(9, 9)]
+        [TestCase(1, 9)]
+        [TestCase(9, 1)]
+        [TestCase(1, 5)]
+        [TestCase(5, 1)]
+        [TestCase(5, 9)]
+        [TestCase(9, 5)]
+        public void CanReadFromAnimationStreamAndWriteLocalToWorldToEntityInPreAndPostAnim(int preIndex, int postIndex)
+        {
+            var rig = m_Rig;
+            var entityTransforms = CreateRigTransformsWithScale(rig);
+
+            var rigEntity = m_Manager.CreateEntity();
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
+            SetupEntityTransformComponent(rigEntity);
+
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
+
+            RigEntityBuilder.AddWriteTransformHandle<PreAnimationGraphSystem.WriteTransformHandle>(
+                m_Manager, rigEntity, entityTransforms[preIndex], preIndex
+            );
+            RigEntityBuilder.AddWriteTransformHandle<PostAnimationGraphSystem.WriteTransformHandle>(
+                m_Manager, rigEntity, entityTransforms[postIndex], postIndex
+            );
+
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+                Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+            }
+
+            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            m_Manager.CompleteAllJobs();
+
+            // After the pre-anim pass, only the entity that was written to has changed value.
+            // Its value is the identity because the animation stream starts with default values.
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+
+                if (i == preIndex)
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.identity));
+                }
+                else
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+                }
+            }
+
+            World.GetOrCreateSystem<EndFrameParentSystem>().Update();
+            World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
+            m_Manager.CompleteAllJobs();
+
+            // The transform systems have updated the local to world of the children entities of the entity that was written to.
+            // Even the transform that has the post anim write handle should be updated.
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+
+                if (i == preIndex)
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.identity));
+                }
+                else if (i < preIndex || (i >= postIndex && postIndex > preIndex))
+                {
+                    // Post write handle prevents the transform to be updated, should have the same value as before.
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+                }
+                else
+                {
+                    // Because we write the identity to the exposed entity, but the value of the local to parent of the
+                    // children don't change, we compute the "accumulation" for translation and scale from the index
+                    // of the exposed entity.
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i - preIndex) - 1, quaternion.identity, math.pow(2, i - preIndex))));
+                }
+            }
+
+            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            m_Manager.CompleteAllJobs();
+
+            // The transform systems have updated the local to world of the children entities of the entity that was written to.
+            for (int i = 1; i < entityTransforms.Count; i++)
+            {
+                var localToWorld = m_Manager.GetComponentData<LocalToWorld>(entityTransforms[i]);
+
+                if (i == preIndex || i == postIndex)
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.identity));
+                }
+                else if (i < preIndex || (i > postIndex && postIndex > preIndex))
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
+                }
+                else
+                {
+                    Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i - preIndex) - 1, quaternion.identity, math.pow(2, i - preIndex))));
                 }
             }
         }
@@ -607,11 +821,11 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
             m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -642,10 +856,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = entityTransforms.Count - 1; i > 0; i--)
             {
@@ -696,7 +910,6 @@ namespace Unity.Animation.Tests
             }
         }
 
-
         [Test]
         public void AddingNewReadTransformHandleShouldSort()
         {
@@ -704,10 +917,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             var entityNode = CreateComponentNode(rigEntity, PreSet);
             var testNode = CreateNode<TestNode>(PreSet);
@@ -746,10 +959,10 @@ namespace Unity.Animation.Tests
             var entityTransforms = CreateRigTransforms(rig);
 
             var rigEntity = m_Manager.CreateEntity();
-
+            SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
+
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            RigEntityBuilder.SetupRigEntity(rigEntity, m_Manager, rig);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {

@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(isHidden: true)]
+    [NodeDefinition(guid: "9663c48edb9446789059aaf3b0d0068c", version: 1, isHidden: true)]
     public class FloatRcpNode
         : NodeDefinition<FloatRcpNode.Data, FloatRcpNode.SimPorts, FloatRcpNode.KernelData, FloatRcpNode.KernelDefs, FloatRcpNode.Kernel>
     {

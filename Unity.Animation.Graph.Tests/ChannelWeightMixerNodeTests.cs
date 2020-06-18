@@ -1,5 +1,4 @@
 using NUnit.Framework;
-using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine.TestTools;
@@ -154,7 +153,7 @@ namespace Unity.Animation.Tests
         public void ChannelWeightMix2SimpleClips(float weight, float defaultWeight, string channelId, float channelWeight)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode1 = CreateNode<ClipNode>();
             Set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);
@@ -219,7 +218,7 @@ namespace Unity.Animation.Tests
         public void ChannelWeightMix2ClipsWithHierarchy(float weight, float defaultWeight, string channelId, float channelWeight)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode1 = CreateNode<ClipNode>();
             Set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);
@@ -308,7 +307,7 @@ namespace Unity.Animation.Tests
             var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes) };
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var mixerNode = CreateNode<ChannelWeightMixerNode>();
             Set.SendMessage(mixerNode, ChannelWeightMixerNode.SimulationPorts.Rig, rig);
@@ -343,7 +342,7 @@ namespace Unity.Animation.Tests
         public void ChannelMixerWithInput0NotConnectedReturnsMixBetweenBindPoseAndClip(float weight, float defaultWeight, string channelId, float channelWeight)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode2 = CreateNode<ClipNode>();
             Set.SendMessage(clipNode2, ClipNode.SimulationPorts.Rig, m_Rig);
@@ -403,7 +402,7 @@ namespace Unity.Animation.Tests
         public void ChannelMixerWithInput1NotConnectedReturnsMixBetweenBindPoseAndClip(float weight, float defaultWeight, string channelId, float channelWeight)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode1 = CreateNode<ClipNode>();
             Set.SendMessage(clipNode1, ClipNode.SimulationPorts.Rig, m_Rig);

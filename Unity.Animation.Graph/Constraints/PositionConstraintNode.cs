@@ -13,7 +13,7 @@ using System;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Constraints", description: "Position constraint based on multiple sources")]
+    [NodeDefinition(guid: "6bbdb6b762d54ffda9f785a665ec3048", version: 1, category: "Animation Core/Constraints", description: "Position constraint based on multiple sources")]
     [PortGroupDefinition(portGroupSizeDescription: "Source Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class PositionConstraintNode
         : NodeDefinition<PositionConstraintNode.Data, PositionConstraintNode.SimPorts, PositionConstraintNode.KernelData, PositionConstraintNode.KernelDefs, PositionConstraintNode.Kernel>
@@ -33,29 +33,29 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "42e1811684814b83b602a24c3c2b12f1", isHidden: true)]
             public MessageInput<PositionConstraintNode, Rig> Rig;
-            [PortDefinition(displayName: "Setup", description: "Position constraint properties")]
+            [PortDefinition(guid: "6fb4d7f6a008472497bbc7b9e9b51c2b", displayName: "Setup", description: "Position constraint properties")]
             public MessageInput<PositionConstraintNode, SetupMessage> ConstraintSetup;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Constrained animation stream")]
+            [PortDefinition(guid: "3cbd38040de54afdbf813b5f5dcbda14", description: "Constrained animation stream")]
             public DataInput<PositionConstraintNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "f5e54d0f6d084cea81f344f9ad25346a", description: "Resulting animation stream")]
             public DataOutput<PositionConstraintNode, Buffer<AnimatedData>> Output;
 
-            [PortDefinition(description: "Constraint weight", defaultValue: 1f)]
+            [PortDefinition(guid: "c539bc54e23c4d78ab97e80e11d22c94", description: "Constraint weight", defaultValue: 1f)]
             public DataInput<PositionConstraintNode, float> Weight;
-            [PortDefinition(description: "Extra local offset to apply to the constrained bone")]
+            [PortDefinition(guid: "0ecbdac393ab4575892c987baa83ca50", description: "Extra local offset to apply to the constrained bone")]
             public DataInput<PositionConstraintNode, float3> LocalOffset;
 
-            [PortDefinition(displayName: "Source Position", description: "Position of source", portGroupIndex: 1)]
+            [PortDefinition(guid: "701480920f87408f9f37af621ef8ff6e", displayName: "Source Position", description: "Position of source", portGroupIndex: 1)]
             public PortArray<DataInput<PositionConstraintNode, float3>> SourcePositions;
-            [PortDefinition(displayName: "Source Offset", description: "Position offset of source", portGroupIndex: 1)]
+            [PortDefinition(guid: "8c4b87e68a65482682ca513c883f13bf", displayName: "Source Offset", description: "Position offset of source", portGroupIndex: 1)]
             public PortArray<DataInput<PositionConstraintNode, float3>> SourceOffsets;
-            [PortDefinition(displayName: "Source Weight", description: "Weight of source", portGroupIndex: 1, defaultValue: 1f)]
+            [PortDefinition(guid: "4b72f5a047e8448a8ae77c7598804351", displayName: "Source Weight", description: "Weight of source", portGroupIndex: 1, defaultValue: 1f)]
             public PortArray<DataInput<PositionConstraintNode, float>> SourceWeights;
         }
 

@@ -1,3 +1,5 @@
+#if !UNITY_ENTITIES_0_12_OR_NEWER
+
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
@@ -13,12 +15,105 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
+    public abstract class ComputeDeformationDataSystemBase : SystemBase
+    {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+        static readonly ProfilerMarker k_Marker = new ProfilerMarker("ComputeDeformationDataSystemBase");
+#endif
+
+        EntityQuery m_Query;
+
+        protected override void OnCreate()
+        {
+            m_Query = GetEntityQuery(
+                ComponentType.ReadOnly<RigEntity>(),
+                ComponentType.ReadOnly<SkinnedMeshToRigIndexMapping>(),
+                ComponentType.ReadOnly<BindPose>(),
+                ComponentType.ReadWrite<Deformations.SkinMatrix>()
+            );
+        }
+
+        protected override void OnUpdate()
+        {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+            k_Marker.Begin();
+#endif
+
+            Dependency = new ComputeSkinMatricesJob
+            {
+                AnimatedLocalToRoot = GetBufferFromEntity<AnimatedLocalToRoot>(true),
+                RigEntityType = GetArchetypeChunkComponentType<RigEntity>(true),
+                SkinnedMeshToRigIndexMappingType = GetArchetypeChunkBufferType<SkinnedMeshToRigIndexMapping>(true),
+                BindPoseType = GetArchetypeChunkBufferType<BindPose>(true),
+                SkinMatriceType = GetArchetypeChunkBufferType<Deformations.SkinMatrix>()
+            }.ScheduleParallel(m_Query, Dependency);
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+            k_Marker.End();
+#endif
+        }
+
+        [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
+        struct ComputeSkinMatricesJob : IJobChunk
+        {
+            [ReadOnly] public BufferFromEntity<AnimatedLocalToRoot> AnimatedLocalToRoot;
+
+            [ReadOnly] public ArchetypeChunkComponentType<RigEntity> RigEntityType;
+            [ReadOnly] public ArchetypeChunkBufferType<SkinnedMeshToRigIndexMapping> SkinnedMeshToRigIndexMappingType;
+            [ReadOnly] public ArchetypeChunkBufferType<BindPose> BindPoseType;
+
+            public ArchetypeChunkBufferType<Deformations.SkinMatrix> SkinMatriceType;
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var rigEntities = chunk.GetNativeArray(RigEntityType);
+                var skinnedMeshToRigIndexMappings = chunk.GetBufferAccessor(SkinnedMeshToRigIndexMappingType);
+                var bindPoses = chunk.GetBufferAccessor(BindPoseType);
+                var outSkinMatrices = chunk.GetBufferAccessor(SkinMatriceType);
+
+                for (int i = 0; i != chunk.Count; ++i)
+                {
+                    var rig = rigEntities[i].Value;
+                    if (AnimatedLocalToRoot.HasComponent(rig))
+                    {
+                        var animatedLocalToRootMatrices = AnimatedLocalToRoot[rig];
+                        ComputeSkinMatrices(
+                            skinnedMeshToRigIndexMappings[i],
+                            bindPoses[i],
+                            animatedLocalToRootMatrices,
+                            outSkinMatrices[i]
+                        );
+                    }
+                }
+            }
+
+            static void ComputeSkinMatrices(
+                [ReadOnly] DynamicBuffer<SkinnedMeshToRigIndexMapping> skinnedMeshToRigIndexMappings,
+                [ReadOnly] DynamicBuffer<BindPose> bindPoses,
+                [ReadOnly] DynamicBuffer<AnimatedLocalToRoot> animatedLocalToRootMatrices,
+                DynamicBuffer<Deformations.SkinMatrix> outSkinMatrices
+            )
+            {
+                for (int i = 0; i != skinnedMeshToRigIndexMappings.Length; ++i)
+                {
+                    var mapping = skinnedMeshToRigIndexMappings[i];
+
+                    var skinMat = math.mul(animatedLocalToRootMatrices[mapping.RigIndex].Value, bindPoses[mapping.SkinMeshIndex].Value);
+                    outSkinMatrices[mapping.SkinMeshIndex] = new Deformations.SkinMatrix
+                    {
+                        Value = new float3x4(skinMat.c0.xyz, skinMat.c1.xyz, skinMat.c2.xyz, skinMat.c3.xyz)
+                    };
+                }
+            }
+        }
+    }
+
     internal struct ComputeBufferIndex : ISystemStateComponentData
     {
         public int Value;
     }
 
-    public abstract class PrepareSkinMatrixToRendererSystemBase : JobComponentSystem
+    internal abstract class PrepareSkinMatrixToRendererSystemBase : JobComponentSystem
     {
 #if !UNITY_DISABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_Marker = new ProfilerMarker("PrepareSkinMatrixToRendererSystemBase");
@@ -44,7 +139,7 @@ namespace Unity.Animation
                 bool doResize = false;
 
                 Entities
-                    .WithNone<SkinMatrix, BoneIndexOffset>()
+                    .WithNone<Deformations.SkinMatrix, BoneIndexOffset>()
                     .WithAll<ComputeBufferIndex>()
                     .ForEach((Entity e) =>
                     {
@@ -56,8 +151,8 @@ namespace Unity.Animation
                 {
                     Parent.m_Offset = 0;
                     Entities
-                        .WithAll<SkinMatrix, BoneIndexOffset, ComputeBufferIndex>()
-                        .ForEach((Entity e, DynamicBuffer<SkinMatrix> skinMatrices) =>
+                        .WithAll<Deformations.SkinMatrix, BoneIndexOffset, ComputeBufferIndex>()
+                        .ForEach((Entity e, DynamicBuffer<Deformations.SkinMatrix> skinMatrices) =>
                         {
                             PostUpdateCommands.SetComponent(e, new ComputeBufferIndex { Value = Parent.m_Offset });
                             Parent.m_Offset += skinMatrices.Length;
@@ -65,10 +160,10 @@ namespace Unity.Animation
                 }
 
                 Entities
-                    .WithAll<SkinMatrix, BoneIndexOffset>()
+                    .WithAll<Deformations.SkinMatrix, BoneIndexOffset>()
                     .WithNone<ComputeBufferIndex>()
                     .ForEach(
-                        (Entity e, DynamicBuffer<SkinMatrix> skinMatrices, ref BoneIndexOffset boneIndexOffset) =>
+                        (Entity e, DynamicBuffer<Deformations.SkinMatrix> skinMatrices, ref BoneIndexOffset boneIndexOffset) =>
                         {
                             PostUpdateCommands.AddComponent(e, new ComputeBufferIndex { Value = Parent.m_Offset });
                             Parent.m_Offset += skinMatrices.Length;
@@ -103,7 +198,7 @@ namespace Unity.Animation
             base.OnCreate();
 
             m_Query = GetEntityQuery(
-                ComponentType.ReadOnly<SkinMatrix>(),
+                ComponentType.ReadOnly<Deformations.SkinMatrix>(),
                 ComponentType.ReadWrite<BoneIndexOffset>()
             );
 
@@ -147,7 +242,7 @@ namespace Unity.Animation
             var allMatricesPtr = (float3x4*)m_AllMatrices.GetUnsafePtr();
             inputDeps = Entities
                 .WithNativeDisableUnsafePtrRestriction(allMatricesPtr)
-                .ForEach((Entity e, DynamicBuffer<SkinMatrix> skinMatrices, ref BoneIndexOffset boneIndexOffset, in ComputeBufferIndex computeBufferIndex) =>
+                .ForEach((Entity e, DynamicBuffer<Deformations.SkinMatrix> skinMatrices, ref BoneIndexOffset boneIndexOffset, in ComputeBufferIndex computeBufferIndex) =>
                 {
                     UnsafeUtility.MemCpy(
                         allMatricesPtr + computeBufferIndex.Value,
@@ -174,14 +269,14 @@ namespace Unity.Animation
         }
     }
 
-    public abstract class FinalizePushSkinMatrixToRendererSystemBase : ComponentSystem
+    internal abstract class FinalizePushSkinMatrixToRendererSystemBase : ComponentSystem
     {
         EntityQuery m_Query;
 
         protected override void OnCreate()
         {
             m_Query = GetEntityQuery(
-                ComponentType.ReadWrite<SkinMatrix>(),
+                ComponentType.ReadWrite<Deformations.SkinMatrix>(),
                 ComponentType.ReadWrite<BoneIndexOffset>()
             );
         }
@@ -195,3 +290,5 @@ namespace Unity.Animation
         }
     }
 }
+
+#endif

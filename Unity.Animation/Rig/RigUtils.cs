@@ -1,7 +1,5 @@
 using Unity.Entities;
 using Unity.Collections;
-using Unity.Transforms;
-using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -11,6 +9,7 @@ namespace Unity.Animation
         static void ValidateRigEntity(Entity rigEntity, EntityManager entityManager)
         {
             Assert.IsTrue(entityManager.HasComponent<Rig>(rigEntity));
+            Assert.IsTrue(entityManager.HasComponent<RigRootEntity>(rigEntity));
             Assert.IsTrue(entityManager.HasComponent<AnimatedData>(rigEntity));
             Assert.IsTrue(entityManager.HasComponent<AnimatedLocalToWorld>(rigEntity));
         }
@@ -30,8 +29,10 @@ namespace Unity.Animation
         {
             var debugEntity = entityManager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(debugEntity, entityManager, rigDefinition);
-            ValidateRigEntity(debugEntity, entityManager);
+            entityManager.AddComponentData(debugEntity, new RigRootEntity { Value = debugEntity });
+            entityManager.AddComponent<DisableRootTransformReadWriteTag>(debugEntity);
 
+            ValidateRigEntity(debugEntity, entityManager);
             BoneRendererEntityBuilder.CreateBoneRendererEntities(debugEntity, entityManager, rigDefinition, props, ids);
 
             return debugEntity;

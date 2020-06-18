@@ -8,7 +8,11 @@ namespace Unity.Animation.Hybrid
         void AddExposeTransform(EntityManager entityManager, Entity rig, Entity transform, int index);
     }
 
-    public class ReadExposeTransform<TTransformHandle> : MonoBehaviour, IExposeTransform
+    public interface IReadExposeTransform : IExposeTransform {}
+
+    public interface IWriteExposeTransform : IExposeTransform {}
+
+    public class ReadExposeTransform<TTransformHandle> : MonoBehaviour, IReadExposeTransform
         where TTransformHandle : struct, IReadTransformHandle
     {
         public void AddExposeTransform(EntityManager entityManager, Entity rig, Entity transform, int index)
@@ -19,7 +23,7 @@ namespace Unity.Animation.Hybrid
         }
     }
 
-    public class WriteExposeTransform<TTransformHandle> : MonoBehaviour, IExposeTransform
+    public class WriteExposeTransform<TTransformHandle> : MonoBehaviour, IWriteExposeTransform
         where TTransformHandle : struct, IWriteTransformHandle
     {
         public void AddExposeTransform(EntityManager entityManager, Entity rig, Entity transform, int index)

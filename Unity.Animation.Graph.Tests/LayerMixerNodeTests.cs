@@ -191,7 +191,7 @@ namespace Unity.Animation.Tests
             var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes) };
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var layerMixer = CreateNode<LayerMixerNode>();
@@ -221,7 +221,7 @@ namespace Unity.Animation.Tests
         public void CanMixOneOverrideLayer()
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -266,7 +266,7 @@ namespace Unity.Animation.Tests
             var expectedLocalScale = math.lerp(m_ClipChildLocalScale1, m_ClipChildLocalScale2, k_BlendValue);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -322,7 +322,7 @@ namespace Unity.Animation.Tests
             var expectedChildLocalScale1 = defaultStream.GetLocalToParentScale(1) + (m_ClipChildLocalScale1 * layerWeight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -378,7 +378,7 @@ namespace Unity.Animation.Tests
             var expectedChildLocalScale1 = defaultStream.GetLocalToParentScale(1) + (m_ClipChildLocalScale1 * layer1Weight) + (m_ClipChildLocalScale2 * layer2Weight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -442,7 +442,7 @@ namespace Unity.Animation.Tests
             var expectedChildLocalScale1 = defaultStream.GetLocalToParentScale(1) + (m_ClipChildLocalScale1 * layer0Weight) + (m_ClipChildLocalScale2 * layer1Weight);
 
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -506,7 +506,7 @@ namespace Unity.Animation.Tests
         public void BlendingInAnUnconnectedLayerDoesntCrash()
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 
@@ -530,7 +530,7 @@ namespace Unity.Animation.Tests
         public void CanMaskChannel()
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 

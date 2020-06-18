@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Adds two animation streams")]
+    [NodeDefinition(guid: "d10f1f8e08af4dc094ec9a0503838b1d", version: 1, category: "Animation Core/Utils", description: "Adds two animation streams")]
     public class AddPoseNode
         : NodeDefinition<AddPoseNode.Data, AddPoseNode.SimPorts, AddPoseNode.KernelData, AddPoseNode.KernelDefs, AddPoseNode.Kernel>
         , IRigContextHandler
@@ -20,18 +20,18 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "a46b4937ad0241eb9039b0af7b22962a", isHidden: true)]
             public MessageInput<AddPoseNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream A")]
+            [PortDefinition(guid: "16d7457b41fd4206931ba315ee5b83e0", description: "Input stream A")]
             public DataInput<AddPoseNode, Buffer<AnimatedData>> InputA;
-            [PortDefinition(description: "Input stream B")]
+            [PortDefinition(guid: "0fe3b6f671c84554902ce26908cc7b8c", description: "Input stream B")]
             public DataInput<AddPoseNode, Buffer<AnimatedData>> InputB;
 
-            [PortDefinition(description: "Resulting stream")]
+            [PortDefinition(guid: "44cd25b8e7f8469d9cc2f44615c2db2f", description: "Resulting stream")]
             public DataOutput<AddPoseNode, Buffer<AnimatedData>> Output;
         }
 

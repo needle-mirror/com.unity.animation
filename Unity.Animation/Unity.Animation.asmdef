@@ -6,7 +6,8 @@
         "Unity.Transforms",
         "Unity.Mathematics",
         "Unity.Burst",
-        "Unity.Animation.Curves"
+        "Unity.Animation.Curves",
+        "Unity.Deformations"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

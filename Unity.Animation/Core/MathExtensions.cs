@@ -5,6 +5,10 @@ namespace Unity.Animation
 {
     public static partial class mathex
     {
+        const float k_EpsilonDeterminant = 1e-6f;
+        const float k_EpsilonSq = 1e-9f;
+        const float k_EpsilonRCP = 1e-9f;
+        const float k_EpsilonNormal = 1e-30f;
         const float k_EpsilonNormalSqrt = 1e-15f;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -14,10 +18,26 @@ namespace Unity.Animation
         public static float3 right() => new float3(1f, 0f, 0f);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float3 rcpsafe(float3 x) =>
+            math.select(math.rcp(x), float3.zero, math.abs(x) < k_EpsilonRCP);
+
+        /// <summary>
+        /// Matrix columns multiplied by scale components
+        /// m.c0.x * s.x | m.c1.x * s.y | m.c2.x * s.z
+        /// m.c0.y * s.x | m.c1.y * s.y | m.c2.y * s.z
+        /// m.c0.z * s.x | m.c1.z * s.y | m.c2.z * s.z
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float3x3 mulScale(float3x3 m, float3 s) => new float3x3(m.c0 * s.x, m.c1 * s.y, m.c2 * s.z);
 
+        /// <summary>
+        /// Matrix rows multiplied by scale components
+        /// m.c0.x * s.x | m.c1.x * s.x | m.c2.x * s.x
+        /// m.c0.y * s.y | m.c1.y * s.y | m.c2.y * s.y
+        /// m.c0.z * s.z | m.c1.z * s.z | m.c2.z * s.z
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float3x3 mulScale(float3x3 m, float s) => new float3x3(m.c0 * s, m.c1 * s, m.c2 * s);
+        public static float3x3 scaleMul(float3 s, float3x3 m) => new float3x3(m.c0 * s, m.c1 * s, m.c2 * s);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float3 chgsign(float3 val, float3 sign) =>
@@ -307,6 +327,50 @@ namespace Unity.Animation
             }
 
             return eulerReorderBack(euler, order);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static float3x3 adj(float3x3 m, out float det)
+        {
+            float3x3 adjT;
+            adjT.c0 = math.cross(m.c1, m.c2);
+            adjT.c1 = math.cross(m.c2, m.c0);
+            adjT.c2 = math.cross(m.c0, m.c1);
+            det = math.dot(m.c0, adjT.c0);
+
+            return math.transpose(adjT);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        static bool adjInverse(float3x3 m, out float3x3 i, float epsilon = k_EpsilonNormal)
+        {
+            i = adj(m, out float det);
+            bool c = math.abs(det) > epsilon;
+            float3 detInv = math.select(math.float3(1f), math.rcp(det), c);
+            i = scaleMul(detInv, i);
+            return c;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float3x3 inverse(float3x3 m)
+        {
+            float scaleSq = 0.333333f * (math.dot(m.c0, m.c0) + math.dot(m.c1, m.c1) + math.dot(m.c2, m.c2));
+            if (scaleSq < k_EpsilonNormal)
+                return float3x3.zero;
+
+            float3 scaleInv = math.rsqrt(scaleSq);
+            float3x3 ms = mulScale(m, scaleInv);
+            if (!adjInverse(ms, out float3x3 i, k_EpsilonDeterminant))
+            {
+                // TODO: Handle singular exceptions with SVD
+#if !UNITY_DISABLE_ANIMATION_CHECKS
+                throw new System.ArithmeticException("Singular matrix!");
+#else
+                return float3x3.identity;
+#endif
+            }
+
+            return mulScale(i, scaleInv);
         }
     }
 }

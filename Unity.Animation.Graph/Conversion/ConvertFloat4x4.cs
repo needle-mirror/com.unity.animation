@@ -6,7 +6,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Convert LocalToWorld component data to float4x4")]
+    [NodeDefinition(guid: "d63631dce8c8482094f0977358f86628", version: 1, category: "Animation Core/Utils", description: "Convert LocalToWorld component data to float4x4")]
     public class ConvertLocalToWorldComponentToFloat4x4Node : ConvertToBase<
         ConvertLocalToWorldComponentToFloat4x4Node,
         LocalToWorld,
@@ -22,7 +22,7 @@ namespace Unity.Animation
         }
     }
 
-    [NodeDefinition(category: "Animation Core/Utils", description: "Convert float4x4 to LocalToWorld component data")]
+    [NodeDefinition(guid: "480f20d38700437ca3e14d84df2d17ce", version: 1, category: "Animation Core/Utils", description: "Convert float4x4 to LocalToWorld component data")]
     public class ConvertFloat4x4ToLocalToWorldComponentNode : ConvertToBase<
         ConvertFloat4x4ToLocalToWorldComponentNode,
         float4x4,
@@ -38,7 +38,7 @@ namespace Unity.Animation
         }
     }
 
-    [NodeDefinition(category: "Animation Core/Utils", description: "Convert LocalToParent component data to float4x4")]
+    [NodeDefinition(guid: "67bf8870034243748508842af9371eac", version: 1, category: "Animation Core/Utils", description: "Convert LocalToParent component data to float4x4")]
     public class ConvertLocalToParentComponentToFloat4x4Node : ConvertToBase<
         ConvertLocalToParentComponentToFloat4x4Node,
         LocalToParent,
@@ -54,7 +54,7 @@ namespace Unity.Animation
         }
     }
 
-    [NodeDefinition(category: "Animation Core/Utils", description: "Convert float4x4 to LocalToParent component data")]
+    [NodeDefinition(guid: "5dfe97a8553f4bfda4b0c34d402bac6f", version: 1, category: "Animation Core/Utils", description: "Convert float4x4 to LocalToParent component data")]
     public class ConvertFloat4x4ToLocalToParentComponentNode : ConvertToBase<
         ConvertFloat4x4ToLocalToParentComponentNode,
         float4x4,

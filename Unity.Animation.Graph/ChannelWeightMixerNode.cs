@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Mixers", description: "Blends two animation streams given per channel weight values. Weight masks can be built using the WeightBuilderNode.")]
+    [NodeDefinition(guid: "61d4abe4d0d84cae81d9bfde78b9d066", version: 1, category: "Animation Core/Mixers", description: "Blends two animation streams given per channel weight values. Weight masks can be built using the WeightBuilderNode.")]
     public class ChannelWeightMixerNode
         : NodeDefinition<ChannelWeightMixerNode.Data, ChannelWeightMixerNode.SimPorts, ChannelWeightMixerNode.KernelData, ChannelWeightMixerNode.KernelDefs, ChannelWeightMixerNode.Kernel>
         , IRigContextHandler
@@ -20,22 +20,22 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "acd8325eb6134d27b54ccb0a13aa7c8e", isHidden: true)]
             public MessageInput<ChannelWeightMixerNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream 0")]
+            [PortDefinition(guid: "8450950e37524046abc3358d307799b7", description: "Input stream 0")]
             public DataInput<ChannelWeightMixerNode, Buffer<AnimatedData>> Input0;
-            [PortDefinition(description: "Input stream 1")]
+            [PortDefinition(guid: "0ec77f40188a4214951bb2ec027e8915", description: "Input stream 1")]
             public DataInput<ChannelWeightMixerNode, Buffer<AnimatedData>> Input1;
-            [PortDefinition(description: "Blend weight that applies to all channels")]
+            [PortDefinition(guid: "aba316c6e62b4d58af903dbe9d6b57ad", description: "Blend weight that applies to all channels")]
             public DataInput<ChannelWeightMixerNode, float> Weight;
-            [PortDefinition(description: "Channel specific weights which are also modulated by input Weight")]
+            [PortDefinition(guid: "33f6be8416f74339bcbf36e9d10bb132", description: "Channel specific weights which are also modulated by input Weight")]
             public DataInput<ChannelWeightMixerNode, Buffer<WeightData>> WeightMasks;
 
-            [PortDefinition(description: "Resulting stream")]
+            [PortDefinition(guid: "5defde9b920a445781873403d363b93a", description: "Resulting stream")]
             public DataOutput<ChannelWeightMixerNode, Buffer<AnimatedData>> Output;
         }
 

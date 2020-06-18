@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Time", description: "Accumulates and output's current time based on scale and delta time")]
+    [NodeDefinition(guid: "3fbf9c93754341edaff155b9fa8363b1", version: 1, category: "Animation Core/Time", description: "Accumulates and output's current time based on scale and delta time")]
     public class TimeCounterNode
         : NodeDefinition<TimeCounterNode.Data, TimeCounterNode.SimPorts, TimeCounterNode.KernelData, TimeCounterNode.KernelDefs, TimeCounterNode.Kernel>
         , IMsgHandler<float>
@@ -20,20 +20,20 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(description: "Set internal time to this value")]
+            [PortDefinition(guid: "6f1144ea235449529f0e29c58009a605", description: "Set internal time to this value")]
             public MessageInput<TimeCounterNode, float> Time;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Delta time")]
+            [PortDefinition(guid: "d8ede9b577394cd68bfb0c644f2f2ad2", description: "Delta time")]
             public DataInput<TimeCounterNode, float> DeltaTime;
-            [PortDefinition(displayName: "Time Scale", description: "Delta time scale factor")]
+            [PortDefinition(guid: "8c681e55e7954532a9d56522b2cd1ea1", displayName: "Time Scale", description: "Delta time scale factor")]
             public DataInput<TimeCounterNode, float> Speed;
 
-            [PortDefinition(description: "Resulting delta time")]
+            [PortDefinition(guid: "310ed32c573a4849968c1eb9ee9e970c", description: "Resulting delta time")]
             public DataOutput<TimeCounterNode, float> OutputDeltaTime;
-            [PortDefinition(description: "Resulting time")]
+            [PortDefinition(guid: "828327bc9f834fcab7d9931d3aa9992e", description: "Resulting time")]
             public DataOutput<TimeCounterNode, float> Time;
         }
 

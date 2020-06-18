@@ -13,7 +13,7 @@ using System;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Constraints", description: "Rotation constraint based on multiple sources")]
+    [NodeDefinition(guid: "a952e1cf248a46dcae1ee07d836b5a6b", version: 1, category: "Animation Core/Constraints", description: "Rotation constraint based on multiple sources")]
     [PortGroupDefinition(portGroupSizeDescription: "Source Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class RotationConstraintNode
         : NodeDefinition<RotationConstraintNode.Data, RotationConstraintNode.SimPorts, RotationConstraintNode.KernelData, RotationConstraintNode.KernelDefs, RotationConstraintNode.Kernel>
@@ -33,29 +33,29 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "102486d60787452d95658cc23de7a4c2", isHidden: true)]
             public MessageInput<RotationConstraintNode, Rig> Rig;
-            [PortDefinition(displayName: "Setup", description: "Rotation constraint properties")]
+            [PortDefinition(guid: "9b9bb03ccab743069fdf1c189d64f938", displayName: "Setup", description: "Rotation constraint properties")]
             public MessageInput<RotationConstraintNode, SetupMessage> ConstraintSetup;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Constrained animation stream")]
+            [PortDefinition(guid: "a4e523e048ee40a1b522818190f38b5e", description: "Constrained animation stream")]
             public DataInput<RotationConstraintNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "dd5656b7a89240d4b0f252fd5ecc7666", description: "Resulting animation stream")]
             public DataOutput<RotationConstraintNode, Buffer<AnimatedData>> Output;
 
-            [PortDefinition(description: "Constraint weight", defaultValue: 1f)]
+            [PortDefinition(guid: "6ef78ae9e9984402873fff63e7bd2533", description: "Constraint weight", defaultValue: 1f)]
             public DataInput<RotationConstraintNode, float> Weight;
-            [PortDefinition(description: "Extra local rotation offset to apply to the constrained bone", defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "f3a2a53ed58c422e89dc7e160f78dae9", description: "Extra local rotation offset to apply to the constrained bone", defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public DataInput<RotationConstraintNode, quaternion> LocalOffset;
 
-            [PortDefinition(displayName: "Source Rotation", description: "Rotation of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "2c1951d564a546c78c37aa81da2373cf", displayName: "Source Rotation", description: "Rotation of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public PortArray<DataInput<RotationConstraintNode, quaternion>> SourceRotations;
-            [PortDefinition(displayName: "Source Rotation Offset", description: "Rotation offset of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "8811154e824644f2b5aeb34b96ade150", displayName: "Source Rotation Offset", description: "Rotation offset of source", portGroupIndex: 1, defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public PortArray<DataInput<RotationConstraintNode, quaternion>> SourceOffsets;
-            [PortDefinition(displayName: "Source Weight", description: "Weight of source", portGroupIndex: 1, defaultValue: 1f)]
+            [PortDefinition(guid: "348b1669f081455e942a81101ffd990a", displayName: "Source Weight", description: "Weight of source", portGroupIndex: 1, defaultValue: 1f)]
             public PortArray<DataInput<RotationConstraintNode, float>> SourceWeights;
         }
 

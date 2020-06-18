@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Time", description: "Computes delta time")]
+    [NodeDefinition(guid: "9f614062d66a439f9a7070de6b880b93", version: 1, category: "Animation Core/Time", description: "Computes delta time")]
     public class DeltaTimeNode
         : NodeDefinition<DeltaTimeNode.Data, DeltaTimeNode.SimPorts, DeltaTimeNode.KernelData, DeltaTimeNode.KernelDefs, DeltaTimeNode.Kernel>
     {
@@ -23,7 +23,7 @@ namespace Unity.Animation
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Delta time")]
+            [PortDefinition(guid: "15abad4f4f924fd9a18ee7ea014b03b7", description: "Delta time")]
             public DataOutput<DeltaTimeNode, float> DeltaTime;
         }
 

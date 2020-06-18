@@ -1,10 +1,10 @@
+#if UNITY_EDITOR
+
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
-#if UNITY_EDITOR
 using UnityEditor;
-#endif
 
 namespace Unity.Animation.Hybrid
 {
@@ -12,11 +12,12 @@ namespace Unity.Animation.Hybrid
     {
         /// <summary>
         /// Converts a UnityEngine AnimationClip to a DOTS dense clip.
+        ///
+        /// NOTE: This extension is not supported in the Player.
         /// </summary>
         /// <param name="sourceClip">The UnityEngine.AnimationClip to convert to a DOTS dense clip format.</param>
         /// <param name="bindingHash">Optional parameter to override the way binding hashes are generated. When no binding hash deletegate is specified, the system wide BindingHashUtils.DefaultBindingHash is used.</param>
         /// <returns>Returns a dense clip BlobAssetReference</returns>
-#if UNITY_EDITOR
         public static BlobAssetReference<Clip> ToDenseClip(this AnimationClip sourceClip, BindingHashDelegate bindingHash = null)
         {
             if (sourceClip == null)
@@ -30,30 +31,31 @@ namespace Unity.Animation.Hybrid
             var floatBindings = new List<EditorCurveBinding>();
             var intBindings = new List<EditorCurveBinding>();
 
-            // TODO : Account for missing T, R, S curves
             foreach (var binding in srcBindings)
             {
-                if (binding.propertyName == "m_LocalPosition.x")
+                switch (BindingProcessor.Instance.Execute(binding))
                 {
-                    translationBindings.Add(binding);
-                }
-                else if (binding.propertyName == "m_LocalRotation.x"
-                         || binding.propertyName == "localEulerAnglesRaw.x"
-                         || binding.propertyName == "localEulerAngles.x")
-                {
-                    rotationBindings.Add(binding);
-                }
-                else if (binding.propertyName == "m_LocalScale.x")
-                {
-                    scaleBindings.Add(binding);
-                }
-                else if (binding.type == typeof(Animator))
-                {
-                    floatBindings.Add(binding);
-                }
-                else if (binding.isDiscreteCurve || binding.type == typeof(UnityEngine.Animation))
-                {
-                    intBindings.Add(binding);
+                    case ChannelBindType.Translation:
+                        translationBindings.Add(binding);
+                        break;
+                    case ChannelBindType.Rotation:
+                        rotationBindings.Add(binding);
+                        break;
+                    case ChannelBindType.Scale:
+                        scaleBindings.Add(binding);
+                        break;
+                    case ChannelBindType.Float:
+                        floatBindings.Add(binding);
+                        break;
+                    case ChannelBindType.Integer:
+                        intBindings.Add(binding);
+                        break;
+                    case ChannelBindType.Discard:
+                        break;
+                    case ChannelBindType.Unknown:
+                    default:
+                        UnityEngine.Debug.LogWarning($"Unsupported binding type {binding.type.ToString()} : path = {binding.path}, propertyName = {binding.propertyName}");
+                        break;
                 }
             }
 
@@ -141,7 +143,7 @@ namespace Unity.Animation.Hybrid
 
             var arrayBuilder = blobBuilder.Allocate(ref blobBuffer, bindings.Count);
             for (var i = 0; i != bindings.Count; ++i)
-                arrayBuilder[i] = bindingHash(bindings[i].propertyName);
+                arrayBuilder[i] = bindingHash(BindingHashUtils.BuildPath(bindings[i].path, bindings[i].propertyName));
         }
 
         private static void FillCurves(AnimationClip sourceClip, IReadOnlyList<EditorCurveBinding> translationBindings,
@@ -282,11 +284,6 @@ namespace Unity.Animation.Hybrid
 
             samples[curveIndex + clip.FrameCount * curveCount] = Core.AdjustLastFrameValue(lastValue, valueAtDuration, clip.LastFrameError);
         }
-
-#else
-        public static BlobAssetReference<Clip> ToDenseClip(this AnimationClip sourceClip, BindingHashDelegate bindingHash = null) =>
-            default;
-#endif
     }
 }
 
@@ -301,3 +298,5 @@ namespace Unity.Animation
             sourceClip.ToDenseClip(bindingHash);
     }
 }
+
+#endif

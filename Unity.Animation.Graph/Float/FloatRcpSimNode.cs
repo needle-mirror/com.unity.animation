@@ -4,7 +4,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(isHidden: true)]
+    [NodeDefinition(guid: "e3250beaaf4e498ea3a0fa0cdecd47f3", version: 1, isHidden: true)]
     public class FloatRcpSimNode
         : NodeDefinition<FloatRcpSimNode.Data, FloatRcpSimNode.SimPorts>
         , IMsgHandler<float>

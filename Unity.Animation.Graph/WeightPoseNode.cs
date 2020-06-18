@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Applies a set of weights to an animation stream")]
+    [NodeDefinition(guid: "6daa5f5c6f7e4944ae29a32f6e60219d", version: 1, category: "Animation Core/Utils", description: "Applies a set of weights to an animation stream")]
     public class WeightPoseNode
         : NodeDefinition<WeightPoseNode.Data, WeightPoseNode.SimPorts, WeightPoseNode.KernelData, WeightPoseNode.KernelDefs, WeightPoseNode.Kernel>
         , IRigContextHandler
@@ -20,18 +20,18 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "b1ad5e24921d46c6a5c42f3ac54a4bfc", isHidden: true)]
             public MessageInput<WeightPoseNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Input stream")]
+            [PortDefinition(guid: "9605259413914ff19f0e2c97ff3fa5be", description: "Input stream")]
             public DataInput<WeightPoseNode, Buffer<AnimatedData>>  Input;
-            [PortDefinition(description: "Weights to apply on stream")]
+            [PortDefinition(guid: "7501e6c443454813b4f3ae6645f70413", description: "Weights to apply on stream")]
             public DataInput<WeightPoseNode, Buffer<WeightData>> WeightMasks;
 
-            [PortDefinition(description: "Resulting weighted stream")]
+            [PortDefinition(guid: "c204fb5eb8ad4d5ca785b29d75fc08d5", description: "Resulting weighted stream")]
             public DataOutput<WeightPoseNode, Buffer<AnimatedData>> Output;
         }
 

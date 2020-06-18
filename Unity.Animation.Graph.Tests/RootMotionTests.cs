@@ -2,6 +2,8 @@ using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine.TestTools;
+using Unity.DataFlowGraph;
+using Unity.Transforms;
 
 namespace Unity.Animation.Tests
 {
@@ -74,7 +76,7 @@ namespace Unity.Animation.Tests
         public void CanApplyInPlaceNode()
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode = CreateNode<ClipNode>();
             Set.SendMessage(clipNode, ClipNode.SimulationPorts.Rig, m_Rig);
@@ -124,7 +126,7 @@ namespace Unity.Animation.Tests
         public void CanEvaluateInPlaceClipNode(float time)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode = CreateNode<ConfigurableClipNode>();
             Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { MotionID = new StringHash("Motion") });
@@ -172,7 +174,7 @@ namespace Unity.Animation.Tests
         public void CanEvaluateCycleRootClipNode(float time)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var clipNode = CreateNode<ConfigurableClipNode>();
             Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.CycleRootMotion, MotionID = new StringHash("Motion") });
@@ -225,6 +227,84 @@ namespace Unity.Animation.Tests
             Assert.That(rootTranslation, Is.EqualTo(x.pos));
             var rootRotation = streamECS.GetLocalToParentRotation(0);
             Assert.That(rootRotation, Is.EqualTo(x.rot).Using(RotationComparer));
+        }
+
+        [TestCase(-2.3f)]
+        [TestCase(0f)]
+        [TestCase(0.5f)]
+        [TestCase(1.5f)]
+        [TestCase(3f)]
+        [TestCase(6f)]
+        [TestCase(20f)]
+        public void AnimatedRootMotion_Updates_RootTransformComponents(float time)
+        {
+            var entity = m_Manager.CreateEntity();
+            SetupRigEntity(entity, m_Rig, entity);
+
+            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
+
+            var entityTx = new RigidTransform(quaternion.AxisAngle(math.float3(0f, 1f, 0f), math.radians(40f)), math.float3(2f, 0f, 5f));
+            m_Manager.AddComponentData(entity, new Translation { Value = entityTx.pos });
+            m_Manager.AddComponentData(entity, new Rotation { Value = entityTx.rot });
+
+            var clipNode = CreateNode<ConfigurableClipNode>();
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.CycleRootMotion, MotionID = "Motion" });
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Rig, m_Rig);
+            Set.SendMessage(clipNode, ConfigurableClipNode.SimulationPorts.Clip, m_Clip);
+            Set.SetData(clipNode, ConfigurableClipNode.KernelPorts.Time, time);
+
+            var entityNode = CreateComponentNode(entity);
+            Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
+
+            m_AnimationGraphSystem.Update();
+            m_Manager.CompleteAllJobs();
+
+            var normalizedTime = time;
+            var normalizedTimeInt = (int)normalizedTime;
+            var cycle = math.select(normalizedTimeInt, normalizedTimeInt - 1, normalizedTime < 0);
+            normalizedTime = math.select(normalizedTime - normalizedTimeInt, normalizedTime - normalizedTimeInt + 1, normalizedTime < 0);
+
+            // start and stop root transform
+            var startTProj = new float3(m_StartTranslation.x, 0, m_StartTranslation.z);
+            var startRProj =  math.normalize(new quaternion(0, m_StartRotation.value.y / m_StartRotation.value.w, 0, 1));
+
+            var stopTProj = new float3(m_StopTranslation.x, 0, m_StopTranslation.z);
+            var stopRProj =  math.normalize(new quaternion(0, m_StopRotation.value.y / m_StopRotation.value.w, 0, 1));
+
+            // current root transform
+            var translation = m_StopTranslation * normalizedTime + m_StartTranslation * (1f - normalizedTime);
+            var rotation = math.normalize(new quaternion(math.normalize(m_StopRotation).value * normalizedTime + math.normalize(m_StartRotation).value * (1f - normalizedTime)));
+
+            var tProj = new float3(translation.x, 0, translation.z);
+            var rProj =  math.normalize(new quaternion(0, rotation.value.y / rotation.value.w, 0, 1));
+
+            // cycled root transform
+            var startX = cycle >= 0 ? new RigidTransform(startRProj, startTProj) : new RigidTransform(stopRProj, stopTProj);
+            var stopX = cycle >= 0 ? new RigidTransform(stopRProj, stopTProj) : new RigidTransform(startRProj, startTProj);
+
+            var x = new RigidTransform(rProj, tProj);
+            RigidTransform cycleX = mathex.rigidPow(math.mul(stopX, math.inverse(startX)), math.asuint(math.abs(cycle)));
+            x = math.mul(cycleX, x);
+
+            // Validate that root motion values are now on the entity transform components
+            var newEntityTx = math.mul(entityTx, x);
+            Assert.That(m_Manager.GetComponentData<Translation>(entity).Value, Is.EqualTo(newEntityTx.pos).Using(TranslationComparer));
+            Assert.That(m_Manager.GetComponentData<Rotation>(entity).Value, Is.EqualTo(newEntityTx.rot).Using(RotationComparer));
+
+            // Validate that the values in AnimationRootMotion component have been updated
+            var animatedRM = m_Manager.GetComponentData<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            Assert.That(animatedRM.Delta.pos, Is.EqualTo(x.pos).Using(TranslationComparer));
+            Assert.That(animatedRM.Delta.rot, Is.EqualTo(x.rot).Using(RotationComparer));
+
+            // Validate that root values have been reset in the animation stream
+            var stream = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
+            );
+
+            Assert.That(stream.GetLocalToParentTranslation(0), Is.EqualTo(float3.zero).Using(TranslationComparer));
+            Assert.That(stream.GetLocalToParentRotation(0), Is.EqualTo(quaternion.identity).Using(RotationComparer));
         }
     }
 }

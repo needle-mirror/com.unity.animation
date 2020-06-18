@@ -2,6 +2,7 @@
     "name": "Unity.Animation.Hybrid.Tests",
     "references": [
         "Unity.Burst",
+        "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",
         "Unity.Transforms",
@@ -15,7 +16,8 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "Unity.Animation.Editor",
-        "Unity.Animation.Hybrid"
+        "Unity.Animation.Hybrid",
+        "Unity.Deformations"
     ],
     "includePlatforms": [
         "Editor"

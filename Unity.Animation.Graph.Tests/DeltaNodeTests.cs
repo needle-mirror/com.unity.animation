@@ -124,7 +124,7 @@ namespace Unity.Animation.Tests
         public void DeltaNodeOutputDifferenceBetweenBothInput(float time)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var subClipNode = CreateNode<ClipNode>();
             Set.SendMessage(subClipNode, ClipNode.SimulationPorts.Rig, m_Rig);
@@ -177,8 +177,8 @@ namespace Unity.Animation.Tests
             var entity = m_Manager.CreateEntity();
             var anotherEntity = m_Manager.CreateEntity();
 
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
-            RigEntityBuilder.SetupRigEntity(anotherEntity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
+            SetupRigEntity(anotherEntity, m_Rig, Entity.Null);
 
             var subClipNode = CreateNode<ClipNode>();
             Set.SendMessage(subClipNode, ClipNode.SimulationPorts.Rig, m_Rig);

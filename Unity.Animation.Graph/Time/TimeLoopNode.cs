@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Time", description: "Computes looping time and cycle count given a duration and unbound time")]
+    [NodeDefinition(guid: "87d20894ea0f4dda9561374a1fef063e", version: 1, category: "Animation Core/Time", description: "Computes looping time and cycle count given a duration and unbound time")]
     public class TimeLoopNode
         : NodeDefinition<TimeLoopNode.Data, TimeLoopNode.SimPorts, TimeLoopNode.KernelData, TimeLoopNode.KernelDefs, TimeLoopNode.Kernel>
         , IMsgHandler<float>
@@ -20,19 +20,19 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(description: "Duration")]
+            [PortDefinition(guid: "967a157223c2426e8ba2a0cbdfc801a1", description: "Duration")]
             public MessageInput<TimeLoopNode, float> Duration;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Unbound time")]
+            [PortDefinition(guid: "c8cf3f694056417bb986c6499eb74436", description: "Unbound time")]
             public DataInput<TimeLoopNode, float> InputTime;
-            [PortDefinition(description: "Time (computed from normalized time mutiplied by duration)")]
+            [PortDefinition(guid: "0821d3d978d84e38880232ab0ff09974", description: "Time (computed from normalized time multiplied by duration)")]
             public DataOutput<TimeLoopNode, float> OutputTime;
-            [PortDefinition(description: "Number of duration cycles")]
+            [PortDefinition(guid: "e455fa9a87b248b28ea4a413c68c82a6", description: "Number of duration cycles")]
             public DataOutput<TimeLoopNode, int> Cycle;
-            [PortDefinition(description: "Normalized time")]
+            [PortDefinition(guid: "69ee1fe6b1bb4584bdc4d90b9879a093", description: "Normalized time")]
             public DataOutput<TimeLoopNode, float> NormalizedTime;
         }
 

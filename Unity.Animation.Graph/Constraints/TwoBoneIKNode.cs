@@ -11,7 +11,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Constraints", description: "Two bone IK solver")]
+    [NodeDefinition(guid: "bf4c5a78bcd94ce7a5ad2d0efd5fa50b", version: 1, category: "Animation Core/Constraints", description: "Two bone IK solver")]
     public class TwoBoneIKNode
         : NodeDefinition<TwoBoneIKNode.Data, TwoBoneIKNode.SimPorts, TwoBoneIKNode.KernelData, TwoBoneIKNode.KernelDefs, TwoBoneIKNode.Kernel>
         , IMsgHandler<TwoBoneIKNode.SetupMessage>
@@ -33,31 +33,31 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "333243e5ba1b4cff93931c03de198e70", isHidden: true)]
             public MessageInput<TwoBoneIKNode, Rig> Rig;
-            [PortDefinition(displayName: "Setup", description: "Two bone IK properties")]
+            [PortDefinition(guid: "d86d0bb4849f4bf18a6cb707ebd3db2c", displayName: "Setup", description: "Two bone IK properties")]
             public MessageInput<TwoBoneIKNode, SetupMessage> ConstraintSetup;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Constrained animation stream")]
+            [PortDefinition(guid: "55cc66b4bcde41d3849b5c8403c3df36", description: "Constrained animation stream")]
             public DataInput<TwoBoneIKNode, Buffer<AnimatedData>> Input;
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "1fd2e17847354cffb011e3c8c6eb3218", description: "Resulting animation stream")]
             public DataOutput<TwoBoneIKNode, Buffer<AnimatedData>> Output;
 
-            [PortDefinition(description: "Constraint weight", defaultValue: 1f)]
+            [PortDefinition(guid: "06e6b83ca095476d88ae1f05ba180705", description: "Constraint weight", defaultValue: 1f)]
             public DataInput<TwoBoneIKNode, float> Weight;
-            [PortDefinition(description: "IK goal position weight", defaultValue: 1f)]
+            [PortDefinition(guid: "92dfc7cebc6d47d89e1f28650a8b718b", description: "IK goal position weight", defaultValue: 1f)]
             public DataInput<TwoBoneIKNode, float> TargetPositionWeight;
-            [PortDefinition(description: "IK goal rotation weight", defaultValue: 1f)]
+            [PortDefinition(guid: "be2b285734ad4efdb06b01e035bae0ee", description: "IK goal rotation weight", defaultValue: 1f)]
             public DataInput<TwoBoneIKNode, float> TargetRotationWeight;
-            [PortDefinition(description: "Target transform", defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
+            [PortDefinition(guid: "a9076de32ec4452e8bffb618b2a92661", description: "Target transform", defaultValue: "identity", defaultValueType: DefaultValueType.Reference)]
             public DataInput<TwoBoneIKNode, float4x4> Target;
 
-            [PortDefinition(description: "IK hint weight", defaultValue: 0f)]
+            [PortDefinition(guid: "957aecbd6a5d4c339ddfecdf2fb6a8c0", description: "IK hint weight", defaultValue: 0f)]
             public DataInput<TwoBoneIKNode, float> HintWeight;
-            [PortDefinition(description: "Target hint position")]
+            [PortDefinition(guid: "4565216d6b774cddac133611b381573c", description: "Target hint position")]
             public DataInput<TwoBoneIKNode, float3> Hint;
         }
 

@@ -1,11 +1,9 @@
 using System;
-using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine.Assertions;
-using Unity.Animation;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
 using Unity.Profiling;
@@ -160,10 +158,10 @@ namespace Unity.Animation
             if (animationChannels.Length == 0)
                 return;
 
-            TData* dataPtr = (TData*)((float*)arrayBuilder.GetUnsafePtr() + index);
+            TData* data = (TData*)((float*)arrayBuilder.GetUnsafePtr() + index);
             for (int i = 0; i < animationChannels.Length; i++)
             {
-                *(dataPtr + i) = animationChannels[i].DefaultValue;
+                data[i] = animationChannels[i].DefaultValue;
             }
 
             return;
@@ -175,12 +173,12 @@ namespace Unity.Animation
                 return;
 
             // Fill as SOA 4-wide quaternions
-            quaternion4* dataPtr = (quaternion4*)((float*)arrayBuilder.GetUnsafePtr() + index);
+            quaternion4* data = (quaternion4*)((float*)arrayBuilder.GetUnsafePtr() + index);
             int length = rotationChannels.Length >> 2;
             for (int i = 0; i < length; ++i)
             {
                 int idx = i << 2;
-                *(dataPtr + i) = mathex.quaternion4(
+                data[i] = mathex.quaternion4(
                     rotationChannels[idx + 0].DefaultValue,
                     rotationChannels[idx + 1].DefaultValue,
                     rotationChannels[idx + 2].DefaultValue,
@@ -195,7 +193,7 @@ namespace Unity.Animation
                 int subIdx = i & 0x3; // equivalent to % 4;
 
                 quaternion q = rotationChannels[i].DefaultValue;
-                ref quaternion4 q4 = ref UnsafeUtilityEx.AsRef<quaternion4>(dataPtr + chunkIdx);
+                ref quaternion4 q4 = ref UnsafeUtility.AsRef<quaternion4>(data + chunkIdx);
 
                 q4.x[subIdx] = q.value.x;
                 q4.y[subIdx] = q.value.y;

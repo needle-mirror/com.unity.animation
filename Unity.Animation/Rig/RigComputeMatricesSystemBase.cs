@@ -41,16 +41,17 @@ namespace Unity.Animation
             {
                 worldSpaceOnlyHandle = new ComputeWorldSpaceJob
                 {
-                    Rig = GetArchetypeChunkComponentType<Rig>(true),
-                    LocalToWorld = GetArchetypeChunkComponentType<LocalToWorld>(true),
-                    AnimatedData = GetArchetypeChunkBufferType<AnimatedData>(true),
-                    AnimatedLocalToWorld = GetArchetypeChunkBufferType<AnimatedLocalToWorld>(),
+                    Rig = GetComponentTypeHandle<Rig>(true),
+                    RigRootEntity = GetComponentTypeHandle<RigRootEntity>(true),
+                    EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
+                    AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
+                    AnimatedLocalToWorld = GetBufferTypeHandle<AnimatedLocalToWorld>(),
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                     Marker = k_MarkerComputeWorld,
 #endif
                     LastSystemVersion = LastSystemVersion
-                }.Schedule(m_WorldSpaceOnlyQuery, Dependency);
+                }.ScheduleParallel(m_WorldSpaceOnlyQuery, Dependency);
             }
 
             JobHandle rootSpaceOnlyHandle = Dependency;
@@ -58,15 +59,15 @@ namespace Unity.Animation
             {
                 rootSpaceOnlyHandle = new ComputeRootSpaceJob
                 {
-                    Rigs = GetArchetypeChunkComponentType<Rig>(true),
-                    AnimatedData = GetArchetypeChunkBufferType<AnimatedData>(true),
-                    LocalToRoot = GetArchetypeChunkBufferType<AnimatedLocalToRoot>(),
+                    Rigs = GetComponentTypeHandle<Rig>(true),
+                    AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
+                    LocalToRoot = GetBufferTypeHandle<AnimatedLocalToRoot>(),
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                     Marker = k_MarkerComputeRoot,
 #endif
                     LastSystemVersion = LastSystemVersion
-                }.Schedule(m_RootSpaceOnlyQuery, Dependency);
+                }.ScheduleParallel(m_RootSpaceOnlyQuery, Dependency);
             }
 
             // TODO : These jobs should ideally all run in parallel since the queries are mutually exclusive.
@@ -77,18 +78,19 @@ namespace Unity.Animation
             {
                 Dependency = new ComputeWorldAndRootSpaceJob
                 {
-                    Rig = GetArchetypeChunkComponentType<Rig>(true),
-                    LocalToWorld = GetArchetypeChunkComponentType<LocalToWorld>(true),
-                    AnimatedData = GetArchetypeChunkBufferType<AnimatedData>(true),
-                    AnimatedLocalToWorld = GetArchetypeChunkBufferType<AnimatedLocalToWorld>(),
-                    AnimatedLocalToRoot = GetArchetypeChunkBufferType<AnimatedLocalToRoot>(),
+                    Rig = GetComponentTypeHandle<Rig>(true),
+                    RigRootEntity = GetComponentTypeHandle<RigRootEntity>(true),
+                    AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
+                    EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
+                    AnimatedLocalToWorld = GetBufferTypeHandle<AnimatedLocalToWorld>(),
+                    AnimatedLocalToRoot = GetBufferTypeHandle<AnimatedLocalToRoot>(),
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                     MarkerComputeRoot = k_MarkerComputeRoot,
                     MarkerComputeWorldAndRoot = k_MarkerComputeWorldAndRoot,
 #endif
                     LastSystemVersion = LastSystemVersion
-                }.Schedule(m_WorldAndRootSpaceQuery, Dependency);
+                }.ScheduleParallel(m_WorldAndRootSpaceQuery, Dependency);
             }
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.End();
@@ -103,7 +105,7 @@ namespace Unity.Animation
                 All = new ComponentType[]
                 {
                     ComponentType.ReadOnly<Rig>(),
-                    ComponentType.ReadOnly<LocalToWorld>(),
+                    ComponentType.ReadOnly<RigRootEntity>(),
                     ComponentType.ReadOnly<AnimatedData>(),
                     ComponentType.ReadWrite<AnimatedLocalToWorld>()
                 },
@@ -113,11 +115,12 @@ namespace Unity.Animation
                 }
             };
 
-            [ReadOnly] public ArchetypeChunkComponentType<Rig> Rig;
-            [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorld;
-            [ReadOnly] public ArchetypeChunkBufferType<AnimatedData> AnimatedData;
+            [ReadOnly] public ComponentTypeHandle<Rig> Rig;
+            [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntity;
+            [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
+            [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
 
-            public ArchetypeChunkBufferType<AnimatedLocalToWorld> AnimatedLocalToWorld;
+            public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
             public uint LastSystemVersion;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
@@ -138,14 +141,15 @@ namespace Unity.Animation
                 Marker.Begin();
 #endif
                 var rigs = chunk.GetNativeArray(Rig);
-                var localToWorlds = chunk.GetNativeArray(LocalToWorld);
+                var rigRoots = chunk.GetNativeArray(RigRootEntity);
                 var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
                 var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorld);
 
                 for (int i = 0; i != chunk.Count; ++i)
                 {
+                    var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
                     var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());
-                    Core.ComputeLocalToWorld(localToWorlds[i].Value, ref stream, animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray());
+                    Core.ComputeLocalToWorld(rootLocalToWorld, ref stream, animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray());
                 }
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 Marker.End();
@@ -170,10 +174,10 @@ namespace Unity.Animation
                 }
             };
 
-            [ReadOnly] public ArchetypeChunkComponentType<Rig> Rigs;
-            [ReadOnly] public ArchetypeChunkBufferType<AnimatedData> AnimatedData;
+            [ReadOnly] public ComponentTypeHandle<Rig> Rigs;
+            [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
 
-            public ArchetypeChunkBufferType<AnimatedLocalToRoot> LocalToRoot;
+            public BufferTypeHandle<AnimatedLocalToRoot> LocalToRoot;
             public uint LastSystemVersion;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
@@ -212,19 +216,20 @@ namespace Unity.Animation
                 All = new ComponentType[]
                 {
                     ComponentType.ReadOnly<Rig>(),
-                    ComponentType.ReadOnly<LocalToWorld>(),
+                    ComponentType.ReadOnly<RigRootEntity>(),
                     ComponentType.ReadOnly<AnimatedData>(),
                     ComponentType.ReadWrite<AnimatedLocalToWorld>(),
                     ComponentType.ReadWrite<AnimatedLocalToRoot>()
                 }
             };
 
-            [ReadOnly] public ArchetypeChunkComponentType<Rig> Rig;
-            [ReadOnly] public ArchetypeChunkComponentType<LocalToWorld> LocalToWorld;
-            [ReadOnly] public ArchetypeChunkBufferType<AnimatedData> AnimatedData;
+            [ReadOnly] public ComponentTypeHandle<Rig> Rig;
+            [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntity;
+            [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
+            [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
 
-            public ArchetypeChunkBufferType<AnimatedLocalToWorld> AnimatedLocalToWorld;
-            public ArchetypeChunkBufferType<AnimatedLocalToRoot> AnimatedLocalToRoot;
+            public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
+            public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
             public uint LastSystemVersion;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
@@ -241,6 +246,7 @@ namespace Unity.Animation
                 //    return;
 
                 var rigs = chunk.GetNativeArray(Rig);
+                var rigRoots = chunk.GetNativeArray(RigRootEntity);
                 var animatedLocalToRootAccessor = chunk.GetBufferAccessor(AnimatedLocalToRoot);
 
                 // TODO: Re-enable optimization once https://github.com/Unity-Technologies/dots/pull/4354 lands
@@ -267,14 +273,14 @@ namespace Unity.Animation
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 MarkerComputeWorldAndRoot.Begin();
 #endif
-                var localToWorlds = chunk.GetNativeArray(LocalToWorld);
                 var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
                 var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorld);
                 for (int i = 0; i != chunk.Count; ++i)
                 {
+                    var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
                     var stream = AnimationStream.CreateReadOnly(rigs[i].Value, animatedDataAccessor[i].AsNativeArray());
                     Core.ComputeLocalToWorldAndRoot(
-                        localToWorlds[i].Value,
+                        rootLocalToWorld,
                         ref stream,
                         animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray(),
                         animatedLocalToRootAccessor[i].Reinterpret<float4x4>().AsNativeArray()
@@ -286,5 +292,10 @@ namespace Unity.Animation
                 //}
             }
         }
+
+#if !UNITY_ENTITIES_0_12_OR_NEWER
+        ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool readOnly = false) where T : struct, IComponentData => new ComponentTypeHandle<T> { Value = GetArchetypeChunkComponentType<T>(readOnly) };
+        BufferTypeHandle<T> GetBufferTypeHandle<T>(bool readOnly = false) where T : struct, IBufferElementData => new BufferTypeHandle<T>() {Value = GetArchetypeChunkBufferType<T>(readOnly)};
+#endif
     }
 }

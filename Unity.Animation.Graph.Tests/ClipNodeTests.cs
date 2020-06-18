@@ -241,7 +241,7 @@ namespace Unity.Animation.Tests
         TestDataClipNode CreateClipNodeGraph(float time, in Rig rig, BlobAssetReference<Clip> clip)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var clipNode = CreateNode<ClipNode>();
@@ -267,7 +267,7 @@ namespace Unity.Animation.Tests
         TestDataUberClipNode CreateUberClipNodeGraph(float time, in Rig rig, BlobAssetReference<Clip> clip, ClipConfiguration config)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var uberNode = CreateNode<UberClipNode>();
@@ -294,7 +294,7 @@ namespace Unity.Animation.Tests
         TestDataClipPlayerNode CreateClipPlayerNodeGraph(float deltaTime, float speed, in Rig rig, BlobAssetReference<Clip> clip, ClipConfiguration config)
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
             var clipPlayerNode = CreateNode<ClipPlayerNode>();
@@ -697,7 +697,7 @@ namespace Unity.Animation.Tests
         public void CanInstantiateAndDeleteClipLoopPlayer()
         {
             var entity = m_Manager.CreateEntity();
-            RigEntityBuilder.SetupRigEntity(entity, m_Manager, m_Rig);
+            SetupRigEntity(entity, m_Rig, Entity.Null);
 
             var set = Set;
 

@@ -15,7 +15,7 @@ namespace Unity.Animation
         Additive,
     }
 
-    [NodeDefinition(category: "Animation Core/Mixers", description: "Blends animation streams based on an ordered layer approach. Each layer can blend in either override or additive mode. Weight masks can be built using the WeightBuilderNode.")]
+    [NodeDefinition(guid: "368c53e919534c6f99c0d1b2577e3e2b", version: 1, category: "Animation Core/Mixers", description: "Blends animation streams based on an ordered layer approach. Each layer can blend in either override or additive mode. Weight masks can be built using the WeightBuilderNode.")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of layers", groupIndex: 1, minInstance: 2, maxInstance: -1, simulationPortToDrive: "LayerCount")]
     public class LayerMixerNode
         : NodeDefinition<LayerMixerNode.Data, LayerMixerNode.SimPorts, LayerMixerNode.KernelData, LayerMixerNode.KernelDefs, LayerMixerNode.Kernel>
@@ -28,24 +28,24 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "78359c86e5bf400cb82958f6e40d2318", isHidden: true)]
             public MessageInput<LayerMixerNode, Rig> Rig;
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "61f0790526654efd839f0f59bc5bf623", isHidden: true)]
             public MessageInput<LayerMixerNode, ushort> LayerCount;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(displayName: "Input", description: "Animation stream to blend", portGroupIndex: 1)]
+            [PortDefinition(guid: "ac6a07f92da64d109d60c2dc36ba8c74", displayName: "Input", description: "Animation stream to blend", portGroupIndex: 1)]
             public PortArray<DataInput<LayerMixerNode, Buffer<AnimatedData>>> Inputs;
-            [PortDefinition(displayName: "Weight", description: "Layer weight", portGroupIndex: 1, defaultValue: 1f)]
+            [PortDefinition(guid: "911ebce1cfed48ecbed487a18ee4b35a", displayName: "Weight", description: "Layer weight", portGroupIndex: 1, defaultValue: 1f)]
             public PortArray<DataInput<LayerMixerNode, float>> Weights;
-            [PortDefinition(displayName: "Weight Mask", description: "Channel specific weights which are also modulated by the layer weight", portGroupIndex: 1)]
+            [PortDefinition(guid: "22037e358f7549f58680c30a9f5b3fd5", displayName: "Weight Mask", description: "Channel specific weights which are also modulated by the layer weight", portGroupIndex: 1)]
             public PortArray<DataInput<LayerMixerNode, Buffer<WeightData>>> WeightMasks;
-            [PortDefinition(displayName: "Blending Mode", description: "Type of blending to apply", portGroupIndex: 1, isStatic: true, defaultValue: BlendingMode.Override)]
+            [PortDefinition(guid: "e47e505bc758484fbbf4f2ccb40710db", displayName: "Blending Mode", description: "Type of blending to apply", portGroupIndex: 1, isStatic: true, defaultValue: BlendingMode.Override)]
             public PortArray<DataInput<LayerMixerNode, BlendingMode>> BlendingModes;
 
-            [PortDefinition(description: "Resulting animation stream")]
+            [PortDefinition(guid: "1cccdcd2e0804c578a247871e981f73e", description: "Resulting animation stream")]
             public DataOutput<LayerMixerNode, Buffer<AnimatedData>> Output;
         }
 
@@ -91,6 +91,7 @@ namespace Unity.Animation
 
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
                 AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                outputStream.ClearChannelMasks();
 
                 int expectedWeightDataSize = Core.WeightDataSize(data.RigDefinition);
                 for (int i = 0; i < inputArray.Length; ++i)
@@ -130,11 +131,6 @@ namespace Unity.Animation
         }
 
 #endif
-
-        protected unsafe override void Destroy(NodeHandle handle)
-        {
-            ref var kData = ref GetKernelData(handle);
-        }
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

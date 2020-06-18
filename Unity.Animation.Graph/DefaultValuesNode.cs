@@ -9,7 +9,7 @@ using Unity.Profiling;
 
 namespace Unity.Animation
 {
-    [NodeDefinition(category: "Animation Core/Utils", description: "Outputs the default values of a RigDefinition as an animation stream (i.e. the bind pose)")]
+    [NodeDefinition(guid: "6db594d74f974544a51bbdb5c987f869", version: 1, category: "Animation Core/Utils", description: "Outputs the default values of a RigDefinition as an animation stream (i.e. the bind pose)")]
     public class DefaultValuesNode
         : NodeDefinition<DefaultValuesNode.Data, DefaultValuesNode.SimPorts, DefaultValuesNode.KernelData, DefaultValuesNode.KernelDefs, DefaultValuesNode.Kernel>
         , IRigContextHandler
@@ -20,13 +20,13 @@ namespace Unity.Animation
 
         public struct SimPorts : ISimulationPortDefinition
         {
-            [PortDefinition(isHidden: true)]
+            [PortDefinition(guid: "6c011cf806dd48509bba003c96636ae7", isHidden: true)]
             public MessageInput<DefaultValuesNode, Rig> Rig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
         {
-            [PortDefinition(description: "Default stream values")]
+            [PortDefinition(guid: "1568359a111d43eabf7c782912bdcc78", description: "Default stream values")]
             public DataOutput<DefaultValuesNode, Buffer<AnimatedData>> Output;
         }
 

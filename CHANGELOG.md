@@ -5,11 +5,75 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.5.1-preview.1] - 2020-06-18
+
+### Added
+- Added an experimental conversion from `Animator` to `Rig`. The `UNITY_ENABLE_ANIMATION_ANIMATOR_CONVERSION` flag needs to be defined to enable the conversion.
+- Improved root transform handling and root motion. See documentation [here](Documentation~/root_transform_management.md).
+    - Added `RigRootEntity` IComponentData which holds the entity reference to the root transform (first bone defined in the `RigComponent`). **NOTE: Custom rig conversion systems, in other words projects not using the `RigComponent`, should make sure to populate this new required component.**
+- Added the `PreAnimationGraphWriteTransformHandle`.
+- Added `AnimationLocalToParentOverride` and `AnimationLocalToWorldOverride`.
+- Improved support for affine transforms in the `AnimationStream` enabling us to properly support non-uniform scale and shearing. Following new methods were added:
+    - `GetLocalToParentTR(int index, out float3 t, out quaternion r)`
+    - `GetLocalToParentInverseMatrix(int index)`
+    - `GetLocalToRootInverseMatrix(int index)`
+    - `GetLocalToRootScale(int index)`
+    - `GetLocalToRootTRS(int index, out float3 t, out quaternion r, out float3 s)`
+    - `SetLocalToParentTR(int index, float3 t, quaternion r)`
+    - `SetLocalToRootScale(int index, float3 s)`
+    - `SetLocalToRootTRS(int index, float3 t, quaternion r, float3 s)`
+- Added `Scale` ports to `GetAnimationStreamLocalToRootNode` and `SetAnimationStreamLocalToRootNode` nodes.
+- Added an experimental Rig conversion clean up system `RigConversionCleanup`: 
+    - All entities that are not exposed and only have Transform component type are deleted by this system to remove unused entities.
+    - By default the system is not enabled, you must add the following preprocessor `UNITY_ENABLE_ANIMATION_RIG_CONVERSION_CLEANUP` in your project's scripting define symbols list to enable the system.
+- Added `IReadExposeTransform` and `IWriteExposeTransform` interfaces in order to filter queries based on Read/Write type.
+- Added channel masks in the `AnimationStream` enabling us to provide information about which channels were modified. New methods were added:
+    - `AnimationStream.ClearChannelMasks()`
+    - `AnimationStream.SetChannelMasks(bool value)`
+    - `AnimationStream.CopyChannelMasksFrom(ref AnimationStream src)`
+    - `AnimationStream.OrChannelMasks(ref AnimationStream other)`
+    - `AnimationStream.OrChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs)`
+    - `AnimationStream.AndChannelMasks(ref AnimationStream other)`
+    - `AnimationStream.AndChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs)`
+    - `AnimationStream.GetTranslationChannelMask(int index)`
+    - `AnimationStream.GetRotationChannelMask(int index)`
+    - `AnimationStream.GetScaleChannelMask(int index)`
+    - `AnimationStream.GetFloatChannelMask(int index)`
+    - `AnimationStream.GetIntChannelMask(int index)`
+    - `AnimationStream.GetChannelMaskBitCount()`
+    - `AnimationStream.HasAnyChannelMasks()`
+    - `AnimationStream.HasAllChannelMasks()`
+    - `AnimationStream.HasNoChannelMasks()`
+- Added masking operation on all Core methods used for sampling and blending.
+- Added support for `SkinnedMeshRenderer` blendshapes. This uses a new and experimental compute shader deformation pipeline only available in Unity 2020.1.0b9+. To enable it in your project make sure to add the following player scripting define `ENABLE_COMPUTE_DEFORMATIONS` and update your shader graphs to use the `Compute Deformation` node.
+
+### Changed
+- With changes to root transform handling, the `RootMotionNode` has been deprecated. This node was previously accumulating the
+the delta root transform via component nodes connected on the root entity transform components. The new preferred setup is to use
+the `IAnimatedRootMotion` component instead. The `AnimationSystemBase` will take care of performing the delta accumulation on the entity transform components directly.
+See documentation [here](Documentation~/root_transform_management.md) for more details.
+- Removed `PrepareSkinMatrixToRendererSystemBase` and `FinalizePushMatrixToRendererSystemBase`. Both systems are now owned by `com.unity.rendering.hybrid`. **Note that you'll need to upgrade any previous material graphs using the `LinearBlendSkinning` node to remove the `BoneIndexOffset` input altogether when moving to Unity 2020.1.0b9+**
+- `ComputeSkinMatrixSystemBase` has been deprecated use `ComputeDeformationDataSystemBase` instead.
+- `SkinnedMeshRigEntity` has been deprecated use `Unity.Animation.RigEntity` IComponentData instead.
+- `Unity.Animation.BoneRenderer.RigEntity` has been deprecated use `Unity.Animation.RigEntity` IComponentData instead.
+- `Unity.Animation.SkinMatrix` has been deprecated use `Unity.Deformations.SkinMatrix` instead.
+- Upgraded com.unity.entities to 0.11.1-preview.4
+- Upgraded com.unity.burst to 1.3.0
+- Upgraded com.unity.jobs to 0.2.10-preview.12
+- Upgraded com.unity.collections to 0.9.0-preview.6
+- Upgraded com.unity.dataflowgraph to 0.15.0-preview.5
+- `AddWriteTransformHandle` does not add the component `AnimationTransformOverride` to the entity anymore. It adds the two components `AnimationLocalToParentOverride` and `AnimationLocalToWorldOverride`.
+- `WriteTransformHandleJob` was writing only in the `LocalToWorld` component of the exposed entity. Now it also writes in the `LocalToParent`, `Translation`, `Rotation`, `Scale` and `NonUniformScale` components.
+- A warning is logged when a SkinnedMeshRenderer is referencing a RootBone that has not been exposed. This leads to errors when computing the render bounds.
+
+### Deprecated
+- Deprecated `AnimationLocalToWorldOverride`. If a query defines `LocalToParent` as ReadOnly and `LocalToWorld` as ReadWrite, then `AnimationTransformOverride` will be in the Any field of the query and not the None field, so the entity will still be selected. It is replaced by `AnimationLocalToParentOverride` and `AnimationLocalToWorldOverride`.
+
 ## [0.4.0-preview.3] - 2020-05-14
 
 ### Fixed
-- Reverted changes for Hybrid.Editor assemblies because it a breaking changes for Dots Timeline.
-- Moved back `BlobAssetStoreExtensions` from `Unity.Animation.Hybrid.Editor` to `Unity.Animation.Hybrid`. Be aware that the `BlobAssetStoreExtensions` will only works in the editor and will throw an `NotImplementedException` if used in the standalone player.
+- Reverted changes for Hybrid.Editor assemblies because it was a breaking change for Dots Timeline.
+- Moved back `BlobAssetStoreExtensions` from `Unity.Animation.Hybrid.Editor` to `Unity.Animation.Hybrid`. Be aware that the `BlobAssetStoreExtensions` will only work in the editor and will throw a `NotImplementedException` if used in the standalone player.
 
 ## [0.4.0-preview.2] - 2020-05-13
 
