@@ -59,7 +59,7 @@ namespace Unity.Animation
                 var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());
                 var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
 
-                Core.ComputeLocalToWorld(rootLocalToWorld, ref stream, animatedLocalToWorlds);
+                Core.ComputeLocalToRoot(ref stream, rootLocalToWorld, animatedLocalToWorlds);
 
                 var writeTransforms = writeTransformAccessor[i].AsNativeArray();
                 for (int j = 0; j < writeTransforms.Length; ++j)

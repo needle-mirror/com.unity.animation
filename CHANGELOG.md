@@ -5,6 +5,20 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.5.1-preview.2] - 2020-06-30
+
+### Added
+- Added new methods to compute rig matrices in LocalToRoot space with an extra offset parameter:
+    - `Core.ComputeLocalToRoot(ref AnimationStream stream, float4x4 offset, NativeArray<float4x4> outMatrices)`
+    - `Core.ComputeLocalToRoot(ref AnimationStream stream, float4x4 offset1, NativeArray<float4x4> outMatrices1, float4x4 offset2, NativeArray<float4x4> outMatrices2)`
+
+### Changed
+- Changed function signature of `Core.ComputeLocalToWorld()`.
+- Deprecated `Core.ComputeLocalToWorld()` and `Core.ComputeLocalToWorldAndRoot()` since these can be expressed using `Core.ComputeLocalToRoot()` with a LocalToWorld offset.
+
+### Fixed
+- Fixed computation of `AnimatedLocalToRoot` when root transform management is enabled.
+
 ## [0.5.1-preview.1] - 2020-06-18
 
 ### Added

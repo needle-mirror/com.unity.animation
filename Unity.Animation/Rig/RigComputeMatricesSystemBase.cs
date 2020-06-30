@@ -21,14 +21,20 @@ namespace Unity.Animation
 #endif
 
         private EntityQuery m_WorldSpaceOnlyQuery;
-        private EntityQuery m_RootSpaceOnlyQuery;
-        private EntityQuery m_WorldAndRootSpaceQuery;
+        private EntityQuery m_RootSpaceOnly_RootManagementEnabled_Query;
+        private EntityQuery m_RootSpaceOnly_RootManagementDisabled_Query;
+        private EntityQuery m_WorldAndRootSpace_RootManagementEnabled_Query;
+        private EntityQuery m_WorldAndRootSpace_RootManagementDisabled_Query;
 
         protected override void OnCreate()
         {
             m_WorldSpaceOnlyQuery = GetEntityQuery(ComputeWorldSpaceJob.QueryDesc);
-            m_RootSpaceOnlyQuery = GetEntityQuery(ComputeRootSpaceJob.QueryDesc);
-            m_WorldAndRootSpaceQuery = GetEntityQuery(ComputeWorldAndRootSpaceJob.QueryDesc);
+
+            m_RootSpaceOnly_RootManagementEnabled_Query = GetEntityQuery(ComputeRootSpaceJob_RootManagementEnabled.QueryDesc);
+            m_RootSpaceOnly_RootManagementDisabled_Query = GetEntityQuery(ComputeRootSpaceJob_RootManagementDisabled.QueryDesc);
+
+            m_WorldAndRootSpace_RootManagementEnabled_Query = GetEntityQuery(ComputeWorldAndRootSpaceJob_RootManagementEnabled.QueryDesc);
+            m_WorldAndRootSpace_RootManagementDisabled_Query = GetEntityQuery(ComputeWorldAndRootSpaceJob_RootManagementDisabled.QueryDesc);
         }
 
         protected override void OnUpdate()
@@ -36,61 +42,106 @@ namespace Unity.Animation
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.Begin();
 #endif
+            var rigTypeRO = GetComponentTypeHandle<Rig>(true);
+            var rigRootEntityTypeRO = GetComponentTypeHandle<RigRootEntity>(true);
+            var animatedDataTypeRO = GetBufferTypeHandle<AnimatedData>(true);
+
+            var entityLocalToParentRO = GetComponentDataFromEntity<LocalToParent>(true);
+            var entityLocalToWorldRO = GetComponentDataFromEntity<LocalToWorld>(true);
+
+            var animatedLocalToRootType = GetBufferTypeHandle<AnimatedLocalToRoot>();
+            var animatedLocalToWorldType = GetBufferTypeHandle<AnimatedLocalToWorld>();
+
             JobHandle worldSpaceOnlyHandle = Dependency;
             if (m_WorldSpaceOnlyQuery.CalculateEntityCount() > 0)
             {
                 worldSpaceOnlyHandle = new ComputeWorldSpaceJob
                 {
-                    Rig = GetComponentTypeHandle<Rig>(true),
-                    RigRootEntity = GetComponentTypeHandle<RigRootEntity>(true),
-                    EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
-                    AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
-                    AnimatedLocalToWorld = GetBufferTypeHandle<AnimatedLocalToWorld>(),
+                    Rig = rigTypeRO,
+                    RigRootEntity = rigRootEntityTypeRO,
+                    EntityLocalToWorld = entityLocalToWorldRO,
+                    AnimatedData = animatedDataTypeRO,
+                    AnimatedLocalToWorld = animatedLocalToWorldType,
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                     Marker = k_MarkerComputeWorld,
 #endif
-                    LastSystemVersion = LastSystemVersion
                 }.ScheduleParallel(m_WorldSpaceOnlyQuery, Dependency);
             }
 
             JobHandle rootSpaceOnlyHandle = Dependency;
-            if (m_RootSpaceOnlyQuery.CalculateEntityCount() > 0)
             {
-                rootSpaceOnlyHandle = new ComputeRootSpaceJob
+                if (m_RootSpaceOnly_RootManagementEnabled_Query.CalculateEntityCount() > 0)
                 {
-                    Rigs = GetComponentTypeHandle<Rig>(true),
-                    AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
-                    LocalToRoot = GetBufferTypeHandle<AnimatedLocalToRoot>(),
+                    rootSpaceOnlyHandle = new ComputeRootSpaceJob_RootManagementEnabled
+                    {
+                        Rigs = rigTypeRO,
+                        RigRootEntities = rigRootEntityTypeRO,
+                        AnimatedData = animatedDataTypeRO,
+                        EntityLocalToWorld = entityLocalToWorldRO,
+                        EntityLocalToParent = entityLocalToParentRO,
+                        AnimatedLocalToRoot = animatedLocalToRootType,
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
-                    Marker = k_MarkerComputeRoot,
+                        Marker = k_MarkerComputeRoot
 #endif
-                    LastSystemVersion = LastSystemVersion
-                }.ScheduleParallel(m_RootSpaceOnlyQuery, Dependency);
+                    }.ScheduleParallel(m_RootSpaceOnly_RootManagementEnabled_Query, rootSpaceOnlyHandle);
+                }
+
+                if (m_RootSpaceOnly_RootManagementDisabled_Query.CalculateEntityCount() > 0)
+                {
+                    rootSpaceOnlyHandle = new ComputeRootSpaceJob_RootManagementDisabled
+                    {
+                        Rigs = rigTypeRO,
+                        AnimatedData = animatedDataTypeRO,
+                        AnimatedLocalToRoot = animatedLocalToRootType,
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+                        Marker = k_MarkerComputeRoot
+#endif
+                    }.ScheduleParallel(m_RootSpaceOnly_RootManagementDisabled_Query, rootSpaceOnlyHandle);
+                }
             }
 
             // TODO : These jobs should ideally all run in parallel since the queries are mutually exclusive.
             //        For now, in order to prevent the safety system from throwing errors schedule
             //        WorldAndRootSpaceJob with a dependency on the two others.
             Dependency = JobHandle.CombineDependencies(worldSpaceOnlyHandle, rootSpaceOnlyHandle);
-            if (m_WorldAndRootSpaceQuery.CalculateEntityCount() > 0)
             {
-                Dependency = new ComputeWorldAndRootSpaceJob
+                if (m_WorldAndRootSpace_RootManagementEnabled_Query.CalculateEntityCount() > 0)
                 {
-                    Rig = GetComponentTypeHandle<Rig>(true),
-                    RigRootEntity = GetComponentTypeHandle<RigRootEntity>(true),
-                    AnimatedData = GetBufferTypeHandle<AnimatedData>(true),
-                    EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
-                    AnimatedLocalToWorld = GetBufferTypeHandle<AnimatedLocalToWorld>(),
-                    AnimatedLocalToRoot = GetBufferTypeHandle<AnimatedLocalToRoot>(),
+                    Dependency = new ComputeWorldAndRootSpaceJob_RootManagementEnabled
+                    {
+                        Rig = rigTypeRO,
+                        RigRootEntity = rigRootEntityTypeRO,
+                        AnimatedData = animatedDataTypeRO,
+                        EntityLocalToWorld = entityLocalToWorldRO,
+                        EntityLocalToParent = entityLocalToParentRO,
+                        AnimatedLocalToWorld = animatedLocalToWorldType,
+                        AnimatedLocalToRoot = animatedLocalToRootType,
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
-                    MarkerComputeRoot = k_MarkerComputeRoot,
-                    MarkerComputeWorldAndRoot = k_MarkerComputeWorldAndRoot,
+                        MarkerComputeWorldAndRoot = k_MarkerComputeWorldAndRoot,
 #endif
-                    LastSystemVersion = LastSystemVersion
-                }.ScheduleParallel(m_WorldAndRootSpaceQuery, Dependency);
+                    }.ScheduleParallel(m_WorldAndRootSpace_RootManagementEnabled_Query, Dependency);
+                }
+
+                if (m_WorldAndRootSpace_RootManagementDisabled_Query.CalculateEntityCount() > 0)
+                {
+                    Dependency = new ComputeWorldAndRootSpaceJob_RootManagementDisabled
+                    {
+                        Rig = rigTypeRO,
+                        RigRootEntity = rigRootEntityTypeRO,
+                        AnimatedData = animatedDataTypeRO,
+                        EntityLocalToWorld = entityLocalToWorldRO,
+                        AnimatedLocalToWorld = animatedLocalToWorldType,
+                        AnimatedLocalToRoot = animatedLocalToRootType,
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+                        MarkerComputeWorldAndRoot = k_MarkerComputeWorldAndRoot,
+#endif
+                    }.ScheduleParallel(m_WorldAndRootSpace_RootManagementDisabled_Query, Dependency);
+                }
             }
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             k_Marker.End();
@@ -121,7 +172,6 @@ namespace Unity.Animation
             [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
 
             public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
-            public uint LastSystemVersion;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker Marker;
@@ -129,14 +179,6 @@ namespace Unity.Animation
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                // TODO: Re-enable optimization once https://github.com/Unity-Technologies/dots/pull/4354 lands
-                //
-                // If the AnimatedData and the rig entity LocalToWorld haven't change in the last frame or
-                // If both the AnimatedData and AnimatedLocalToWorld have changed, then the AnimatedLocalToWorld is already up to date.
-                //if (!chunk.DidChange(AnimatedData, LastSystemVersion) && !chunk.DidChange(LocalToWorld, LastSystemVersion) ||
-                //    chunk.DidChange(AnimatedData, LastSystemVersion) && chunk.DidChange(AnimatedLocalToWorld, LastSystemVersion))
-                //    return;
-
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 Marker.Begin();
 #endif
@@ -149,7 +191,7 @@ namespace Unity.Animation
                 {
                     var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
                     var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());
-                    Core.ComputeLocalToWorld(rootLocalToWorld, ref stream, animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray());
+                    Core.ComputeLocalToRoot(ref stream, rootLocalToWorld, animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray());
                 }
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 Marker.End();
@@ -158,7 +200,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        struct ComputeRootSpaceJob : IJobChunk
+        struct ComputeRootSpaceJob_RootManagementEnabled : IJobChunk
         {
             static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
             {
@@ -170,15 +212,19 @@ namespace Unity.Animation
                 },
                 None = new ComponentType[]
                 {
-                    typeof(AnimatedLocalToWorld)
+                    typeof(AnimatedLocalToWorld),
+                    typeof(DisableRootTransformReadWriteTag)
                 }
             };
 
             [ReadOnly] public ComponentTypeHandle<Rig> Rigs;
             [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
 
-            public BufferTypeHandle<AnimatedLocalToRoot> LocalToRoot;
-            public uint LastSystemVersion;
+            [ReadOnly] public ComponentTypeHandle<RigRootEntity>     RigRootEntities;
+            [ReadOnly] public ComponentDataFromEntity<LocalToWorld>  EntityLocalToWorld;
+            [ReadOnly] public ComponentDataFromEntity<LocalToParent> EntityLocalToParent;
+
+            public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker Marker;
@@ -186,21 +232,22 @@ namespace Unity.Animation
 
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                // TODO: Re-enable optimization once https://github.com/Unity-Technologies/dots/pull/4354 lands
-                //
-                //if (!chunk.DidChange(AnimatedData, LastSystemVersion))
-                //    return;
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 Marker.Begin();
 #endif
                 var rigs = chunk.GetNativeArray(Rigs);
+                var rigRoots = chunk.GetNativeArray(RigRootEntities);
                 var data = chunk.GetBufferAccessor(AnimatedData);
-                var localToRoots = chunk.GetBufferAccessor(LocalToRoot);
+                var animatedLocalToRoot = chunk.GetBufferAccessor(AnimatedLocalToRoot);
 
                 for (int i = 0; i != chunk.Count; ++i)
                 {
+                    float4x4 localToParent = EntityLocalToParent.HasComponent(rigRoots[i].Value) ?
+                        EntityLocalToParent[rigRoots[i].Value].Value :
+                        EntityLocalToWorld[rigRoots[i].Value].Value;
+
                     var stream = AnimationStream.CreateReadOnly(rigs[i], data[i].AsNativeArray());
-                    Core.ComputeLocalToRoot(ref stream, localToRoots[i].Reinterpret<float4x4>().AsNativeArray());
+                    Core.ComputeLocalToRoot(ref stream, localToParent, animatedLocalToRoot[i].Reinterpret<float4x4>().AsNativeArray());
                 }
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 Marker.End();
@@ -209,7 +256,55 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        struct ComputeWorldAndRootSpaceJob : IJobChunk
+        struct ComputeRootSpaceJob_RootManagementDisabled : IJobChunk
+        {
+            static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Rig>(),
+                    ComponentType.ReadOnly<AnimatedData>(),
+                    ComponentType.ReadWrite<AnimatedLocalToRoot>(),
+
+                    ComponentType.ReadOnly<DisableRootTransformReadWriteTag>()
+                },
+                None = new ComponentType[]
+                {
+                    typeof(AnimatedLocalToWorld)
+                }
+            };
+
+            [ReadOnly] public ComponentTypeHandle<Rig> Rigs;
+            [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
+
+            public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+            public ProfilerMarker Marker;
+#endif
+
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+                Marker.Begin();
+#endif
+                var rigs = chunk.GetNativeArray(Rigs);
+                var data = chunk.GetBufferAccessor(AnimatedData);
+                var animatedLocalToRoot = chunk.GetBufferAccessor(AnimatedLocalToRoot);
+
+                for (int i = 0; i != chunk.Count; ++i)
+                {
+                    var stream = AnimationStream.CreateReadOnly(rigs[i], data[i].AsNativeArray());
+                    Core.ComputeLocalToRoot(ref stream, float4x4.identity, animatedLocalToRoot[i].Reinterpret<float4x4>().AsNativeArray());
+                }
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+                Marker.End();
+#endif
+            }
+        }
+
+        [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
+        struct ComputeWorldAndRootSpaceJob_RootManagementEnabled : IJobChunk
         {
             static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
             {
@@ -220,56 +315,94 @@ namespace Unity.Animation
                     ComponentType.ReadOnly<AnimatedData>(),
                     ComponentType.ReadWrite<AnimatedLocalToWorld>(),
                     ComponentType.ReadWrite<AnimatedLocalToRoot>()
+                },
+                None = new ComponentType[]
+                {
+                    typeof(DisableRootTransformReadWriteTag)
                 }
             };
 
             [ReadOnly] public ComponentTypeHandle<Rig> Rig;
             [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntity;
             [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
+
             [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
+            [ReadOnly] public ComponentDataFromEntity<LocalToParent> EntityLocalToParent;
 
             public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
             public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
-            public uint LastSystemVersion;
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
             public ProfilerMarker MarkerComputeWorldAndRoot;
-            public ProfilerMarker MarkerComputeRoot;
 #endif
             public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
             {
-                // TODO: Re-enable optimization once https://github.com/Unity-Technologies/dots/pull/4354 lands
-                //
-                // If the animated data and the rig entity LocalToWorld haven't change in the last frame, do not update
-                //var animatedDataDidChange = chunk.DidChange(AnimatedData, LastSystemVersion);
-                //if (!animatedDataDidChange && !chunk.DidChange(LocalToWorld, LastSystemVersion))
-                //    return;
-
                 var rigs = chunk.GetNativeArray(Rig);
                 var rigRoots = chunk.GetNativeArray(RigRootEntity);
                 var animatedLocalToRootAccessor = chunk.GetBufferAccessor(AnimatedLocalToRoot);
 
-                // TODO: Re-enable optimization once https://github.com/Unity-Technologies/dots/pull/4354 lands
-                //
-                // If both the AnimatedData and AnimatedLocalToWorld have changed, then the AnimatedLocalToWorld is already up to date.
-                // For first frame (LastSystemVersion == 0) force AnimatedLocalToWorld and AnimatedLocalToRoot update
-                //if (LastSystemVersion != 0 && animatedDataDidChange && chunk.DidChange(AnimatedLocalToWorld, LastSystemVersion))
-                //{
 #if !UNITY_DISABLE_ANIMATION_PROFILING
-                //    MarkerComputeRoot.Begin();
+                MarkerComputeWorldAndRoot.Begin();
 #endif
-                //    var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
-                //    for (int i = 0; i != chunk.Count; ++i)
-                //    {
-                //        var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());
-                //        Core.ComputeLocalToRoot(ref stream, animatedLocalToRootAccessor[i].Reinterpret<float4x4>().AsNativeArray());
-                //    }
+                var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
+                var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorld);
+                for (int i = 0; i != chunk.Count; ++i)
+                {
+                    var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
+                    var rootLocalToParent = EntityLocalToParent.HasComponent(rigRoots[i].Value) ?
+                        EntityLocalToParent[rigRoots[i].Value].Value :
+                        rootLocalToWorld;
+
+                    var stream = AnimationStream.CreateReadOnly(rigs[i].Value, animatedDataAccessor[i].AsNativeArray());
+                    Core.ComputeLocalToRoot(
+                        ref stream,
+                        rootLocalToParent,
+                        animatedLocalToRootAccessor[i].Reinterpret<float4x4>().AsNativeArray(),
+                        rootLocalToWorld,
+                        animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray()
+                    );
+                }
 #if !UNITY_DISABLE_ANIMATION_PROFILING
-                //    MarkerComputeRoot.End();
+                MarkerComputeWorldAndRoot.End();
 #endif
-                //}
-                //else
-                //{
+            }
+        }
+
+        [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
+        struct ComputeWorldAndRootSpaceJob_RootManagementDisabled : IJobChunk
+        {
+            static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
+            {
+                All = new ComponentType[]
+                {
+                    ComponentType.ReadOnly<Rig>(),
+                    ComponentType.ReadOnly<RigRootEntity>(),
+                    ComponentType.ReadOnly<AnimatedData>(),
+                    ComponentType.ReadWrite<AnimatedLocalToWorld>(),
+                    ComponentType.ReadWrite<AnimatedLocalToRoot>(),
+
+                    ComponentType.ReadOnly<DisableRootTransformReadWriteTag>()
+                }
+            };
+
+            [ReadOnly] public ComponentTypeHandle<Rig> Rig;
+            [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntity;
+            [ReadOnly] public BufferTypeHandle<AnimatedData> AnimatedData;
+
+            [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
+
+            public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
+            public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
+
+#if !UNITY_DISABLE_ANIMATION_PROFILING
+            public ProfilerMarker MarkerComputeWorldAndRoot;
+#endif
+            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            {
+                var rigs = chunk.GetNativeArray(Rig);
+                var rigRoots = chunk.GetNativeArray(RigRootEntity);
+                var animatedLocalToRootAccessor = chunk.GetBufferAccessor(AnimatedLocalToRoot);
+
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 MarkerComputeWorldAndRoot.Begin();
 #endif
@@ -279,17 +412,18 @@ namespace Unity.Animation
                 {
                     var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
                     var stream = AnimationStream.CreateReadOnly(rigs[i].Value, animatedDataAccessor[i].AsNativeArray());
-                    Core.ComputeLocalToWorldAndRoot(
-                        rootLocalToWorld,
+                    Core.ComputeLocalToRoot(
                         ref stream,
-                        animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray(),
-                        animatedLocalToRootAccessor[i].Reinterpret<float4x4>().AsNativeArray()
+                        float4x4.identity,
+                        animatedLocalToRootAccessor[i].Reinterpret<float4x4>().AsNativeArray(),
+                        rootLocalToWorld,
+                        animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray()
                     );
                 }
+
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 MarkerComputeWorldAndRoot.End();
 #endif
-                //}
             }
         }
 

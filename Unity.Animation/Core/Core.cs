@@ -1035,32 +1035,17 @@ namespace Unity.Animation
             output.OrChannelMasks(ref input);
         }
 
-        static public void ComputeLocalToWorld(
-            float4x4 localToWorld,
-            ref AnimationStream stream,
-            NativeArray<float4x4> outLocalToWorlds
-        )
-        {
-            if (stream.IsNull)
-                return;
-
-            int count = stream.Rig.Value.Skeleton.BoneCount;
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(outLocalToWorlds.Length, count);
-#endif
-
-            // Compute world space transforms
-            outLocalToWorlds[0] = math.mul(localToWorld, mathex.float4x4(stream.GetLocalToParentMatrix(0)));
-            for (int i = 1; i != count; ++i)
-            {
-                var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
-                outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], mathex.float4x4(stream.GetLocalToParentMatrix(i)));
-            }
-        }
-
+        /// <summary>
+        /// Compute matrices in LocalToRoot space with the specified offset. For example, if you want to compute
+        /// the LocalToWorld matrices of the rig, pass in the LocalToWorld matrix of the root as the offset parameter.
+        /// </summary>
+        /// <param name="stream">Animation stream</param>
+        /// <param name="offset">An extra offset which applies to all matrices</param>
+        /// <param name="outMatrices">Resulting matrix computation. This array must be preallocated with the same bone count specified by the RigDefinition.</param>
         static public void ComputeLocalToRoot(
             ref AnimationStream stream,
-            NativeArray<float4x4> outLocalToRoots
+            float4x4 offset,
+            NativeArray<float4x4> outMatrices
         )
         {
             if (stream.IsNull)
@@ -1068,48 +1053,75 @@ namespace Unity.Animation
 
             int count = stream.Rig.Value.Skeleton.BoneCount;
 #if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(outLocalToRoots.Length, count);
+            Assert.AreEqual(outMatrices.Length, count);
 #endif
 
-            // Compute object space transforms
-            outLocalToRoots[0] = mathex.float4x4(stream.GetLocalToParentMatrix(0));
+            outMatrices[0] = math.mul(offset, mathex.float4x4(stream.GetLocalToParentMatrix(0)));
             for (int i = 1; i != count; ++i)
             {
                 var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
-                outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], mathex.float4x4(stream.GetLocalToParentMatrix(i)));
+                outMatrices[i] = math.mul(outMatrices[pIdx], mathex.float4x4(stream.GetLocalToParentMatrix(i)));
             }
         }
 
-        static public void ComputeLocalToWorldAndRoot(
-            float4x4 localToWorld,
+        /// <summary>
+        /// Compute two sets of matrices in LocalToRoot space with specified offsets. For example, if you want to compute
+        /// the LocalToWorld matrices of the rig, pass in the LocalToWorld matrix of the root as the offset parameter. This method
+        /// is used to conveniently compute the LocalToRoot and LocalToWorld matrices of an AnimationStream in one pass.
+        /// </summary>
+        /// <param name="stream">Animation stream</param>
+        /// <param name="offset1">An extra offset which applies to all matrices in outMatrices1</param>
+        /// <param name="outMatrices1">Resulting matrix computation using offset1. This array must be preallocated with the same bone count specified by the RigDefinition.</param>
+        /// <param name="offset2">An extra offset which applies to all matrices in outMatrices2</param>
+        /// <param name="outMatrices2">Resulting matrix computation using offset2. This array must be preallocated with the same bone count specified by the RigDefinition.</param>
+        static public void ComputeLocalToRoot(
             ref AnimationStream stream,
-            NativeArray<float4x4> outLocalToWorlds,
-            NativeArray<float4x4> outLocalToRoots
+            float4x4 offset1,
+            NativeArray<float4x4> outMatrices1,
+            float4x4 offset2,
+            NativeArray<float4x4> outMatrices2
         )
         {
-            if (stream.IsNull)
-                return;
-
             int count = stream.Rig.Value.Skeleton.BoneCount;
 #if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(outLocalToWorlds.Length, count);
-            Assert.AreEqual(outLocalToRoots.Length, count);
+            Assert.AreEqual(outMatrices1.Length, count);
+            Assert.AreEqual(outMatrices2.Length, count);
 #endif
 
             var mat = mathex.float4x4(stream.GetLocalToParentMatrix(0));
-            outLocalToWorlds[0] = math.mul(localToWorld, mat);
-            outLocalToRoots[0] = mat;
+            outMatrices1[0] = math.mul(offset1, mat);
+            outMatrices2[0] = math.mul(offset2, mat);
 
-            // Compute object and world transforms
             for (int i = 1; i != count; ++i)
             {
                 var pIdx = stream.Rig.Value.Skeleton.ParentIndexes[i];
                 mat = mathex.float4x4(stream.GetLocalToParentMatrix(i));
 
-                outLocalToWorlds[i] = math.mul(outLocalToWorlds[pIdx], mat);
-                outLocalToRoots[i] = math.mul(outLocalToRoots[pIdx], mat);
+                outMatrices1[i] = math.mul(outMatrices1[pIdx], mat);
+                outMatrices2[i] = math.mul(outMatrices2[pIdx], mat);
             }
         }
+
+        [System.Obsolete("Core.ComputeLocalToWorld is deprecated use Core.ComputeLocalToRoot instead with localToWorld offset. (RemovedAfter 2020-08-29)", false)]
+        static public void ComputeLocalToWorld(
+            float4x4 localToWorld,
+            ref AnimationStream stream,
+            NativeArray<float4x4> outLocalToWorlds
+        ) => ComputeLocalToRoot(ref stream, localToWorld, outLocalToWorlds);
+
+        [System.Obsolete("This overload of Core.ComputeLocalToRoot is deprecated, use other Core.ComputeLocalToRoot with identity offset. (RemovedAfter 2020-08-29)", false)]
+        static public void ComputeLocalToRoot(
+            ref AnimationStream stream,
+            NativeArray<float4x4> outLocalToRoots
+        ) => ComputeLocalToRoot(ref stream, float4x4.identity, outLocalToRoots);
+
+        [System.Obsolete("Core.ComputeLocalToWorldAndRoot is deprecated use other Core.ComputeLocalToRoot with localToParent and localToWorld offsets. (RemovedAfter 2020-08-29)", false)]
+        static public void ComputeLocalToWorldAndRoot(
+            float4x4 localToWorld,
+            ref AnimationStream stream,
+            NativeArray<float4x4> outLocalToWorlds,
+            NativeArray<float4x4> outLocalToRoots
+        ) => ComputeLocalToRoot(ref stream, float4x4.identity, outLocalToRoots, localToWorld, outLocalToWorlds);
 
         static public void ComputeLocalToParentLinearVelocities(
             ref AnimationStream input,
