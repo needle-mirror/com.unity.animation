@@ -5,6 +5,11 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.5.1-preview.3] - 2020-07-08
+
+### Fixed
+- Fixed regression when computing skin matrices causing an unwanted offset when root transform management is enabled.
+
 ## [0.5.1-preview.2] - 2020-06-30
 
 ### Added

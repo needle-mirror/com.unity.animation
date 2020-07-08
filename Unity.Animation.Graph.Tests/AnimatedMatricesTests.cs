@@ -85,17 +85,12 @@ namespace Unity.Animation.Tests
             {
                 // When root transform management is enabled, element data at index 0 of animation stream is
                 // copied back to the RigRoot entity transform components and reset to identity in animation stream.
-                var rigRoot = m_Manager.GetComponentData<RigRootEntity>(rigEntity);
-                var rootL2P = m_Manager.HasComponent<LocalToParent>(rigRoot.Value) ?
-                    m_Manager.GetComponentData<LocalToParent>(rigRoot.Value).Value :
-                    m_Manager.GetComponentData<LocalToWorld>(rigRoot.Value).Value;
-
-                expected[0] = rootL2P;
-                expected[1] = math.mul(expected[0], k_ChildLocalTx);
+                expected[0] = float4x4.identity;
+                expected[1] = k_ChildLocalTx;
             }
             else
             {
-                // When root transform is disabled, everything remains in the animation stream
+                // When root transform management is disabled, everything remains in the animation stream
                 var rig = m_Manager.GetComponentData<Rig>(rigEntity);
                 var rigAnimatedData = m_Manager.GetBuffer<AnimatedData>(rigEntity);
                 var stream = AnimationStream.CreateReadOnly(rig, rigAnimatedData.AsNativeArray());
