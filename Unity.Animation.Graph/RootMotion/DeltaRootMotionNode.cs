@@ -65,7 +65,7 @@ namespace Unity.Animation
                 var currentStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Current));
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
 
-                AnimationStreamUtils.MemCpy(ref outputStream, ref currentStream);
+                outputStream.CopyFrom(ref currentStream);
 
                 // current = prev * delta
                 // delta = Inv(prev) * current

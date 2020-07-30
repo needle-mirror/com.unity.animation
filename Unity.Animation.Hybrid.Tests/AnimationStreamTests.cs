@@ -141,6 +141,33 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
+        public void CannotWriteToReadOnlyStream()
+        {
+            var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
+
+            var stream = AnimationStream.CreateReadOnly(
+                m_Rig,
+                m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
+            );
+
+            Assert.Throws<System.InvalidOperationException>(() => stream.ClearChannelMasks());
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetChannelMasks(true));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetFloat(0, 0.0f));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetInt(0, 0));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToParentRotation(0, quaternion.identity));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToParentScale(0, float3.zero));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToParentTR(0, float3.zero, quaternion.identity));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToParentTranslation(0, float3.zero));
+
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToParentTRS(0, float3.zero, quaternion.identity, float3.zero));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToRootRotation(0, quaternion.identity));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToRootScale(0, float3.zero));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToRootTR(0, float3.zero, quaternion.identity));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToRootTranslation(0, float3.zero));
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToRootTRS(0, float3.zero, quaternion.identity, float3.zero));
+        }
+
+        [Test]
         public void AnimationStreamThrowsIndexOutOfRangeExpections()
         {
             var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
@@ -217,7 +244,7 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-        public void AnimationStreamThrowsArithmeticExceptionsOnInvalidInput()
+        public void AnimationStreamThrowsNotFiniteNumberExceptionsOnInvalidInput()
         {
             var data = CreateAndEvaluateSimpleClipGraph(0.0f, m_Rig, m_ConstantHierarchyClip);
 
@@ -232,33 +259,33 @@ namespace Unity.Animation.Tests
             quaternion nanQuaternion = new quaternion(0f, 0f, 0f, float.NaN);
 
             Assert.IsFalse(streamECS.IsNull);
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToParentTranslation(0, infFloat3));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToParentRotation(0, infQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToParentScale(0, infFloat3));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetFloat(0, float.PositiveInfinity));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToParentTR(0, infFloat3, infQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToParentTRS(0, infFloat3, infQuaternion, infFloat3));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToRootTranslation(1, nanFloat3));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToRootRotation(1, nanQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToRootScale(1, nanFloat3));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToRootTR(1, nanFloat3, nanQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => streamECS.SetLocalToRootTRS(1, nanFloat3, nanQuaternion, nanFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToParentTranslation(0, infFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToParentRotation(0, infQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToParentScale(0, infFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetFloat(0, float.PositiveInfinity));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToParentTR(0, infFloat3, infQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToParentTRS(0, infFloat3, infQuaternion, infFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToRootTranslation(1, nanFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToRootRotation(1, nanQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToRootScale(1, nanFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToRootTR(1, nanFloat3, nanQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => streamECS.SetLocalToRootTRS(1, nanFloat3, nanQuaternion, nanFloat3));
 
             var readWriteBuffer = DFGUtils.GetGraphValueTempNativeBuffer(Set, data.Buffer);
             var graphStream = AnimationStream.Create(m_Rig, readWriteBuffer);
 
             Assert.IsFalse(graphStream.IsNull);
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToParentTranslation(0, infFloat3));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToParentRotation(0, infQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToParentScale(0, infFloat3));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetFloat(0, float.PositiveInfinity));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToParentTR(0, infFloat3, infQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToParentTRS(0, infFloat3, infQuaternion, infFloat3));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToRootTranslation(1, nanFloat3));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToRootRotation(1, nanQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToRootScale(1, nanFloat3));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToRootTR(1, nanFloat3, nanQuaternion));
-            Assert.Throws<System.ArithmeticException>(() => graphStream.SetLocalToRootTRS(1, nanFloat3, nanQuaternion, nanFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToParentTranslation(0, infFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToParentRotation(0, infQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToParentScale(0, infFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetFloat(0, float.PositiveInfinity));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToParentTR(0, infFloat3, infQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToParentTRS(0, infFloat3, infQuaternion, infFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToRootTranslation(1, nanFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToRootRotation(1, nanQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToRootScale(1, nanFloat3));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToRootTR(1, nanFloat3, nanQuaternion));
+            Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToRootTRS(1, nanFloat3, nanQuaternion, nanFloat3));
 
             readWriteBuffer.Dispose();
         }

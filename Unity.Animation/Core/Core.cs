@@ -47,12 +47,10 @@ namespace Unity.Animation
             NativeArray<WeightData> weightMasks
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input1.Rig.Value.GetHashCode());
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input2.Rig.Value.GetHashCode());
-            Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input1);
+            output.ValidateRigEquality(ref input2);
+            output.ValidateCompatibility(weightMasks);
 
             int wIdx = 0;
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
@@ -85,11 +83,9 @@ namespace Unity.Animation
             float weight
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input1.Rig.Value.GetHashCode());
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input2.Rig.Value.GetHashCode());
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input1);
+            output.ValidateRigEquality(ref input2);
 
             // Blend 4 wide lerp non rotation data
             float4* input1Data = input1.GetDataChunkUnsafePtr();
@@ -119,11 +115,9 @@ namespace Unity.Animation
             NativeArray<WeightData> weightMasks
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
-            Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input);
+            output.ValidateCompatibility(weightMasks);
 
             int wIdx = 0;
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
@@ -153,10 +147,8 @@ namespace Unity.Animation
             float weight
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input);
 
             // Blend 4-wide lerp non rotation data
             float4* inputData  = input.GetDataChunkUnsafePtr();
@@ -184,11 +176,9 @@ namespace Unity.Animation
             NativeArray<WeightData> weightMasks
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
-            Assert.AreEqual(WeightDataSize(output.Rig), weightMasks.Length);
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input);
+            output.ValidateCompatibility(weightMasks);
 
             int wIdx = 0;
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
@@ -218,10 +208,8 @@ namespace Unity.Animation
             float weight
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input);
 
             ref var bindings = ref output.Rig.Value.Bindings;
 
@@ -250,10 +238,11 @@ namespace Unity.Animation
             ref AnimationStream sourceStream
         )
         {
+            destinationStream.ValidateIsNotNull();
+            sourceStream.ValidateIsNotNull();
+
 #if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsTrue(remapTable.IsCreated);
-            Assert.IsFalse(destinationStream.IsNull);
-            Assert.IsFalse(sourceStream.IsNull);
 #endif
 
             ref var remap = ref remapTable.Value;
@@ -601,18 +590,17 @@ namespace Unity.Animation
 
         static unsafe public void EvaluateClip(BlobAssetReference<ClipInstance> clipInstance, float time, ref AnimationStream stream, int additive)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(clipInstance.Value.RigHashCode, stream.Rig.Value.GetHashCode());
-#endif
+            stream.ValidateIsNotNull();
+            stream.ValidateCompatibility(clipInstance);
 
             if (additive == 0)
             {
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
                 stream.ClearChannelMasks();
             }
             else
             {
-                AnimationStreamUtils.MemClear(ref stream);
+                stream.ResetToZero();
             }
 
             ref var clip = ref clipInstance.Value.Clip;
@@ -627,7 +615,7 @@ namespace Unity.Animation
                 int i = 0;
                 int count = bindings.RotationBindings.Length;
                 int curveIndex = bindings.RotationSamplesOffset;
-                for (; i + 4 < count; i += 4, curveIndex += BindingSet.RotationKeyFloatCount * 4)
+                for (; i + 3 < count; i += 4, curveIndex += BindingSet.RotationKeyFloatCount * 4)
                 {
                     var leftKey  = (quaternion*)(samplesPtr + curveIndex + keyframe.Left);
                     var rightKey = (quaternion*)(samplesPtr + curveIndex + keyframe.Right);
@@ -638,34 +626,17 @@ namespace Unity.Animation
                         result[j] = mathex.lerp(leftKey[j], rightKey[j], keyframe.Weight);
                     }
 
-                    var i0 = clipInstance.Value.RotationBindingMap[i + 0];
-                    var i1 = clipInstance.Value.RotationBindingMap[i + 1];
-                    var i2 = clipInstance.Value.RotationBindingMap[i + 2];
-                    var i3 = clipInstance.Value.RotationBindingMap[i + 3];
-
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(i0 != -1);
-                    Assert.IsTrue(i1 != -1);
-                    Assert.IsTrue(i2 != -1);
-                    Assert.IsTrue(i3 != -1);
-#endif
-
-                    stream.SetLocalToParentRotation(i0, result[0]);
-                    stream.SetLocalToParentRotation(i1, result[1]);
-                    stream.SetLocalToParentRotation(i2, result[2]);
-                    stream.SetLocalToParentRotation(i3, result[3]);
+                    stream.SetLocalToParentRotation(clipInstance.Value.RotationBindingMap[i + 0], result[0]);
+                    stream.SetLocalToParentRotation(clipInstance.Value.RotationBindingMap[i + 1], result[1]);
+                    stream.SetLocalToParentRotation(clipInstance.Value.RotationBindingMap[i + 2], result[2]);
+                    stream.SetLocalToParentRotation(clipInstance.Value.RotationBindingMap[i + 3], result[3]);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.RotationKeyFloatCount)
                 {
-                    var index = clipInstance.Value.RotationBindingMap[i];
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(index != -1);
-#endif
-
                     ref var leftKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Left);
                     ref var rightKey = ref GetDataInSample<quaternion>(ref clip.Samples, curveIndex + keyframe.Right);
-                    stream.SetLocalToParentRotation(index, mathex.lerp(leftKey, rightKey, keyframe.Weight));
+                    stream.SetLocalToParentRotation(clipInstance.Value.RotationBindingMap[i], mathex.lerp(leftKey, rightKey, keyframe.Weight));
                 }
             }
 
@@ -674,7 +645,7 @@ namespace Unity.Animation
                 int i = 0;
                 int count = bindings.TranslationBindings.Length;
                 int curveIndex = bindings.TranslationSamplesOffset;
-                for (; i + 5 < count; i += 5, curveIndex += BindingSet.TranslationKeyFloatCount * 5)
+                for (; i + 4 < count; i += 5, curveIndex += BindingSet.TranslationKeyFloatCount * 5)
                 {
                     var leftKey  = (float4*)(samplesPtr + curveIndex + keyframe.Left);
                     var rightKey = (float4*)(samplesPtr + curveIndex + keyframe.Right);
@@ -685,38 +656,19 @@ namespace Unity.Animation
                         result[j] = math.lerp(leftKey[j], rightKey[j], keyframe.Weight);
                     }
 
-                    var i0 = clipInstance.Value.TranslationBindingMap[i + 0];
-                    var i1 = clipInstance.Value.TranslationBindingMap[i + 1];
-                    var i2 = clipInstance.Value.TranslationBindingMap[i + 2];
-                    var i3 = clipInstance.Value.TranslationBindingMap[i + 3];
-                    var i4 = clipInstance.Value.TranslationBindingMap[i + 4];
-
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(i0 != -1);
-                    Assert.IsTrue(i1 != -1);
-                    Assert.IsTrue(i2 != -1);
-                    Assert.IsTrue(i3 != -1);
-                    Assert.IsTrue(i4 != -1);
-#endif
-
                     var float3Data = (float3*)scratchPtr;
-                    stream.SetLocalToParentTranslation(i0, float3Data[0]);
-                    stream.SetLocalToParentTranslation(i1, float3Data[1]);
-                    stream.SetLocalToParentTranslation(i2, float3Data[2]);
-                    stream.SetLocalToParentTranslation(i3, float3Data[3]);
-                    stream.SetLocalToParentTranslation(i4, float3Data[4]);
+                    stream.SetLocalToParentTranslation(clipInstance.Value.TranslationBindingMap[i + 0], float3Data[0]);
+                    stream.SetLocalToParentTranslation(clipInstance.Value.TranslationBindingMap[i + 1], float3Data[1]);
+                    stream.SetLocalToParentTranslation(clipInstance.Value.TranslationBindingMap[i + 2], float3Data[2]);
+                    stream.SetLocalToParentTranslation(clipInstance.Value.TranslationBindingMap[i + 3], float3Data[3]);
+                    stream.SetLocalToParentTranslation(clipInstance.Value.TranslationBindingMap[i + 4], float3Data[4]);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.TranslationKeyFloatCount)
                 {
-                    var index = clipInstance.Value.TranslationBindingMap[i];
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(index != -1);
-#endif
-
                     ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
                     ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
-                    stream.SetLocalToParentTranslation(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                    stream.SetLocalToParentTranslation(clipInstance.Value.TranslationBindingMap[i], math.lerp(leftKey, rightKey, keyframe.Weight));
                 }
             }
 
@@ -725,7 +677,7 @@ namespace Unity.Animation
                 int i = 0;
                 int count = bindings.ScaleBindings.Length;
                 int curveIndex = bindings.ScaleSamplesOffset;
-                for (; i + 5 < count; i += 5, curveIndex += BindingSet.ScaleKeyFloatCount * 5)
+                for (; i + 4 < count; i += 5, curveIndex += BindingSet.ScaleKeyFloatCount * 5)
                 {
                     var leftKey  = (float4*)(samplesPtr + curveIndex + keyframe.Left);
                     var rightKey = (float4*)(samplesPtr + curveIndex + keyframe.Right);
@@ -736,38 +688,19 @@ namespace Unity.Animation
                         result[j] = math.lerp(leftKey[j], rightKey[j], keyframe.Weight);
                     }
 
-                    var i0 = clipInstance.Value.ScaleBindingMap[i + 0];
-                    var i1 = clipInstance.Value.ScaleBindingMap[i + 1];
-                    var i2 = clipInstance.Value.ScaleBindingMap[i + 2];
-                    var i3 = clipInstance.Value.ScaleBindingMap[i + 3];
-                    var i4 = clipInstance.Value.ScaleBindingMap[i + 4];
-
- #if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(i0 != -1);
-                    Assert.IsTrue(i1 != -1);
-                    Assert.IsTrue(i2 != -1);
-                    Assert.IsTrue(i3 != -1);
-                    Assert.IsTrue(i4 != -1);
-#endif
-
                     var float3Data = (float3*)scratchPtr;
-                    stream.SetLocalToParentScale(i0, float3Data[0]);
-                    stream.SetLocalToParentScale(i1, float3Data[1]);
-                    stream.SetLocalToParentScale(i2, float3Data[2]);
-                    stream.SetLocalToParentScale(i3, float3Data[3]);
-                    stream.SetLocalToParentScale(i4, float3Data[4]);
+                    stream.SetLocalToParentScale(clipInstance.Value.ScaleBindingMap[i + 0], float3Data[0]);
+                    stream.SetLocalToParentScale(clipInstance.Value.ScaleBindingMap[i + 1], float3Data[1]);
+                    stream.SetLocalToParentScale(clipInstance.Value.ScaleBindingMap[i + 2], float3Data[2]);
+                    stream.SetLocalToParentScale(clipInstance.Value.ScaleBindingMap[i + 3], float3Data[3]);
+                    stream.SetLocalToParentScale(clipInstance.Value.ScaleBindingMap[i + 4], float3Data[4]);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.ScaleKeyFloatCount)
                 {
-                    var index = clipInstance.Value.ScaleBindingMap[i];
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(index != -1);
-#endif
-
                     ref var leftKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Left);
                     ref var rightKey = ref GetDataInSample<float3>(ref clip.Samples, curveIndex + keyframe.Right);
-                    stream.SetLocalToParentScale(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                    stream.SetLocalToParentScale(clipInstance.Value.ScaleBindingMap[i], math.lerp(leftKey, rightKey, keyframe.Weight));
                 }
             }
 
@@ -776,7 +709,7 @@ namespace Unity.Animation
                 int i = 0;
                 int count = bindings.FloatBindings.Length;
                 int curveIndex = bindings.FloatSamplesOffset;
-                for (; i + 4 < count; i += 4, curveIndex += BindingSet.FloatKeyFloatCount * 4)
+                for (; i + 3 < count; i += 4, curveIndex += BindingSet.FloatKeyFloatCount * 4)
                 {
                     var leftKey  = (float4*)(samplesPtr + curveIndex + keyframe.Left);
                     var rightKey = (float4*)(samplesPtr + curveIndex + keyframe.Right);
@@ -784,34 +717,17 @@ namespace Unity.Animation
 
                     *result = math.lerp(*leftKey, *rightKey, keyframe.Weight);
 
-                    var i0 = clipInstance.Value.FloatBindingMap[i + 0];
-                    var i1 = clipInstance.Value.FloatBindingMap[i + 1];
-                    var i2 = clipInstance.Value.FloatBindingMap[i + 2];
-                    var i3 = clipInstance.Value.FloatBindingMap[i + 3];
-
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(i0 != -1);
-                    Assert.IsTrue(i1 != -1);
-                    Assert.IsTrue(i2 != -1);
-                    Assert.IsTrue(i3 != -1);
-#endif
-
-                    stream.SetFloat(i0, scratchPtr[0]);
-                    stream.SetFloat(i1, scratchPtr[1]);
-                    stream.SetFloat(i2, scratchPtr[2]);
-                    stream.SetFloat(i3, scratchPtr[3]);
+                    stream.SetFloat(clipInstance.Value.FloatBindingMap[i + 0], scratchPtr[0]);
+                    stream.SetFloat(clipInstance.Value.FloatBindingMap[i + 1], scratchPtr[1]);
+                    stream.SetFloat(clipInstance.Value.FloatBindingMap[i + 2], scratchPtr[2]);
+                    stream.SetFloat(clipInstance.Value.FloatBindingMap[i + 3], scratchPtr[3]);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.FloatKeyFloatCount)
                 {
-                    var index = clipInstance.Value.FloatBindingMap[i];
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(index != -1);
-#endif
-
                     var leftKey = clip.Samples[curveIndex + keyframe.Left];
                     var rightKey = clip.Samples[curveIndex + keyframe.Right];
-                    stream.SetFloat(index, math.lerp(leftKey, rightKey, keyframe.Weight));
+                    stream.SetFloat(clipInstance.Value.FloatBindingMap[i], math.lerp(leftKey, rightKey, keyframe.Weight));
                 }
             }
 
@@ -822,37 +738,20 @@ namespace Unity.Animation
                 int curveIndex = bindings.IntSamplesOffset;
 
                 // TODO: Find the algorithm we want. Right now take the left most key.
-                for (; i + 4 < count; i += 4, curveIndex += BindingSet.IntKeyFloatCount * 4)
+                for (; i + 3 < count; i += 4, curveIndex += BindingSet.IntKeyFloatCount * 4)
                 {
                     var leftKey = *(float4*)(samplesPtr + curveIndex + keyframe.Left);
 
-                    var i0 = clipInstance.Value.IntBindingMap[i + 0];
-                    var i1 = clipInstance.Value.IntBindingMap[i + 1];
-                    var i2 = clipInstance.Value.IntBindingMap[i + 2];
-                    var i3 = clipInstance.Value.IntBindingMap[i + 3];
-
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(i0 != -1);
-                    Assert.IsTrue(i1 != -1);
-                    Assert.IsTrue(i2 != -1);
-                    Assert.IsTrue(i3 != -1);
-#endif
-
-                    stream.SetInt(i0, (int)leftKey.x);
-                    stream.SetInt(i1, (int)leftKey.y);
-                    stream.SetInt(i2, (int)leftKey.z);
-                    stream.SetInt(i3, (int)leftKey.w);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 0], (int)leftKey.x);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 1], (int)leftKey.y);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 2], (int)leftKey.z);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 3], (int)leftKey.w);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
                 {
-                    var index = clipInstance.Value.IntBindingMap[i];
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(index != -1);
-#endif
-
                     var leftKey = clip.Samples[curveIndex + keyframe.Left];
-                    stream.SetInt(index, (int)leftKey);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i], (int)leftKey);
                 }
             }
         }
@@ -874,7 +773,9 @@ namespace Unity.Animation
 
         static public void MixerBegin(ref AnimationStream output)
         {
-            AnimationStreamUtils.MemClear(ref output);
+            output.ValidateIsNotNull();
+
+            output.ResetToZero();
         }
 
         static unsafe public void MixerEnd(
@@ -883,6 +784,8 @@ namespace Unity.Animation
             float sumWeight
         )
         {
+            output.ValidateIsNotNull();
+
             if (sumWeight < 1.0F)
             {
                 if (defaultPoseInput.IsNull)
@@ -909,11 +812,8 @@ namespace Unity.Animation
             float sumWeight
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.IsFalse(add.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), add.Rig.Value.GetHashCode());
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref add);
 
             // Add 4-wide non rotational data
             float4* addData    = add.GetDataChunkUnsafePtr();
@@ -942,13 +842,9 @@ namespace Unity.Animation
             ref AnimationStream inputB
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.IsFalse(inputA.IsNull);
-            Assert.IsFalse(inputB.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), inputA.Rig.Value.GetHashCode());
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), inputB.Rig.Value.GetHashCode());
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref inputA);
+            output.ValidateRigEquality(ref inputB);
 
             float4* inputAData = inputA.GetDataChunkUnsafePtr();
             float4* inputBData = inputB.GetDataChunkUnsafePtr();
@@ -975,11 +871,8 @@ namespace Unity.Animation
             ref AnimationStream input
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.IsFalse(input.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input);
 
             // 4-wide inverse
             float4* inputData  = input.GetDataChunkUnsafePtr();
@@ -1006,12 +899,9 @@ namespace Unity.Animation
             NativeArray<WeightData> weights
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(output.IsNull);
-            Assert.IsFalse(input.IsNull);
-            Assert.AreEqual(output.Rig.Value.GetHashCode(), input.Rig.Value.GetHashCode());
-            Assert.AreEqual(WeightDataSize(output.Rig), weights.Length);
-#endif
+            output.ValidateIsNotNull();
+            output.ValidateRigEquality(ref input);
+            output.ValidateCompatibility(weights);
 
             int wIdx = 0;
             float4* weight = (float4*)weights.GetUnsafeReadOnlyPtr();
@@ -1130,10 +1020,12 @@ namespace Unity.Animation
             NativeArray<float3> outVelocities
         )
         {
+            input.ValidateIsNotNull();
+            input.ValidateRigEquality(ref previousInput);
+
             int translationCount = input.Rig.Value.Skeleton.BoneCount;
 
 #if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(input.Rig.Value.GetHashCode(), previousInput.Rig.Value.GetHashCode());
             Assert.AreEqual(translationCount, outVelocities.Length);
             Assert.AreNotEqual(0f, deltaTime);
 #endif
@@ -1157,10 +1049,12 @@ namespace Unity.Animation
             NativeArray<float3> outAngularVelocities
         )
         {
+            input.ValidateIsNotNull();
+            input.ValidateRigEquality(ref previousInput);
+
             int rotationCount = input.Rig.Value.Skeleton.BoneCount;
 
 #if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(input.Rig.Value.GetHashCode(), previousInput.Rig.Value.GetHashCode());
             Assert.AreEqual(rotationCount, outAngularVelocities.Length);
             Assert.AreNotEqual(0f, deltaTime);
 #endif
@@ -1188,10 +1082,12 @@ namespace Unity.Animation
             NativeArray<float3> outVelocities
         )
         {
+            input.ValidateIsNotNull();
+            input.ValidateRigEquality(ref previousInput);
+
             int translationCount = input.Rig.Value.Skeleton.BoneCount;
 
 #if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(input.Rig.Value.GetHashCode(), previousInput.Rig.Value.GetHashCode());
             Assert.AreEqual(translationCount, outVelocities.Length);
             Assert.AreNotEqual(0f, deltaTime);
 #endif
@@ -1216,10 +1112,12 @@ namespace Unity.Animation
             NativeArray<float3> outAngularVelocities
         )
         {
+            input.ValidateIsNotNull();
+            input.ValidateRigEquality(ref previousInput);
+
             int rotationCount = input.Rig.Value.Skeleton.BoneCount;
 
 #if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(input.Rig.Value.GetHashCode(), previousInput.Rig.Value.GetHashCode());
             Assert.AreEqual(rotationCount, outAngularVelocities.Length);
             Assert.AreNotEqual(0f, deltaTime);
 #endif

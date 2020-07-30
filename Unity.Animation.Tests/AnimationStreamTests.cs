@@ -174,7 +174,7 @@ namespace Unity.Animation.Tests
             quaternion newChildLocalRotation = quaternion.RotateZ(math.radians(20));
             float3 newChildLocalScale = new float3(2f, 2f, 1f);
 
-            var streamECS = AnimationStream.CreateReadOnly(
+            var streamECS = AnimationStream.Create(
                 m_Rig,
                 m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
             );
@@ -274,7 +274,7 @@ namespace Unity.Animation.Tests
             quaternion newChildRotation = quaternion.RotateZ(math.radians(20));
             float3 newChildScale = new float3(1f, 0.5f, 2f);
 
-            var streamECS = AnimationStream.CreateReadOnly(
+            var streamECS = AnimationStream.Create(
                 m_Rig,
                 m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
             );
@@ -343,7 +343,7 @@ namespace Unity.Animation.Tests
 
             const float k_NewFloat = 10f;
 
-            var streamECS = AnimationStream.CreateReadOnly(
+            var streamECS = AnimationStream.Create(
                 m_Rig,
                 m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
             );
@@ -373,7 +373,7 @@ namespace Unity.Animation.Tests
 
             const int k_NewInt = 20;
 
-            var streamECS = AnimationStream.CreateReadOnly(
+            var streamECS = AnimationStream.Create(
                 m_Rig,
                 m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
             );

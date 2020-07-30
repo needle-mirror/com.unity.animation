@@ -315,7 +315,12 @@ namespace Unity.Animation.Tests
 
             if (rigRoot != Entity.Null)
             {
-                m_Manager.AddComponentData(rigEntity, new RigRootEntity { Value = rigRoot });
+                m_Manager.AddComponentData(rigEntity,
+                    new RigRootEntity
+                    {
+                        Value = rigRoot,
+                        RemapToRootMatrix = AffineTransform.identity
+                    });
             }
             else
             {

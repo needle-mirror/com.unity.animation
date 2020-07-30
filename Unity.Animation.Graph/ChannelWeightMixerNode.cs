@@ -74,15 +74,15 @@ namespace Unity.Animation
                     throw new System.InvalidOperationException($"ChannelWeightMixerNode: WeightMasks size does not match RigDefinition. WeightMasks size is '{weightMasks.Length}' but RigDefinition expects a size of '{Core.WeightDataSize(inputStream0.Rig)}'.");
 
                 if (inputStream0.IsNull && inputStream1.IsNull)
-                    AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                    outputStream.ResetToDefaultValues();
                 else if (inputStream0.IsNull && !inputStream1.IsNull)
                 {
-                    AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                    outputStream.ResetToDefaultValues();
                     Core.Blend(ref outputStream, ref outputStream, ref inputStream1, weight, weightMasks);
                 }
                 else if (!inputStream0.IsNull && inputStream1.IsNull)
                 {
-                    AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                    outputStream.ResetToDefaultValues();
                     Core.Blend(ref outputStream, ref inputStream0, ref outputStream, weight, weightMasks);
                 }
                 else

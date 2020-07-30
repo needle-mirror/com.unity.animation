@@ -70,9 +70,9 @@ namespace Unity.Animation
                 var defaultStream = AnimationStream.CreateReadOnly(data.DestinationRigDefinition, context.Resolve(ports.DefaultPoseInput));
                 var destinationStream = AnimationStream.Create(data.DestinationRigDefinition, context.Resolve(ref ports.Output));
                 if (defaultStream.IsNull)
-                    AnimationStreamUtils.SetDefaultValues(ref destinationStream);
+                    destinationStream.ResetToDefaultValues();
                 else
-                    AnimationStreamUtils.MemCpy(ref destinationStream, ref defaultStream);
+                    destinationStream.CopyFrom(ref defaultStream);
 
                 if (data.SourceRigDefinition != default && data.RemapTable != default)
                 {

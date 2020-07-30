@@ -5,6 +5,56 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.6.0-preview.2] - 2020-07-30
+
+### Added
+- Added an experimental node `WorldToRootNode` that remaps a transform matrix from world space to root space.
+
+### Changed
+- Changed the `RigRootEntity` component to store the `RemapToRootMatrix`, a matrix used to compute the remapping from world space to root space. Note: This is not the complete remapping matrix, it needs to be multiplied with the value of index 0 of the stream and the result of this multiplication must be inverted.
+
+## [0.6.0-preview.1] - 2020-07-24
+
+### Added
+- Added new methods to `AnimationStream`:
+    - `AnimationStream.CopyFrom(ref AnimationStream other)`
+    - `AnimationStream.ResetToZero()`
+    - `AnimationStream.ResetToDefaultValues()`
+- Added two core functions for inertial motion blending:
+    - `Core.InertialBlend`
+    - `Core.ComputeInertialBlendingCoefficients`
+
+### Changed
+- Updated minimum Unity Editor version to 2020.1.0b15.
+- Deformations only work with com.unity.rendering.hybrid 0.7.0-preview.24 and above.
+- `AnimationStream` validation checks are now enabled by `ENABLE_UNITY_COLLECTIONS_CHECKS` rather than disabled by `UNITY_DISABLE_ANIMATION_CHECKS`
+- Changed exception thrown by `AnimationStream` from `System.ArithmeticException` to `System.NotFiniteNumberException` for invalid input data.
+- RigComponent now shows the used bones in its inspector as a tree structure, which can be edited in the inspector. 
+A number of safety checks have been added that make it impossible to add transforms that are not children of the RigComponent, 
+or the transform of the RigComponent itself. Every transform is checked to always have an unbroken chain of transforms 
+from it to the skeleton tree root. Besides the tree structure there are several other UX improvements, such as a search 
+filter that filters the bones in the treeview. In addition to this the bones show their index and are draggable. 
+Finally, when editing the RigComponent bones, it's possible to set the Skeleton Tree Root, which represents the 
+top most bone in the animation skeleton.
+- Upgraded com.unity.dataflowgraph to 0.16.0-preview.2
+- Upgraded com.unity.entities to 0.13.0-preview.24
+- Upgraded com.unity.collections to 0.11.0-preview.17
+- Upgraded com.unity.jobs to 0.4.0-preview.18
+- Upgraded com.unity.burst to 1.3.2
+
+### Upgrade Guide
+- The first time you modify a RigComponent after upgrading, its serialized data are automatically updated to ensure it is valid. 
+If you have any prefab instances or variants with overrides to the Bones property, you should verify these overrides for correctness.
+
+### Deprecated
+- Deprecated `AnimationStreamUtils`:
+    - `AnimationStreamUtils.MemCpy(ref AnimationStream dst, ref AnimationStream src)` is replaced with `AnimationStream.CopyFrom(ref AnimationStream other)`
+    - `AnimationStreamUtils.SetDefaultValues(ref AnimationStream stream)` is replaced with `AnimationStream.ResetToDefaultValues()`
+    - `AnimationStreamUtils.MemClear(ref AnimationStream stream)` is replaced with `AnimationStream.ResetToZero()`
+
+### Known Issues
+- HDRP 8 is not compatible with the deformation pipeline. Use HDRP 9+ instead.
+
 ## [0.5.1-preview.3] - 2020-07-08
 
 ### Fixed
@@ -19,6 +69,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Changed function signature of `Core.ComputeLocalToWorld()`.
+
+### Deprecated
 - Deprecated `Core.ComputeLocalToWorld()` and `Core.ComputeLocalToWorldAndRoot()` since these can be expressed using `Core.ComputeLocalToRoot()` with a LocalToWorld offset.
 
 ### Fixed

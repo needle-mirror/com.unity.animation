@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
@@ -12,38 +13,31 @@ namespace Unity.Animation
     unsafe internal struct Ptr<T> where T : unmanaged
     {
         internal T* m_Ptr;
-        internal int m_Length;
 
-        public Ptr(T* ptr, int length)
+        public Ptr(T* ptr)
         {
             m_Ptr = ptr;
-            m_Length = length;
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ref T Get(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (m_Ptr == null)
-                throw new System.NullReferenceException("Invalid offset pointer");
-            if ((uint)index >= (uint)m_Length)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, m_Length));
-#endif
-
+            ValidateIsNotNull();
             return ref UnsafeUtility.AsRef<T>(m_Ptr + index);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Set(int index, in T value)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (m_Ptr == null)
-                throw new System.NullReferenceException("Invalid offset pointer");
-            if ((uint)index >= (uint)m_Length)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, m_Length));
-#endif
-
+            ValidateIsNotNull();
             UnsafeUtility.AsRef<T>(m_Ptr + index) = value;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void ValidateIsNotNull()
+        {
+            if (m_Ptr == null)
+                throw new System.NullReferenceException("AnimationStream: null pointer.");
         }
     }
 
@@ -51,25 +45,35 @@ namespace Unity.Animation
     /// An AnimationStream is a data proxy to a Rig's AnimatedData. It can be used to read from or write to individual rig channels.
     /// </summary>
     [DebuggerTypeProxy(typeof(AnimationStreamDebugView))]
-    public struct AnimationStream
+    public partial struct AnimationStream
     {
         /// <summary>
         /// The Rig used to create this AnimationStream.
         /// </summary>
         public BlobAssetReference<RigDefinition> Rig;
 
-        internal Ptr<float3>      m_LocalTranslationData;
-        internal Ptr<float3>      m_LocalScaleData;
-        internal Ptr<float>       m_FloatData;
-        internal Ptr<int>         m_IntData;
-        internal Ptr<quaternion4> m_LocalRotationData;
+        Ptr<float3>      m_LocalTranslationData;
+        Ptr<float3>      m_LocalScaleData;
+        Ptr<float>       m_FloatData;
+        Ptr<int>         m_IntData;
+        Ptr<quaternion4> m_LocalRotationData;
 
         /// <summary>
         /// Channel masks keep track of which channels have been modified.
         /// </summary>
-        internal UnsafeBitArray   m_ChannelMasks;
+        UnsafeBitArray   m_ChannelMasks;
 
-        public static AnimationStream Null => default;
+        int m_IsReadOnly;
+
+        public static readonly AnimationStream Null = default;
+
+        internal bool IsReadOnly
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => m_IsReadOnly != 0;
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set => m_IsReadOnly = value ? 1 : 0;
+        }
 
         public bool IsNull
         {
@@ -77,25 +81,92 @@ namespace Unity.Animation
             get => Rig == default;
         }
 
+        /// <summary>
+        /// Constructs a new AnimationStream given a rig and its AnimatedData.
+        /// </summary>
+        unsafe public static AnimationStream Create(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
+        {
+            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
+                return Null;
+
+            return Create(rig, buffer.GetUnsafePtr());
+        }
+
+        unsafe public static AnimationStream CreateReadOnly(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
+        {
+            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
+                return Null;
+
+            return Create(rig, buffer.GetUnsafeReadOnlyPtr(), true);
+        }
+
+        /// <summary>
+        /// Constructs a new AnimationStream given a rig and its AnimatedData.
+        /// </summary>
+        unsafe internal static AnimationStream Create(BlobAssetReference<RigDefinition> rig, void* ptr, bool isReadOnly = false)
+        {
+            ref var bindings = ref rig.Value.Bindings;
+            float* floatPtr = (float*)ptr;
+
+            return new AnimationStream()
+            {
+                Rig = rig,
+                m_LocalTranslationData = new Ptr<float3>((float3*)(floatPtr + bindings.TranslationSamplesOffset)),
+                m_LocalScaleData = new Ptr<float3>((float3*)(floatPtr + bindings.ScaleSamplesOffset)),
+                m_FloatData = new Ptr<float>((floatPtr + bindings.FloatSamplesOffset)),
+                m_IntData = new Ptr<int>((int*)(floatPtr + bindings.IntSamplesOffset)),
+                m_LocalRotationData = new Ptr<quaternion4>((quaternion4*)(floatPtr + bindings.RotationSamplesOffset)),
+                m_ChannelMasks = new UnsafeBitArray((void*)(floatPtr + bindings.ChannelMaskOffset), Core.AlignUp(bindings.BindingCount / sizeof(byte) * 8, 8)),
+                IsReadOnly = isReadOnly
+            };
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float3 GetLocalToParentTranslation(int index) => m_LocalTranslationData.Get(index);
+        public float3 GetLocalToParentTranslation(int index)
+        {
+            ValidateIsNotNull();
+            ValidateIndexBoundsForTranslation(index);
+
+            return m_LocalTranslationData.Get(index);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public quaternion GetLocalToParentRotation(int index)
         {
+            ValidateIsNotNull();
+            ValidateIndexBoundsForRotation(index);
+
             int idx = index & 0x3; // equivalent to % 4
             ref quaternion4 q4 = ref m_LocalRotationData.Get(index >> 2);
             return math.quaternion(q4.x[idx], q4.y[idx], q4.z[idx], q4.w[idx]);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float3 GetLocalToParentScale(int index) => m_LocalScaleData.Get(index);
+        public float3 GetLocalToParentScale(int index)
+        {
+            ValidateIsNotNull();
+            ValidateIndexBoundsForScale(index);
+
+            return m_LocalScaleData.Get(index);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public float GetFloat(int index) => m_FloatData.Get(index);
+        public float GetFloat(int index)
+        {
+            ValidateIsNotNull();
+            ValidateIndexBoundsForFloat(index);
+
+            return m_FloatData.Get(index);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetInt(int index) => m_IntData.Get(index);
+        public int GetInt(int index)
+        {
+            ValidateIsNotNull();
+            ValidateIndexBoundsForInt(index);
+
+            return m_IntData.Get(index);
+        }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public AffineTransform GetLocalToParentMatrix(int index) =>
@@ -127,9 +198,11 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetLocalToParentTranslation(int index, in float3 translation)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
+            ValidateIsNotNull();
+            ValidateIsWritable();
             ValidateIsFinite(translation);
-#endif
+            ValidateIndexBoundsForTranslation(index);
+
             m_LocalTranslationData.Set(index, translation);
             m_ChannelMasks.Set(Rig.Value.Bindings.TranslationBindingIndex + index, true);
         }
@@ -137,9 +210,11 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetLocalToParentRotation(int index, in quaternion rotation)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
+            ValidateIsNotNull();
+            ValidateIsWritable();
             ValidateIsFinite(rotation);
-#endif
+            ValidateIndexBoundsForRotation(index);
+
             int idx = index & 0x3; // equivalent to % 4
             ref quaternion4 q4 = ref m_LocalRotationData.Get(index >> 2);
             q4.x[idx] = rotation.value.x;
@@ -152,9 +227,11 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetLocalToParentScale(int index, in float3 scale)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
+            ValidateIsNotNull();
+            ValidateIsWritable();
             ValidateIsFinite(scale);
-#endif
+            ValidateIndexBoundsForScale(index);
+
             m_LocalScaleData.Set(index, scale);
             m_ChannelMasks.Set(Rig.Value.Bindings.ScaleBindingIndex + index, true);
         }
@@ -162,9 +239,11 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetFloat(int index, in float value)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
+            ValidateIsNotNull();
+            ValidateIsWritable();
             ValidateIsFinite(value);
-#endif
+            ValidateIndexBoundsForFloat(index);
+
             m_FloatData.Set(index, value);
             m_ChannelMasks.Set(Rig.Value.Bindings.FloatBindingIndex + index, true);
         }
@@ -172,6 +251,10 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetInt(int index, in int value)
         {
+            ValidateIsNotNull();
+            ValidateIsWritable();
+            ValidateIndexBoundsForInt(index);
+
             m_IntData.Set(index, value);
             m_ChannelMasks.Set(Rig.Value.Bindings.IntBindingIndex + index, true);
         }
@@ -193,12 +276,9 @@ namespace Unity.Animation
 
         public float3 GetLocalToRootTranslation(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             float3 rootT = GetLocalToParentTranslation(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
@@ -213,12 +293,9 @@ namespace Unity.Animation
 
         public void SetLocalToRootTranslation(int index, in float3 translation)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             float3 localT = translation;
             if (index > 0)
             {
@@ -231,12 +308,9 @@ namespace Unity.Animation
 
         public quaternion GetLocalToRootRotation(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             quaternion rootR = GetLocalToParentRotation(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
@@ -252,12 +326,9 @@ namespace Unity.Animation
 
         public void SetLocalToRootRotation(int index, in quaternion rotation)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             quaternion localR = rotation;
             if (index > 0)
             {
@@ -270,24 +341,18 @@ namespace Unity.Animation
 
         public float3 GetLocalToRootScale(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             ComputeLocalToRootRotationAndRSMatrix(index, out quaternion rootR, out float3x3 rootRS);
             return ExtractScale(rootR, rootRS);
         }
 
         public void SetLocalToRootScale(int index, in float3 scale)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             float3 localS = scale;
             if (index > 0)
             {
@@ -306,12 +371,9 @@ namespace Unity.Animation
 
         public void GetLocalToRootTR(int index, out float3 translation, out quaternion rotation)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             translation = GetLocalToParentTranslation(index);
             rotation = GetLocalToParentRotation(index);
 
@@ -329,12 +391,9 @@ namespace Unity.Animation
 
         public void SetLocalToRootTR(int index, in float3 translation, in quaternion rotation)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             float3 localT = translation;
             quaternion localR = rotation;
             if (index > 0)
@@ -349,12 +408,9 @@ namespace Unity.Animation
 
         public void GetLocalToRootTRS(int index, out float3 translation, out quaternion rotation, out float3 scale)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             TRS parentTRS = GetLocalToParentTRS(index);
             translation = parentTRS.t;
             rotation = parentTRS.r;
@@ -383,12 +439,8 @@ namespace Unity.Animation
 
         public void SetLocalToRootTRS(int index, in float3 translation, in quaternion rotation, in float3 scale)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
 
             float3 localT = translation;
             quaternion localR = rotation;
@@ -411,12 +463,9 @@ namespace Unity.Animation
 
         public AffineTransform GetLocalToRootMatrix(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             AffineTransform rootTx = GetLocalToParentMatrix(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
@@ -431,12 +480,9 @@ namespace Unity.Animation
 
         public AffineTransform GetLocalToRootInverseMatrix(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)Rig.Value.Skeleton.BoneCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, Rig.Value.Skeleton.BoneCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForSkeleton(index);
+
             AffineTransform rootInvTx = GetLocalToParentInverseMatrix(index);
 
             int parentIdx = Rig.Value.Skeleton.ParentIndexes[index];
@@ -451,9 +497,6 @@ namespace Unity.Animation
 
         internal void ComputeLocalToRootInverseRotationAndMatrix(int index, out quaternion invRootR, out AffineTransform invRootTx)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(index > -1);
-#endif
             quaternion rootR = GetLocalToParentRotation(index);
             invRootTx = GetLocalToParentInverseMatrix(index);
 
@@ -473,9 +516,6 @@ namespace Unity.Animation
 
         internal void ComputeLocalToRootRotationAndRSMatrix(int index, out quaternion rootR, out float3x3 rootRS)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(index > -1);
-#endif
             rootR  = GetLocalToParentRotation(index);
             rootRS = math.float3x3(rootR);
             rootRS = mathex.mulScale(rootRS, GetLocalToParentScale(index));
@@ -507,50 +547,9 @@ namespace Unity.Animation
             return math.float3(scaleMat.c0.x, scaleMat.c1.y, scaleMat.c2.z);
         }
 
-        /// <summary>
-        /// Constructs a new AnimationStream given a rig and its AnimatedData.
-        /// </summary>
-        unsafe internal static AnimationStream Create(BlobAssetReference<RigDefinition> rig, void* ptr)
-        {
-            ref var bindings = ref rig.Value.Bindings;
-            float* floatPtr = (float*)ptr;
-
-            return new AnimationStream()
-            {
-                Rig = rig,
-                m_LocalTranslationData = new Ptr<float3>((float3*)(floatPtr + bindings.TranslationSamplesOffset), bindings.TranslationBindings.Length),
-                m_LocalScaleData = new Ptr<float3>((float3*)(floatPtr + bindings.ScaleSamplesOffset), bindings.ScaleBindings.Length),
-                m_FloatData = new Ptr<float>((floatPtr + bindings.FloatSamplesOffset), bindings.FloatBindings.Length),
-                m_IntData = new Ptr<int>((int*)(floatPtr + bindings.IntSamplesOffset), bindings.IntBindings.Length),
-                m_LocalRotationData = new Ptr<quaternion4>((quaternion4*)(floatPtr + bindings.RotationSamplesOffset), bindings.RotationChunkCount),
-                m_ChannelMasks = new UnsafeBitArray((void*)(floatPtr + bindings.ChannelMaskOffset), Core.AlignUp(bindings.BindingCount / sizeof(byte) * 8, 8)),
-            };
-        }
-
-        /// <summary>
-        /// Constructs a new AnimationStream given a rig and its AnimatedData.
-        /// </summary>
-        unsafe public static AnimationStream Create(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
-        {
-            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
-                return Null;
-
-            return Create(rig, buffer.GetUnsafePtr());
-        }
-
-        unsafe public static AnimationStream CreateReadOnly(BlobAssetReference<RigDefinition> rig, NativeArray<AnimatedData> buffer)
-        {
-            if (rig == default || buffer.Length == 0 || buffer.Length != rig.Value.Bindings.StreamSize)
-                return Null;
-
-            return Create(rig, buffer.GetUnsafeReadOnlyPtr());
-        }
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        unsafe public static AnimationStream FromDefaultValues(BlobAssetReference<RigDefinition> rig)
-        {
-            return rig == default ? Null : Create(rig, rig.Value.DefaultValues.GetUnsafePtr());
-        }
+        unsafe public static AnimationStream FromDefaultValues(BlobAssetReference<RigDefinition> rig) =>
+            rig == default ? Null : Create(rig, rig.Value.DefaultValues.GetUnsafePtr(), true);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void* GetUnsafePtr() => (void*)m_LocalTranslationData.m_Ptr;
@@ -603,57 +602,54 @@ namespace Unity.Animation
             get => Rig.Value.Bindings.DataChunkCount;
         }
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-        void ValidateIsFinite(in float value)
-        {
-            if (!math.isfinite(value))
-                throw new System.ArithmeticException();
-        }
-
-        void ValidateIsFinite(in float3 value)
-        {
-            if (!math.all(math.isfinite(value)))
-                throw new System.ArithmeticException();
-        }
-
-        void ValidateIsFinite(in quaternion value)
-        {
-            if (!math.all(math.isfinite(value.value)))
-                throw new System.ArithmeticException();
-        }
-
-#endif
-
         /// <summary>
         /// Clear all channel masks
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ClearChannelMasks() =>
+        public void ClearChannelMasks()
+        {
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.Clear();
+        }
 
         /// <summary>
         /// Set all channel masks to specified value
         /// </summary>
         /// <param name="value">Value of masks to set.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetChannelMasks(bool value) =>
+        public void SetChannelMasks(bool value)
+        {
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.SetBits(value);
+        }
 
         /// <summary>
         /// Copy all channel masks from a source AnimationStream.
         /// </summary>
         /// <param name="src">Source AnimationStream.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void CopyChannelMasksFrom(ref AnimationStream src) =>
+        public void CopyChannelMasksFrom(ref AnimationStream src)
+        {
+            src.ValidateIsNotNull();
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.CopyFrom(ref src.m_ChannelMasks);
+        }
 
         /// <summary>
         /// OR all channel masks with other AnimationStream channel masks.
         /// </summary>
         /// <param name="other">Other AnimationStream to OR channel masks with.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void OrChannelMasks(ref AnimationStream other) =>
+        public void OrChannelMasks(ref AnimationStream other)
+        {
+            other.ValidateIsNotNull();
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.OrBits64(ref other.m_ChannelMasks);
+        }
 
         /// <summary>
         /// OR all lhs and rhs AnimationStream channel masks and store result.
@@ -662,16 +658,27 @@ namespace Unity.Animation
         /// <param name="lhs">Input AnimationStream</param>
         /// <param name="rhs">Input AnimationStream</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void OrChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs) =>
+        public void OrChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs)
+        {
+            lhs.ValidateIsNotNull();
+            rhs.ValidateIsNotNull();
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.OrBits64(ref lhs.m_ChannelMasks, ref rhs.m_ChannelMasks);
+        }
 
         /// <summary>
         /// AND all channel masks with other AnimationStream channel masks.
         /// </summary>
         /// <param name="other">Other AnimationStream to AND channel masks with.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AndChannelMasks(ref AnimationStream other) =>
+        public void AndChannelMasks(ref AnimationStream other)
+        {
+            other.ValidateIsNotNull();
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.AndBits64(ref other.m_ChannelMasks);
+        }
 
         /// <summary>
         /// AND all lhs and rhs AnimationStream channel masks and store result.
@@ -680,32 +687,54 @@ namespace Unity.Animation
         /// <param name="lhs">Input AnimationStream</param>
         /// <param name="rhs">Input AnimationStream</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AndChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs) =>
+        public void AndChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs)
+        {
+            lhs.ValidateIsNotNull();
+            rhs.ValidateIsNotNull();
+            ValidateIsNotNull();
+            ValidateIsWritable();
             m_ChannelMasks.AndBits64(ref lhs.m_ChannelMasks, ref rhs.m_ChannelMasks);
+        }
 
         /// <summary>
         /// Calculate number of set bits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetChannelMaskBitCount() => m_ChannelMasks.CountBits(0, m_ChannelMasks.Length);
+        public int GetChannelMaskBitCount()
+        {
+            ValidateIsNotNull();
+            return m_ChannelMasks.CountBits(0, m_ChannelMasks.Length);
+        }
 
         /// <summary>
         /// Returns true if Any channels bit are set.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasAnyChannelMasks() => m_ChannelMasks.TestAny(0, m_ChannelMasks.Length);
+        public bool HasAnyChannelMasks()
+        {
+            ValidateIsNotNull();
+            return m_ChannelMasks.TestAny(0, m_ChannelMasks.Length);
+        }
 
         /// <summary>
         /// Returns true if All channels bit are set.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasAllChannelMasks() => m_ChannelMasks.TestAll(0, m_ChannelMasks.Length);
+        public bool HasAllChannelMasks()
+        {
+            ValidateIsNotNull();
+            return m_ChannelMasks.TestAll(0, m_ChannelMasks.Length);
+        }
 
         /// <summary>
         /// Returns true if none of channels bit are set.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasNoChannelMasks() => m_ChannelMasks.TestNone(0, m_ChannelMasks.Length);
+        public bool HasNoChannelMasks()
+        {
+            ValidateIsNotNull();
+            return m_ChannelMasks.TestNone(0, m_ChannelMasks.Length);
+        }
 
         /// <summary>
         /// Return translation channel mask.
@@ -715,12 +744,8 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool GetTranslationChannelMask(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)TranslationCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, TranslationCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForTranslation(index);
             return m_ChannelMasks.IsSet(Rig.Value.Bindings.TranslationBindingIndex + index);
         }
 
@@ -732,12 +757,8 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool GetRotationChannelMask(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)RotationCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, RotationCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForRotation(index);
             return m_ChannelMasks.IsSet(Rig.Value.Bindings.RotationBindingIndex + index);
         }
 
@@ -749,12 +770,8 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool GetScaleChannelMask(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)ScaleCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, ScaleCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForScale(index);
             return m_ChannelMasks.IsSet(Rig.Value.Bindings.ScaleBindingIndex + index);
         }
 
@@ -766,12 +783,8 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool GetFloatChannelMask(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)FloatCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, FloatCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForFloat(index);
             return m_ChannelMasks.IsSet(Rig.Value.Bindings.FloatBindingIndex + index);
         }
 
@@ -783,18 +796,47 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool GetIntChannelMask(int index)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (IsNull)
-                throw new System.NullReferenceException("Invalid rig definition");
-            if ((uint)index >= (uint)IntCount)
-                throw new System.IndexOutOfRangeException(string.Format("Index {0} is out of range Length {1}", index, IntCount));
-#endif
+            ValidateIsNotNull();
+            ValidateIndexBoundsForInt(index);
             return m_ChannelMasks.IsSet(Rig.Value.Bindings.IntBindingIndex + index);
+        }
+
+        /// <summary>
+        /// Copies all the data from the specified AnimationStream into this AnimationStream. This includes all the animation channel data and channel masks.
+        /// </summary>
+        public unsafe void CopyFrom(ref AnimationStream other)
+        {
+            ValidateIsNotNull();
+            ValidateIsWritable();
+            ValidateCompatibility(ref other);
+            UnsafeUtility.MemCpy(GetUnsafePtr(), other.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * other.Rig.Value.Bindings.StreamSize);
+        }
+
+        /// <summary>
+        /// Reset the AnimationStream to 0. This includes all animation channel data and channel masks.
+        /// </summary>
+        public unsafe void ResetToZero()
+        {
+            ValidateIsNotNull();
+            ValidateIsWritable();
+            UnsafeUtility.MemClear(GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * Rig.Value.Bindings.StreamSize);
+        }
+
+        /// <summary>
+        /// Reset the AnimationStream to default values of the Rig. This only includes the animation channel data. Channel masks are not changed by this operation.
+        /// </summary>
+        public unsafe void ResetToDefaultValues()
+        {
+            ValidateIsNotNull();
+            ValidateIsWritable();
+            ref var rig = ref Rig.Value;
+            UnsafeUtility.MemCpy(GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * rig.Bindings.ChannelSize);
         }
     }
 
     public static class AnimationStreamUtils
     {
+        [Obsolete("Use AnimationStream.CopyFrom(ref AnimationStream other) instead. (RemovedAfter 2020-09-30).")]
         unsafe public static void MemCpy(ref AnimationStream dst, ref AnimationStream src)
         {
 #if !UNITY_DISABLE_ANIMATION_CHECKS
@@ -806,24 +848,26 @@ namespace Unity.Animation
             Assert.AreEqual(dst.FloatCount, src.FloatCount);
             Assert.AreEqual(dst.IntCount, src.IntCount);
 #endif
-            UnsafeUtility.MemCpy(dst.GetUnsafePtr(), src.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * src.Rig.Value.Bindings.StreamSize);
+            UnsafeUtility.MemCpy(dst.GetUnsafePtr(), src.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * src.Rig.Value.Bindings.StreamSize);
         }
 
+        [Obsolete("Use AnimationStream.ResetToDefaultValues() instead. (RemovedAfter 2020-09-30).")]
         unsafe public static void SetDefaultValues(ref AnimationStream stream)
         {
 #if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(stream.IsNull);
 #endif
             ref var rig = ref stream.Rig.Value;
-            UnsafeUtility.MemCpy(stream.GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * rig.Bindings.ChannelSize);
+            UnsafeUtility.MemCpy(stream.GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * rig.Bindings.ChannelSize);
         }
 
+        [Obsolete("Use AnimationStream.ResetToZero() instead. (RemovedAfter 2020-09-30).")]
         unsafe public static void MemClear(ref AnimationStream stream)
         {
 #if !UNITY_DISABLE_ANIMATION_CHECKS
             Assert.IsFalse(stream.IsNull);
 #endif
-            UnsafeUtility.MemClear(stream.GetUnsafePtr(), Unsafe.SizeOf<AnimatedData>() * stream.Rig.Value.Bindings.StreamSize);
+            UnsafeUtility.MemClear(stream.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * stream.Rig.Value.Bindings.StreamSize);
         }
     }
 

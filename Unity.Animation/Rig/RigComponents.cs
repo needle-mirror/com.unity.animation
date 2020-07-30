@@ -121,6 +121,7 @@ namespace Unity.Animation
 
         internal int m_HashCode;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() => m_HashCode;
 
         public override bool Equals(object other)
@@ -131,12 +132,15 @@ namespace Unity.Animation
             return m_HashCode == ((RigDefinition)other).m_HashCode;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(RigDefinition other) =>
             m_HashCode == other.m_HashCode;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static public bool operator==(RigDefinition lhs, RigDefinition rhs) =>
             lhs.m_HashCode == rhs.m_HashCode;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static public bool operator!=(RigDefinition lhs, RigDefinition rhs) =>
             lhs.m_HashCode != rhs.m_HashCode;
     }
@@ -150,13 +154,20 @@ namespace Unity.Animation
             rig.Value;
     }
 
-    /// <summary>
-    /// Entity reference to the rig root. In other words, the
-    /// first transform (or bone) specified in the RigComponent.
-    /// </summary>
     public struct RigRootEntity : IComponentData
     {
+        /// <summary>
+        /// Entity reference to the rig root. In other words, the
+        /// first transform (or bone) specified in the RigComponent.
+        /// </summary>
         public Entity Value;
+
+        /// <summary>
+        /// Remap matrix used to compute world to root space. This is not the complete remapping matrix,
+        /// it needs to be multiplied with the value of index 0 of the stream and the result of this multiplication
+        /// must be inverted.
+        /// </summary>
+        public AffineTransform RemapToRootMatrix;
     }
 
     public struct SharedRigHash : ISharedComponentData

@@ -12,15 +12,13 @@ namespace Unity.Animation
     /// root motion component and the disable root transform R/W tag are not present.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct ReadRootTransformJob<TTag, TAnimatedRootMotion> : IJobChunk
-        where TTag : struct, IAnimationSystemTag
+    internal struct ReadRootTransformJob<TAnimatedRootMotion> : IJobChunk
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
         {
             All = new ComponentType[]
             {
-                ComponentType.ReadOnly<TTag>(),
                 ComponentType.ReadOnly<Rig>(),
                 ComponentType.ReadOnly<RigRootEntity>(),
                 ComponentType.ReadWrite<AnimatedData>()
@@ -66,13 +64,94 @@ namespace Unity.Animation
     }
 
     /// <summary>
+    /// This job writes in the RigRootEntity component the matrix used in the WorldToRootNode to remap a transform from
+    /// world space to root space.
+    /// </summary>
+    [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
+    internal struct UpdateRootRemapMatrixJob<TAnimatedRootMotion> : IJobChunk
+        where TAnimatedRootMotion : struct, IAnimatedRootMotion
+    {
+        static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
+        {
+            All = new ComponentType[]
+            {
+                ComponentType.ReadWrite<RigRootEntity>(),
+            }
+        };
+
+        [NativeDisableContainerSafetyRestriction]
+        [ReadOnly] public ComponentDataFromEntity<LocalToWorld> EntityLocalToWorld;
+
+        [NativeDisableContainerSafetyRestriction]
+        [ReadOnly] public ComponentDataFromEntity<Parent> Parent;
+
+        [ReadOnly] public ComponentTypeHandle<DisableRootTransformReadWriteTag> DisableRootTransformType;
+        [ReadOnly] public ComponentTypeHandle<TAnimatedRootMotion> AnimatedRootMotionType;
+
+        public ComponentTypeHandle<RigRootEntity> RigRootEntityType;
+
+        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        {
+            var rigRoots = chunk.GetNativeArray(RigRootEntityType);
+
+            var isRootDisabled = chunk.Has(DisableRootTransformType);
+            var isAnimatedRootMotion = chunk.Has(AnimatedRootMotionType);
+
+            // Those bools are valid for the whole chunk, so check only once before loop.
+            if (isRootDisabled || isAnimatedRootMotion)
+            {
+                /// When root is disabled, we do not manage the value of the index 0 of
+                /// the stream. As such, we need to store the LocalToWorld of the rig entity. It will be combined with
+                /// what is at the index 0 of the stream at the time of evaluation.
+                ///
+                /// When root motion is enabled, the index 0 of the stream contains the delta
+                /// of the motion. This delta is then accumulated in the LocalToWorld of the rig entity.
+                /// We store the LocalToWorld of the rig entity, that will get multiplied with the root motion delta.
+                for (int i = 0; i != chunk.Count; ++i)
+                {
+                    rigRoots[i] = new RigRootEntity
+                    {
+                        Value = rigRoots[i].Value,
+                        RemapToRootMatrix = mathex.AffineTransform(EntityLocalToWorld[rigRoots[i].Value].Value)
+                    };
+                }
+            }
+            else
+            {
+                /// If the root entity has no parent, it means that it's the same as the rig entity
+                /// (the root entity must be the rig or a child of the rig). At the beginning of the pass, the rig's
+                /// LocalToWorld is copied in the stream at index 0. Then the pass is executed, and at the end of the pass,
+                /// the index 0 value is copied back to the rig's LocalToWorld and is reset to the identity. Thus,
+                /// during the pass, the index 0 contains the rig's LocalToWorld, that was potentially updated by a clip.
+                /// We store the inverse of the rig's LocalToWorld, so that it's not accounted twice for when we multiply
+                /// its value with index 0.
+                ///
+                /// If the root entity has a parent, it's akin to the root motion: the index 0 contains an offset
+                /// between the rig and the root bone (that is, it contains the root to rig transform). We store the rig's
+                /// LocalToWorld, that will get multiplied with this offset during the remapping.
+                for (int i = 0; i != chunk.Count; ++i)
+                {
+                    var rootEntity = rigRoots[i].Value;
+                    var rootTransform = mathex.AffineTransform(EntityLocalToWorld[rootEntity].Value);
+
+                    rigRoots[i] = new RigRootEntity
+                    {
+                        Value =  rootEntity,
+                        RemapToRootMatrix = !Parent.HasComponent(rootEntity) ? mathex.inverse(rootTransform) : rootTransform
+                    };
+                }
+            }
+        }
+    }
+
+
+    /// <summary>
     /// This job writes the root transform values from the animation stream back to the
     /// rig entity transform components when the root motion component and the
     /// disable root transform R/W tag are not present.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct WriteRootTransformJob<TTag, TAnimatedRootMotion> : IJobChunk
-        where TTag : struct, IAnimationSystemTag
+    internal struct WriteRootTransformJob<TAnimatedRootMotion> : IJobChunk
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static readonly Translation k_DefaultTranslation = new Translation { Value = float3.zero };
@@ -83,7 +162,6 @@ namespace Unity.Animation
         {
             All = new ComponentType[]
             {
-                ComponentType.ReadOnly<TTag>(),
                 ComponentType.ReadOnly<Rig>(),
                 ComponentType.ReadOnly<RigRootEntity>(),
                 ComponentType.ReadWrite<AnimatedData>()
@@ -172,15 +250,13 @@ namespace Unity.Animation
     /// are stored in the system specific IAnimatedRootMotion components.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct AccumulateRootTransformJob<TTag, TAnimatedRootMotion> : IJobChunk
-        where TTag : struct, IAnimationSystemTag
+    internal struct AccumulateRootTransformJob<TAnimatedRootMotion> : IJobChunk
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
         {
             All = new ComponentType[]
             {
-                ComponentType.ReadOnly<TTag>(),
                 ComponentType.ReadOnly<Rig>(),
                 ComponentType.ReadOnly<RigRootEntity>(),
                 ComponentType.ReadWrite<AnimatedData>(),
@@ -211,13 +287,8 @@ namespace Unity.Animation
         // For some reason the job safety system complains that it should be marked ReadOnly
         // when that is not the case since this job writes to this component.
         // This started happening as soon as I converted to a generic type with auto-property.
-#if UNITY_ENTITIES_0_12_OR_NEWER
         [NativeDisableContainerSafetyRestriction]
         public ComponentTypeHandle<TAnimatedRootMotion> RootMotionType;
-#else
-        [NativeDisableContainerSafetyRestriction]
-        [ReadOnly] public ComponentTypeHandle<TAnimatedRootMotion> RootMotionType;
-#endif
 
         [ReadOnly] public ComponentTypeHandle<Rig>           RigType;
         [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntityType;
@@ -256,14 +327,8 @@ namespace Unity.Animation
                     rootMotionOffsets[i] = new RootMotionOffset { Value = RigidTransform.identity };
                 }
 
-#if UNITY_ENTITIES_0_12_OR_NEWER
                 // Update delta value
                 rootMotions[i] = deltaTx;
-#else
-                // HACK: For entities 0.11, hack the safety system by using a ReadOnlyPtr to make it
-                // think we are only reading and never writing.
-                unsafe { *((RigidTransform*)rootMotions.GetUnsafeReadOnlyPtr() + i) = deltaTx; }
-#endif
 
                 // Update transform components
                 if (EntityTranslation.HasComponent(rigRoot))

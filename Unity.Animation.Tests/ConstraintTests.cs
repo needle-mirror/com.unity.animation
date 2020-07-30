@@ -44,7 +44,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var ikData = Core.TwoBoneIKData.Default();
             ikData.RootIndex = k_RootIndex;
@@ -71,7 +71,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var ikData = Core.TwoBoneIKData.Default();
             ikData.RootIndex = k_RootIndex;
@@ -123,7 +123,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var ikData = Core.TwoBoneIKData.Default();
             ikData.RootIndex = k_RootIndex;
@@ -139,7 +139,7 @@ namespace Unity.Animation.Tests
             {
                 float w = i / 5f;
 
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
                 Core.SolveTwoBoneIK(ref stream, ikData, w);
 
                 float3 weightedTipPos = math.lerp(tipPos1, tipPos2, w);
@@ -156,7 +156,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var posConstraintData = Core.PositionConstraintData.Default();
             posConstraintData.Index = 1;
@@ -174,13 +174,13 @@ namespace Unity.Animation.Tests
             Assert.That(stream.GetLocalToRootTranslation(posConstraintData.Index), Is.EqualTo(defaultPos).Using(TranslationComparer));
 
             // w0 = 1, w1 = 0
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             posConstraintData.SourceWeights[0] = 1f;
             Core.SolvePositionConstraint(ref stream, posConstraintData, 1f);
             Assert.That(stream.GetLocalToRootTranslation(posConstraintData.Index), Is.EqualTo(posConstraintData.SourcePositions[0]).Using(TranslationComparer));
 
             // w0 = 0, w1 = 1
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             posConstraintData.SourceWeights[0] = 0f;
             posConstraintData.SourceWeights[1] = 1f;
             Core.SolvePositionConstraint(ref stream, posConstraintData, 1f);
@@ -188,7 +188,7 @@ namespace Unity.Animation.Tests
 
             // w0 = 1, w1 = 1
             // since source positions are mirrored, we should simply evaluate to origin.
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             posConstraintData.SourceWeights[0] = 1f;
             Core.SolvePositionConstraint(ref stream, posConstraintData, 1f);
             Assert.That(stream.GetLocalToRootTranslation(posConstraintData.Index), Is.EqualTo(float3.zero).Using(TranslationComparer));
@@ -204,7 +204,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var posConstraintData = Core.PositionConstraintData.Default();
             posConstraintData.Index = 1;
@@ -221,7 +221,7 @@ namespace Unity.Animation.Tests
             {
                 float w = i / 5f;
 
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
                 Core.SolvePositionConstraint(ref stream, posConstraintData, w);
 
                 float3 weightedPos = math.lerp(defaultPos, posConstraintData.SourcePositions[0], w);
@@ -239,7 +239,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var rotConstraintData = Core.RotationConstraintData.Default();
             rotConstraintData.Index = 1;
@@ -264,20 +264,20 @@ namespace Unity.Animation.Tests
             rotConstraintData.SourceRotations[1] = quaternion.AxisAngle(new float3(0f, 0f, 1f), math.radians(-20));
 
             // w0 = 1, w1 = 0
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             rotConstraintData.SourceWeights[0] = 1f;
             Core.SolveRotationConstraint(ref stream, rotConstraintData, 1f);
             Assert.That(stream.GetLocalToRootRotation(rotConstraintData.Index), Is.EqualTo(rotConstraintData.SourceRotations[0]).Using(RotationComparer));
 
             // w0 = 0, w1 = 1
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             rotConstraintData.SourceWeights[0] = 0f;
             rotConstraintData.SourceWeights[1] = 1f;
             Core.SolveRotationConstraint(ref stream, rotConstraintData, 1f);
             Assert.That(stream.GetLocalToRootRotation(rotConstraintData.Index), Is.EqualTo(rotConstraintData.SourceRotations[1]).Using(RotationComparer));
 
             // w0 = 1, w1 = 1
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             rotConstraintData.SourceWeights[0] = 1f;
             Core.SolveRotationConstraint(ref stream, rotConstraintData, 1f);
 
@@ -295,7 +295,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var rotConstraintData = Core.RotationConstraintData.Default();
             rotConstraintData.Index = 1;
@@ -313,7 +313,7 @@ namespace Unity.Animation.Tests
             {
                 float w = i / 5f;
 
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
                 Core.SolveRotationConstraint(ref stream, rotConstraintData, w);
 
                 quaternion weightedRot = mathex.lerp(defaultRot, rotConstraintData.SourceRotations[0], w);
@@ -331,7 +331,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var parentConstraintData = Core.ParentConstraintData.Default();
             parentConstraintData.Index = 1;
@@ -359,7 +359,7 @@ namespace Unity.Animation.Tests
 
             // w0 = 1, w1 = 0
             parentConstraintData.SourceWeights[0] = 1f;
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             Core.SolveParentConstraint(ref stream, parentConstraintData, 1f);
             Assert.That(stream.GetLocalToRootTranslation(parentConstraintData.Index), Is.EqualTo(parentConstraintData.SourceTx[0].pos).Using(TranslationComparer));
             Assert.That(stream.GetLocalToRootRotation(parentConstraintData.Index), Is.EqualTo(parentConstraintData.SourceTx[0].rot).Using(RotationComparer));
@@ -367,14 +367,14 @@ namespace Unity.Animation.Tests
             // w0 = 0, w1 = 1
             parentConstraintData.SourceWeights[0] = 0f;
             parentConstraintData.SourceWeights[1] = 1f;
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             Core.SolveParentConstraint(ref stream, parentConstraintData, 1f);
             Assert.That(stream.GetLocalToRootTranslation(parentConstraintData.Index), Is.EqualTo(parentConstraintData.SourceTx[1].pos).Using(TranslationComparer));
             Assert.That(stream.GetLocalToRootRotation(parentConstraintData.Index), Is.EqualTo(parentConstraintData.SourceTx[1].rot).Using(RotationComparer));
 
             // w0 = 1, w1 = 1
             parentConstraintData.SourceWeights[0] = 1f;
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             Core.SolveParentConstraint(ref stream, parentConstraintData, 1f);
 
             var posRes = (parentConstraintData.SourceTx[0].pos + parentConstraintData.SourceTx[1].pos) * 0.5f;
@@ -393,7 +393,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var parentConstraintData = Core.ParentConstraintData.Default();
             parentConstraintData.Index = 1;
@@ -412,7 +412,7 @@ namespace Unity.Animation.Tests
             {
                 float w = i / 5f;
 
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
                 Core.SolveParentConstraint(ref stream, parentConstraintData, w);
 
                 float3 weightedPos = math.lerp(defaultTx.pos, parentConstraintData.SourceTx[0].pos, w);
@@ -433,7 +433,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var aimConstraintData = Core.AimConstraintData.Default();
             aimConstraintData.Index = 1;
@@ -457,7 +457,7 @@ namespace Unity.Animation.Tests
 
             // w0 = 1, w1 = 0
             aimConstraintData.SourceWeights[0] = 1f;
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             Core.SolveAimConstraint(ref stream, aimConstraintData, 1f);
 
             RigidTransform constrainedTx;
@@ -471,7 +471,7 @@ namespace Unity.Animation.Tests
             // w0 = 0, w1 = 1
             aimConstraintData.SourceWeights[0] = 0f;
             aimConstraintData.SourceWeights[1] = 1f;
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             Core.SolveAimConstraint(ref stream, aimConstraintData, 1f);
 
             stream.GetLocalToRootTR(aimConstraintData.Index, out constrainedTx.pos, out constrainedTx.rot);
@@ -484,7 +484,7 @@ namespace Unity.Animation.Tests
             // w0 = 1, w1 = 1
             // Since both sources are opposite, they should cancel each other out
             aimConstraintData.SourceWeights[0] = 1f;
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             Core.SolveAimConstraint(ref stream, aimConstraintData, 1f);
 
             stream.GetLocalToRootTR(aimConstraintData.Index, out constrainedTx.pos, out constrainedTx.rot);
@@ -506,7 +506,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var aimConstraintData = Core.AimConstraintData.Default();
             aimConstraintData.Index = 1;
@@ -528,7 +528,7 @@ namespace Unity.Animation.Tests
             {
                 float w = i / 5f;
 
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
                 Core.SolveAimConstraint(ref stream, aimConstraintData, w);
 
                 stream.GetLocalToRootTR(aimConstraintData.Index, out constrainedTx.pos, out constrainedTx.rot);
@@ -546,7 +546,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var defaultTwist0Rot = stream.GetLocalToParentRotation(k_Twist0Index);
             var defaultTwist1Rot = stream.GetLocalToParentRotation(k_Twist1Index);
@@ -599,7 +599,7 @@ namespace Unity.Animation.Tests
         {
             var buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             var stream = AnimationStream.Create(m_Rig, buffer);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             var sourceRotationDefault = stream.GetLocalToParentRotation(k_HandIndex);
 

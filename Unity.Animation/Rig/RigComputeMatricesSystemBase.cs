@@ -255,10 +255,5 @@ namespace Unity.Animation
 #endif
             }
         }
-
-#if !UNITY_ENTITIES_0_12_OR_NEWER
-        ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool readOnly = false) where T : struct, IComponentData => new ComponentTypeHandle<T> { Value = GetArchetypeChunkComponentType<T>(readOnly) };
-        BufferTypeHandle<T> GetBufferTypeHandle<T>(bool readOnly = false) where T : struct, IBufferElementData => new BufferTypeHandle<T>() {Value = GetArchetypeChunkBufferType<T>(readOnly)};
-#endif
     }
 }

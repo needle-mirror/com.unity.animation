@@ -49,12 +49,12 @@ namespace Unity.Animation
 
     [System.Diagnostics.DebuggerTypeProxy(typeof(Unity.Animation.AnimationStreamDebugView))] public struct AnimationStream
     {
+        public static readonly Unity.Animation.AnimationStream Null;
         public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> Rig;
         public int DataChunkCount { get; }
         public int FloatCount { get; }
         public int IntCount { get; }
         public bool IsNull { get; }
-        public static Unity.Animation.AnimationStream Null { get; }
         public int RotationChunkCount { get; }
         public int RotationCount { get; }
         public int ScaleCount { get; }
@@ -63,6 +63,7 @@ namespace Unity.Animation
         public void AndChannelMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
         public void ClearChannelMasks();
         public void CopyChannelMasksFrom(ref Unity.Animation.AnimationStream src);
+        public void CopyFrom(ref Unity.Animation.AnimationStream other);
         public static Unity.Animation.AnimationStream Create(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Collections.NativeArray<Unity.Animation.AnimatedData> buffer);
         public static Unity.Animation.AnimationStream CreateReadOnly(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Collections.NativeArray<Unity.Animation.AnimatedData> buffer);
         public static Unity.Animation.AnimationStream FromDefaultValues(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig);
@@ -96,6 +97,8 @@ namespace Unity.Animation
         public bool HasNoChannelMasks();
         public void OrChannelMasks(ref Unity.Animation.AnimationStream other);
         public void OrChannelMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
+        public void ResetToDefaultValues();
+        public void ResetToZero();
         public void SetChannelMasks(bool value);
         public void SetFloat(int index, ref float value);
         public void SetInt(int index, ref int value);
@@ -113,9 +116,9 @@ namespace Unity.Animation
 
     public static class AnimationStreamUtils
     {
-        public static void MemClear(ref Unity.Animation.AnimationStream stream);
-        public static void MemCpy(ref Unity.Animation.AnimationStream dst, ref Unity.Animation.AnimationStream src);
-        public static void SetDefaultValues(ref Unity.Animation.AnimationStream stream);
+        [System.Obsolete(@"Use AnimationStream.ResetToZero() instead. (RemovedAfter 2020-09-30).")] public static void MemClear(ref Unity.Animation.AnimationStream stream);
+        [System.Obsolete(@"Use AnimationStream.CopyFrom(ref AnimationStream other) instead. (RemovedAfter 2020-09-30).")] public static void MemCpy(ref Unity.Animation.AnimationStream dst, ref Unity.Animation.AnimationStream src);
+        [System.Obsolete(@"Use AnimationStream.ResetToDefaultValues() instead. (RemovedAfter 2020-09-30).")] public static void SetDefaultValues(ref Unity.Animation.AnimationStream stream);
     }
 
     [System.Obsolete(@"AnimationTransformOverride has been deprecated. Use AnimationLocalToParentOverrideand AnimationLocalToWorldOverride instead. (RemovedAfter 2020-08-26)")] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToParent))] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToWorld))] public struct AnimationTransformOverride : Unity.Entities.IComponentData
@@ -393,6 +396,7 @@ namespace Unity.Animation
         public static void ComputeBlendTree1DWeights(Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree1D> blendTree, float blendParameter, ref Unity.Collections.NativeArray<float> outWeights);
         public static float ComputeBlendTree2DSimpleDirectionalDuration(Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree2DSimpleDirectional> blendTree, ref Unity.Collections.NativeArray<float> weights);
         public static void ComputeBlendTree2DSimpleDirectionalWeights(Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree2DSimpleDirectional> blendTree, Unity.Mathematics.float2 blendParameter, ref Unity.Collections.NativeArray<float> outWeights);
+        public static void ComputeInertialBlendingCoefficients(ref Unity.Animation.AnimationStream currentInput, ref Unity.Animation.AnimationStream lastOutput, ref Unity.Animation.AnimationStream secondLastOutput, float deltaTime, float duration, Unity.Collections.NativeArray<Unity.Animation.InertialBlendingCoefficients> outCoefficients, Unity.Collections.NativeArray<Unity.Mathematics.float3> outDirections);
         public static void ComputeLocalToParentAngularVelocities(ref Unity.Animation.AnimationStream input, ref Unity.Animation.AnimationStream previousInput, float deltaTime, Unity.Collections.NativeArray<Unity.Mathematics.float3> outAngularVelocities);
         public static void ComputeLocalToParentLinearVelocities(ref Unity.Animation.AnimationStream input, ref Unity.Animation.AnimationStream previousInput, float deltaTime, Unity.Collections.NativeArray<Unity.Mathematics.float3> outVelocities);
         [System.Obsolete(@"This overload of Core.ComputeLocalToRoot is deprecated, use other Core.ComputeLocalToRoot with identity offset. (RemovedAfter 2020-08-29)", false)] public static void ComputeLocalToRoot(ref Unity.Animation.AnimationStream stream, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outLocalToRoots);
@@ -405,6 +409,7 @@ namespace Unity.Animation
         public static void ComputeWeightDataFromChannelIndices(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, float defaultWeight, Unity.Collections.NativeArray<int> channelIndices, Unity.Collections.NativeArray<float> channelWeights, Unity.Collections.NativeArray<Unity.Animation.WeightData> weightData);
         public static void EvaluateClip(Unity.Entities.BlobAssetReference<Unity.Animation.ClipInstance> clipInstance, float time, ref Unity.Animation.AnimationStream stream, int additive);
         public static int FindBindingIndex(ref Unity.Entities.BlobArray<Unity.Animation.StringHash> bindings, Unity.Animation.StringHash searchedBinding);
+        public static void InertialBlend(ref Unity.Animation.AnimationStream currentInput, ref Unity.Animation.AnimationStream outputPose, Unity.Collections.NativeArray<Unity.Animation.InertialBlendingCoefficients> interpolationFactors, Unity.Collections.NativeArray<Unity.Mathematics.float3> interpolationDirections, float duration, float remainingTime);
         public static void InversePose(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream input);
         public static float MixerAdd(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream add, float weight, float sumWeight);
         public static void MixerBegin(ref Unity.Animation.AnimationStream output);
@@ -530,6 +535,13 @@ namespace Unity.Animation
     {
     }
 
+    public struct InertialBlendingCoefficients
+    {
+        public InertialBlendingCoefficients(float x0, float v0, float duration) {}
+        public static Unity.Mathematics.float4 ComputeTimePowers(float t);
+        public float Interpolate(Unity.Mathematics.float4 timePowers, float time);
+    }
+
     public struct IntChannel : System.IEquatable<Unity.Animation.IntChannel>, Unity.Animation.IAnimationChannel, Unity.Animation.IAnimationChannel<int>
     {
         public virtual int DefaultValue { get; set; }
@@ -581,7 +593,9 @@ namespace Unity.Animation
         public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3 translation, Unity.Mathematics.float3x3 rs);
         public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3 translation, Unity.Mathematics.quaternion rotation);
         public static Unity.Animation.AffineTransform AffineTransform(Unity.Mathematics.float3 translation, Unity.Mathematics.quaternion rotation, Unity.Mathematics.float3 scale);
+        public static float angle(Unity.Mathematics.quaternion q);
         public static float angle(Unity.Mathematics.float3 from, Unity.Mathematics.float3 to);
+        public static Unity.Mathematics.float3 axis(Unity.Mathematics.quaternion q);
         public static Unity.Mathematics.float3 chgsign(Unity.Mathematics.float3 val, Unity.Mathematics.float3 sign);
         public static Unity.Mathematics.float4 chgsign(Unity.Mathematics.float4 val, Unity.Mathematics.float4 sign);
         public static Unity.Animation.quaternion4 conjugate(Unity.Animation.quaternion4 q);
@@ -798,6 +812,7 @@ namespace Unity.Animation
 
     public struct RigRootEntity : Unity.Entities.IComponentData
     {
+        public Unity.Animation.AffineTransform RemapToRootMatrix;
         public Unity.Entities.Entity Value;
     }
 

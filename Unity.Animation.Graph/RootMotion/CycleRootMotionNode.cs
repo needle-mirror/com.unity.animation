@@ -70,7 +70,7 @@ namespace Unity.Animation
                 var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input));
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
 
-                AnimationStreamUtils.MemCpy(ref outputStream, ref inputStream);
+                outputStream.CopyFrom(ref inputStream);
 
                 var startX = new RigidTransform(startStream.GetLocalToParentRotation(0), startStream.GetLocalToParentTranslation(0));
                 var stopX = new RigidTransform(stopStream.GetLocalToParentRotation(0), stopStream.GetLocalToParentTranslation(0));

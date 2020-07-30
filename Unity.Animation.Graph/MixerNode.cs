@@ -69,15 +69,15 @@ namespace Unity.Animation
                 outputStream.ClearChannelMasks();
 
                 if (inputStream1.IsNull && inputStream2.IsNull)
-                    AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                    outputStream.ResetToDefaultValues();
                 else if (inputStream1.IsNull && !inputStream2.IsNull)
                 {
-                    AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                    outputStream.ResetToDefaultValues();
                     Core.Blend(ref outputStream, ref outputStream, ref inputStream2, weight);
                 }
                 else if (!inputStream1.IsNull && inputStream2.IsNull)
                 {
-                    AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                    outputStream.ResetToDefaultValues();
                     Core.Blend(ref outputStream, ref inputStream1, ref outputStream, weight);
                 }
                 else

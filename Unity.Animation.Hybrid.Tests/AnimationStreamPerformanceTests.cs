@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Burst;
+using Unity.Collections;
 using Unity.PerformanceTesting;
 
 namespace Unity.Animation.Tests
@@ -325,15 +326,19 @@ namespace Unity.Animation.Tests
         public void Test_SetLocalToRootTranslation_OfLastBone(int boneCount)
         {
             var rigDefintion = BuildRigDefinitionBoneChain(boneCount);
-            var stream = AnimationStream.FromDefaultValues(rigDefintion);
-
-            Measure.Method(() =>
+            using (var buffer = new NativeArray<AnimatedData>(rigDefintion.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory))
             {
-                BurstedCore.EvaluateAnimationStreamSetLocalToRootTranslation(ref stream, boneCount - 1);
-            })
-                .WarmupCount(50)
-                .MeasurementCount(100)
-                .Run();
+                var stream = AnimationStream.Create(rigDefintion, buffer);
+                stream.ResetToDefaultValues();
+
+                Measure.Method(() =>
+                {
+                    BurstedCore.EvaluateAnimationStreamSetLocalToRootTranslation(ref stream, boneCount - 1);
+                })
+                    .WarmupCount(50)
+                    .MeasurementCount(100)
+                    .Run();
+            }
 
             rigDefintion.Dispose();
         }
@@ -346,15 +351,19 @@ namespace Unity.Animation.Tests
         public void Test_SetLocalToRootRotation_OfLastBone(int boneCount)
         {
             var rigDefintion = BuildRigDefinitionBoneChain(boneCount);
-            var stream = AnimationStream.FromDefaultValues(rigDefintion);
-
-            Measure.Method(() =>
+            using (var buffer = new NativeArray<AnimatedData>(rigDefintion.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory))
             {
-                BurstedCore.EvaluateAnimationStreamSetLocalToRootRotation(ref stream, boneCount - 1);
-            })
-                .WarmupCount(50)
-                .MeasurementCount(100)
-                .Run();
+                var stream = AnimationStream.Create(rigDefintion, buffer);
+                stream.ResetToDefaultValues();
+
+                Measure.Method(() =>
+                {
+                    BurstedCore.EvaluateAnimationStreamSetLocalToRootRotation(ref stream, boneCount - 1);
+                })
+                    .WarmupCount(50)
+                    .MeasurementCount(100)
+                    .Run();
+            }
 
             rigDefintion.Dispose();
         }
@@ -367,15 +376,19 @@ namespace Unity.Animation.Tests
         public void Test_SetLocalToRootScale_OfLastBone(int boneCount)
         {
             var rigDefintion = BuildRigDefinitionBoneChain(boneCount);
-            var stream = AnimationStream.FromDefaultValues(rigDefintion);
-
-            Measure.Method(() =>
+            using (var buffer = new NativeArray<AnimatedData>(rigDefintion.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory))
             {
-                BurstedCore.EvaluateAnimationStreamSetLocalToRootScale(ref stream, boneCount - 1);
-            })
-                .WarmupCount(50)
-                .MeasurementCount(100)
-                .Run();
+                var stream = AnimationStream.Create(rigDefintion, buffer);
+                stream.ResetToDefaultValues();
+
+                Measure.Method(() =>
+                {
+                    BurstedCore.EvaluateAnimationStreamSetLocalToRootScale(ref stream, boneCount - 1);
+                })
+                    .WarmupCount(50)
+                    .MeasurementCount(100)
+                    .Run();
+            }
 
             rigDefintion.Dispose();
         }
@@ -388,15 +401,19 @@ namespace Unity.Animation.Tests
         public void Test_SetLocalToRootTR_OfLastBone(int boneCount)
         {
             var rigDefintion = BuildRigDefinitionBoneChain(boneCount);
-            var stream = AnimationStream.FromDefaultValues(rigDefintion);
-
-            Measure.Method(() =>
+            using (var buffer = new NativeArray<AnimatedData>(rigDefintion.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory))
             {
-                BurstedCore.EvaluateAnimationStreamSetLocalToRootTR(ref stream, boneCount - 1);
-            })
-                .WarmupCount(50)
-                .MeasurementCount(100)
-                .Run();
+                var stream = AnimationStream.Create(rigDefintion, buffer);
+                stream.ResetToDefaultValues();
+
+                Measure.Method(() =>
+                {
+                    BurstedCore.EvaluateAnimationStreamSetLocalToRootTR(ref stream, boneCount - 1);
+                })
+                    .WarmupCount(50)
+                    .MeasurementCount(100)
+                    .Run();
+            }
 
             rigDefintion.Dispose();
         }
@@ -409,15 +426,19 @@ namespace Unity.Animation.Tests
         public void Test_SetLocalToRootTRS_OfLastBone(int boneCount)
         {
             var rigDefintion = BuildRigDefinitionBoneChain(boneCount);
-            var stream = AnimationStream.FromDefaultValues(rigDefintion);
-
-            Measure.Method(() =>
+            using (var buffer = new NativeArray<AnimatedData>(rigDefintion.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory))
             {
-                BurstedCore.EvaluateAnimationStreamSetLocalToRootTRS(ref stream, boneCount - 1);
-            })
-                .WarmupCount(50)
-                .MeasurementCount(100)
-                .Run();
+                var stream = AnimationStream.Create(rigDefintion, buffer);
+                stream.ResetToDefaultValues();
+
+                Measure.Method(() =>
+                {
+                    BurstedCore.EvaluateAnimationStreamSetLocalToRootTRS(ref stream, boneCount - 1);
+                })
+                    .WarmupCount(50)
+                    .MeasurementCount(100)
+                    .Run();
+            }
 
             rigDefintion.Dispose();
         }

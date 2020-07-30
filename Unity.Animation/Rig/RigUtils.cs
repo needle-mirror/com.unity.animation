@@ -1,5 +1,6 @@
 using Unity.Entities;
 using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine.Assertions;
 
 namespace Unity.Animation
@@ -29,7 +30,12 @@ namespace Unity.Animation
         {
             var debugEntity = entityManager.CreateEntity();
             RigEntityBuilder.SetupRigEntity(debugEntity, entityManager, rigDefinition);
-            entityManager.AddComponentData(debugEntity, new RigRootEntity { Value = debugEntity });
+            entityManager.AddComponentData(debugEntity,
+                new RigRootEntity
+                {
+                    Value = debugEntity,
+                    RemapToRootMatrix = AffineTransform.identity
+                });
             entityManager.AddComponent<DisableRootTransformReadWriteTag>(debugEntity);
 
             ValidateRigEntity(debugEntity, entityManager);

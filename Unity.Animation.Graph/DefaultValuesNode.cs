@@ -55,7 +55,7 @@ namespace Unity.Animation
                 data.ProfilerMarker.Begin();
 #endif
 
-                AnimationStreamUtils.SetDefaultValues(ref stream);
+                stream.ResetToDefaultValues();
 
 #if !UNITY_DISABLE_ANIMATION_PROFILING
                 data.ProfilerMarker.End();

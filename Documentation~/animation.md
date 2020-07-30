@@ -8,7 +8,8 @@ To install this package, follow the instructions in the [Package Manager documen
 
 # Using Animation
 
-`TODO`
+- [Root transform management](root_transform_management.md)
+- [DataFlowGraph Nodes Index](nodes_index.md)
 
 # Technical details
 
@@ -16,7 +17,7 @@ To install this package, follow the instructions in the [Package Manager documen
 
 This version of Animation is compatible with the following versions of the Unity Editor:
 
-* 2019.3 and later (recommended)
+* 2020.1.0b15 and later (recommended)
 
 ## Package contents
 

@@ -94,8 +94,7 @@ namespace Unity.Animation.Hybrid
 
         protected override void OnUpdate()
         {
-#pragma warning disable 0618
-            Entities.WithNone<SkinnedMesh>().ForEach((SkinnedMeshRenderer meshRenderer) =>
+            Entities.ForEach((SkinnedMeshRenderer meshRenderer) =>
             {
                 // Would need to validate why Component.GetComponentInParent doesn't return the expected results
                 //var rigComponent = meshRenderer.GetComponentInParent<RigComponent>();
@@ -131,9 +130,8 @@ namespace Unity.Animation.Hybrid
                         DstEntityManager.AddBuffer<SkinnedMeshToRigIndexMapping>(entity);
                         DstEntityManager.AddBuffer<BindPose>(entity);
 
-#if !UNITY_ENTITIES_0_12_OR_NEWER
-                        DstEntityManager.AddComponent<Unity.Transforms.BoneIndexOffset>(entity);
-#endif
+                        var smrRootBone = meshRenderer.rootBone != null ? meshRenderer.rootBone : meshRenderer.transform;
+                        DstEntityManager.AddComponentData(entity, new SkinnedMeshRootEntity { Value = GetPrimaryEntity(smrRootBone) });
 
                         if (!DstEntityManager.HasComponent<Deformations.SkinMatrix>(entity))
                             DstEntityManager.AddBuffer<Deformations.SkinMatrix>(entity);
@@ -148,13 +146,13 @@ namespace Unity.Animation.Hybrid
                         bindPoseArray.ResizeUninitialized(skinBones.Length);
                         skinMatrices.ResizeUninitialized(skinBones.Length);
 
-                        var invSkRoot = skBones[0].localToWorldMatrix.inverse;
+                        var invRoot = smrRootBone.localToWorldMatrix.inverse;
                         for (int i = 0; i != skinBones.Length; ++i)
                         {
                             var bindPose = meshRenderer.sharedMesh.bindposes[i];
                             bindPoseArray[i] = new BindPose { Value = bindPose };
 
-                            var skinMat = math.mul(math.mul(invSkRoot, meshRenderer.bones[i].localToWorldMatrix), bindPose);
+                            var skinMat = math.mul(math.mul(invRoot, meshRenderer.bones[i].localToWorldMatrix), bindPose);
                             skinMatrices[i] = new Deformations.SkinMatrix
                             {
                                 Value = new float3x4(skinMat.c0.xyz, skinMat.c1.xyz, skinMat.c2.xyz, skinMat.c3.xyz)
@@ -173,7 +171,7 @@ namespace Unity.Animation.Hybrid
 
                     if (matchCount > 0)
                     {
-#if UNITY_ENTITIES_0_12_OR_NEWER && !ENABLE_COMPUTE_DEFORMATIONS
+#if !ENABLE_COMPUTE_DEFORMATIONS
                         UnityEngine.Debug.LogError("DOTS SkinnedMeshRenderer blendshapes are only supported via compute shaders in hybrid renderer. Make sure to add 'ENABLE_COMPUTE_DEFORMATIONS' to your scripting defines in Player settings.");
 #endif
 
@@ -212,7 +210,6 @@ namespace Unity.Animation.Hybrid
                     }
                 }
             });
-#pragma warning restore 0618
         }
     }
 }

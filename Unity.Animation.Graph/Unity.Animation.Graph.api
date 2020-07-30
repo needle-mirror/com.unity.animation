@@ -2239,6 +2239,43 @@ namespace Unity.Animation
             public virtual void DFG_CG_Initialize(System.UInt16 uniqueInputPort, System.UInt16 uniqueOutputPort);
         }
     }
+
+    [Unity.DataFlowGraph.Attributes.NodeDefinition(@"5241b718a3ba437f9264f23ac7d3f744", 1, @"Animation Core/Utils", @"Remaps a transform from world space to root space.", false)] public class WorldToRootNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.WorldToRootNode.Data, Unity.Animation.WorldToRootNode.SimPorts, Unity.Animation.WorldToRootNode.KernelData, Unity.Animation.WorldToRootNode.KernelDefs, Unity.Animation.WorldToRootNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
+    {
+        protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        public WorldToRootNode() {}
+        public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
+        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
+        public struct Data : Unity.DataFlowGraph.INodeData
+        {
+        }
+        [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.WorldToRootNode.KernelData, Unity.Animation.WorldToRootNode.KernelDefs>
+        {
+            public virtual void Execute(Unity.DataFlowGraph.RenderContext context, Unity.Animation.WorldToRootNode.KernelData data, ref Unity.Animation.WorldToRootNode.KernelDefs ports);
+        }
+        public struct KernelData : Unity.DataFlowGraph.IKernelData
+        {
+            public Unity.Profiling.ProfilerMarker ProfilerMarker;
+            public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
+        }
+        public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
+        {
+            [Unity.DataFlowGraph.Attributes.PortDefinition(@"e866f7425fb2474e90a1e3b319a4c8a1", , @"Input stream", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataInput<Unity.Animation.WorldToRootNode, Unity.DataFlowGraph.Buffer<Unity.Animation.AnimatedData>> Input;
+            [Unity.DataFlowGraph.Attributes.PortDefinition(@"bbfabce8be084fc0a3761297679c1fae", , @"Matrix in world space", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataInput<Unity.Animation.WorldToRootNode, Unity.Transforms.LocalToWorld> LocalToWorldToRemap;
+            [Unity.DataFlowGraph.Attributes.PortDefinition(@"607dc615e8b548c3bd551ac5adeb30d3", , @"Matrix in root space", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataOutput<Unity.Animation.WorldToRootNode, Unity.Mathematics.float4x4> Output;
+            [Unity.DataFlowGraph.Attributes.PortDefinition(@"4872a7c6af8f4a738ac076abbe472a1d", , @"Rig root entity", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataInput<Unity.Animation.WorldToRootNode, Unity.Animation.RigRootEntity> RootEntity;
+            public virtual System.UInt16 DFG_CG_GetInputPortCount();
+            public virtual System.UInt16 DFG_CG_GetOutputPortCount();
+            public virtual void DFG_CG_Initialize(System.UInt16 uniqueInputPort, System.UInt16 uniqueOutputPort);
+        }
+        public struct SimPorts : Unity.DataFlowGraph.IPortDefinitionInitializer, Unity.DataFlowGraph.ISimulationPortDefinition
+        {
+            [Unity.DataFlowGraph.Attributes.PortDefinition(@"92f925ab4afc486f8438f69a83c003bb", , , true, -1, , 0, false, , )] public Unity.DataFlowGraph.MessageInput<Unity.Animation.WorldToRootNode, Unity.Animation.Rig> Rig;
+            public virtual System.UInt16 DFG_CG_GetInputPortCount();
+            public virtual System.UInt16 DFG_CG_GetOutputPortCount();
+            public virtual void DFG_CG_Initialize(System.UInt16 uniqueInputPort, System.UInt16 uniqueOutputPort);
+        }
+    }
 }
 
 namespace Unity.DataFlowGraph.Attributes

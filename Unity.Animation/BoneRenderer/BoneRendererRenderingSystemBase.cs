@@ -141,9 +141,5 @@ namespace Unity.Animation
             k_Marker.End();
 #endif
         }
-
-#if !UNITY_ENTITIES_0_12_OR_NEWER
-        ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool isReadOnly = false) where T : struct, IComponentData => new ComponentTypeHandle<T> { Value = GetArchetypeChunkComponentType<T>(isReadOnly) };
-#endif
     }
 }

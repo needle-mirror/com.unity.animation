@@ -422,7 +422,7 @@ namespace Unity.Animation.Tests
 
         void ValidateMixingStreamChannel(ref AnimationStream outputStream)
         {
-            Assert.That(outputStream.m_ChannelMasks.CountBits(0, outputStream.Rig.Value.Bindings.BindingCount), Is.EqualTo(16));
+            Assert.That(outputStream.GetChannelMaskBitCount(), Is.EqualTo(16));
 
             Assert.IsTrue(outputStream.GetTranslationChannelMask(0));
             Assert.IsTrue(outputStream.GetTranslationChannelMask(1));

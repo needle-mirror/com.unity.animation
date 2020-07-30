@@ -65,6 +65,7 @@ namespace Unity.Animation
         EntityQuery m_ReadRootTransformQuery;
         EntityQuery m_SortReadComponentDataQuery;
         EntityQuery m_ReadComponentDataQuery;
+        EntityQuery m_UpdateRootRemapJobDataQuery;
         EntityQuery m_WriteComponentDataQuery;
         EntityQuery m_WriteRootTransformQuery;
         EntityQuery m_AccumulateRootTransformQuery;
@@ -83,12 +84,13 @@ namespace Unity.Animation
         {
             base.OnCreate();
             m_EvaluateGraphQuery           = GetEntityQuery(ComponentType.ReadOnly<TTag>(), ComponentType.ReadOnly<Rig>());
-            m_ReadRootTransformQuery       = GetEntityQuery(ReadRootTransformJob<TTag, TAnimatedRootMotion>.QueryDesc);
+            m_ReadRootTransformQuery       = GetEntityQuery(ReadRootTransformJob<TAnimatedRootMotion>.QueryDesc);
             m_SortReadComponentDataQuery   = GetEntityQuery(SortReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
             m_ReadComponentDataQuery       = GetEntityQuery(ReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
+            m_UpdateRootRemapJobDataQuery  = GetEntityQuery(UpdateRootRemapMatrixJob<TAnimatedRootMotion>.QueryDesc);
             m_WriteComponentDataQuery      = GetEntityQuery(WriteTransformComponentJob<TWriteTransformHandle>.QueryDesc);
-            m_WriteRootTransformQuery      = GetEntityQuery(WriteRootTransformJob<TTag, TAnimatedRootMotion>.QueryDesc);
-            m_AccumulateRootTransformQuery = GetEntityQuery(AccumulateRootTransformJob<TTag, TAnimatedRootMotion>.QueryDesc);
+            m_WriteRootTransformQuery      = GetEntityQuery(WriteRootTransformJob<TAnimatedRootMotion>.QueryDesc);
+            m_AccumulateRootTransformQuery = GetEntityQuery(AccumulateRootTransformJob<TAnimatedRootMotion>.QueryDesc);
         }
 
         protected override void OnUpdate()
@@ -219,7 +221,7 @@ namespace Unity.Animation
                 AnimatedData = GetBufferTypeHandle<AnimatedData>()
             }.ScheduleParallel(m_ReadComponentDataQuery, sortJob);
 
-            var readRootJob = new ReadRootTransformJob<TTag, TAnimatedRootMotion>
+            var readRootJob = new ReadRootTransformJob<TAnimatedRootMotion>
             {
                 EntityTranslation = GetComponentDataFromEntity<Translation>(true),
                 EntityRotation = GetComponentDataFromEntity<Rotation>(true),
@@ -230,12 +232,21 @@ namespace Unity.Animation
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
             }.ScheduleParallel(m_ReadRootTransformQuery, readJob);
 
-            return readRootJob;
+            var updateRigRemapJob = new UpdateRootRemapMatrixJob<TAnimatedRootMotion>
+            {
+                EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
+                Parent = GetComponentDataFromEntity<Parent>(true),
+                DisableRootTransformType = GetComponentTypeHandle<DisableRootTransformReadWriteTag>(true),
+                AnimatedRootMotionType = GetComponentTypeHandle<TAnimatedRootMotion>(true),
+                RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(),
+            }.ScheduleParallel(m_UpdateRootRemapJobDataQuery, readRootJob);
+
+            return updateRigRemapJob;
         }
 
         protected JobHandle ScheduleWriteComponentDataJobs(JobHandle inputDeps)
         {
-            var writeRootJob = new WriteRootTransformJob<TTag, TAnimatedRootMotion>
+            var writeRootJob = new WriteRootTransformJob<TAnimatedRootMotion>
             {
                 EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(),
                 EntityLocalToParent = GetComponentDataFromEntity<LocalToParent>(),
@@ -248,7 +259,7 @@ namespace Unity.Animation
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>(),
             }.ScheduleParallel(m_WriteRootTransformQuery, inputDeps);
 
-            var accumulateRootJob = new AccumulateRootTransformJob<TTag, TAnimatedRootMotion>
+            var accumulateRootJob = new AccumulateRootTransformJob<TAnimatedRootMotion>
             {
                 EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(),
                 EntityLocalToParent = GetComponentDataFromEntity<LocalToParent>(),
@@ -257,11 +268,7 @@ namespace Unity.Animation
                 EntityScale = GetComponentDataFromEntity<Scale>(),
                 EntityNonUniformScale = GetComponentDataFromEntity<NonUniformScale>(),
                 RootMotionOffsetType = GetComponentTypeHandle<RootMotionOffset>(),
-#if UNITY_ENTITIES_0_12_OR_NEWER
                 RootMotionType = GetComponentTypeHandle<TAnimatedRootMotion>(),
-#else
-                RootMotionType = GetComponentTypeHandle<TAnimatedRootMotion>(true),
-#endif
                 RigType = GetComponentTypeHandle<Rig>(true),
                 RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
@@ -292,10 +299,5 @@ namespace Unity.Animation
 
             return Set.Update(inputDeps);
         }
-
-#if !UNITY_ENTITIES_0_12_OR_NEWER
-        ComponentTypeHandle<T> GetComponentTypeHandle<T>(bool readOnly = false) where T : struct, IComponentData => new ComponentTypeHandle<T> { Value = GetArchetypeChunkComponentType<T>(readOnly) };
-        BufferTypeHandle<T> GetBufferTypeHandle<T>(bool readOnly = false) where T : struct, IBufferElementData => new BufferTypeHandle<T>() {Value = GetArchetypeChunkBufferType<T>(readOnly)};
-#endif
     }
 }

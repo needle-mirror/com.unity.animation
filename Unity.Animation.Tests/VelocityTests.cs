@@ -44,11 +44,11 @@ namespace Unity.Animation.Tests
 
             m_PreviousBuffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             m_PreviousStream = AnimationStream.Create(m_Rig, m_PreviousBuffer);
-            AnimationStreamUtils.SetDefaultValues(ref m_PreviousStream);
+            m_PreviousStream.ResetToDefaultValues();
 
             m_Buffer = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
             m_Stream = AnimationStream.Create(m_Rig, m_Buffer);
-            AnimationStreamUtils.SetDefaultValues(ref m_Stream);
+            m_Stream.ResetToDefaultValues();
 
             m_Stream.SetLocalToParentTranslation(0, k_ForwardTranslation);
             m_Stream.SetLocalToParentRotation(1, k_20DegreesRotationX);

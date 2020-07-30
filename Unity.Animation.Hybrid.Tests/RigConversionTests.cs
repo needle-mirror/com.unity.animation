@@ -12,7 +12,7 @@ using Unity.Collections;
 #if UNITY_ENABLE_ANIMATION_RIG_CONVERSION_CLEANUP
 namespace Unity.Animation.Tests
 {
-    public class RigConversionTests : AnimationTestsFixture
+    class RigConversionTests : AnimationTestsFixture
     {
         protected Scene m_Scene;
 

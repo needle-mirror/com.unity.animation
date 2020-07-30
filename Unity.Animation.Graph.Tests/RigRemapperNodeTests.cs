@@ -908,7 +908,7 @@ namespace Unity.Animation.Tests
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
             var dstStream = AnimationStream.Create(destinationRig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            AnimationStreamUtils.MemClear(ref dstStream);
+            dstStream.ResetToZero();
 
             m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
             m_AnimationGraphSystem.Update();
@@ -934,7 +934,7 @@ namespace Unity.Animation.Tests
             // Set the source rig on the remapper node, without a remap table
             // The expected result should be to only have the default destination rig values in the stream
             dstStream = AnimationStream.Create(destinationRig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            AnimationStreamUtils.MemClear(ref dstStream);
+            dstStream.ResetToZero();
             Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, sourceRig);
             m_AnimationGraphSystem.Update();
 
@@ -957,7 +957,7 @@ namespace Unity.Animation.Tests
             // Set a valid rig remap table. The expected result is that we should have the default values of the
             // destination rig since the stream input is still unconnected.
             dstStream = AnimationStream.Create(destinationRig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            AnimationStreamUtils.MemClear(ref dstStream);
+            dstStream.ResetToZero();
             Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.RemapTable, remapTable);
             m_AnimationGraphSystem.Update();
 
@@ -983,7 +983,7 @@ namespace Unity.Animation.Tests
             Set.SendMessage(defaultValuesNode, DefaultValuesNode.SimulationPorts.Rig, sourceRig);
             Set.Connect(defaultValuesNode, DefaultValuesNode.KernelPorts.Output, rigRemapper, RigRemapperNode.KernelPorts.Input);
             dstStream = AnimationStream.Create(destinationRig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            AnimationStreamUtils.MemClear(ref dstStream);
+            dstStream.ResetToZero();
             m_AnimationGraphSystem.Update();
 
             dstStream = AnimationStream.CreateReadOnly(destinationRig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());

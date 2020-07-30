@@ -1,14 +1,6 @@
 // This file is generated. Do not modify by hand.
 // XML documentation file not found. To check if public methods have XML comments,
 // make sure the XML doc file is present and located next to the scraped dll
-namespace Unity.Animation
-{
-    public static class ClipBuilder
-    {
-        [System.Obsolete(@"ClipBuilder.AnimationClipToDenseClip has been deprecated. Use AnimationClip.ToDenseClip instead. (RemovedAfter 2020-07-15)")] public static Unity.Entities.BlobAssetReference<Unity.Animation.Clip> AnimationClipToDenseClip(UnityEngine.AnimationClip sourceClip, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
-    }
-}
-
 namespace Unity.Animation.Hybrid
 {
     public delegate System.UInt32 BindingHashDelegate(string path);
@@ -97,7 +89,11 @@ namespace Unity.Animation.Hybrid
         public Unity.Animation.Hybrid.RotationChannel[] RotationChannels;
         public Unity.Animation.Hybrid.ScaleChannel[] ScaleChannels;
         public Unity.Animation.Hybrid.TranslationChannel[] TranslationChannels;
+        public UnityEngine.Transform SkeletonRootBone { get; set; }
         public RigComponent() {}
+        public void ExcludeBoneAndDescendants(UnityEngine.Transform bone);
+        public void IncludeBoneAndAncestors(UnityEngine.Transform bone);
+        public void IncludeBoneAndDescendants(UnityEngine.Transform bone);
     }
 
     [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversion", 8)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class RigConversion : GameObjectConversionSystem
@@ -141,20 +137,6 @@ namespace Unity.Animation.Hybrid
         public UnityEngine.Vector3 DefaultValue;
         public string Id;
         public ScaleChannel() {}
-    }
-
-    [System.Obsolete(@"SkinnedMesh has been deprecated. (RemovedAfter 2020-06-24)")] public class SkinnedMesh : UnityEngine.MonoBehaviour
-    {
-        public Unity.Animation.Hybrid.RigComponent Rig;
-        public UnityEngine.SkinnedMeshRenderer SkinnedMeshRenderer;
-        public SkinnedMesh() {}
-    }
-
-    [System.Obsolete(@"SkinnedMeshConversion has been deprecated. (RemovedAfter 2020-06-24)")] [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.SkinnedMeshConversion", 2)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class SkinnedMeshConversion : GameObjectConversionSystem
-    {
-        public SkinnedMeshConversion() {}
-        protected virtual void OnCreateForCompiler();
-        protected virtual void OnUpdate();
     }
 
     [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.SkinnedMeshRendererConversion", 5)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class SkinnedMeshRendererConversion : GameObjectConversionSystem

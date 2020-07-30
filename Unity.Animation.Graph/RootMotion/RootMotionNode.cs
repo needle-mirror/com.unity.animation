@@ -67,7 +67,7 @@ namespace Unity.Animation
 
                 var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input));
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
-                AnimationStreamUtils.MemCpy(ref outputStream, ref inputStream);
+                outputStream.CopyFrom(ref inputStream);
 
                 var deltaRootX = new RigidTransform(inputStream.GetLocalToParentRotation(0), inputStream.GetLocalToParentTranslation(0));
                 context.Resolve(ref ports.DeltaRootX) = math.float4x4(deltaRootX);

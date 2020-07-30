@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using Unity.Entities;
+using Unity.Mathematics;
 using Unity.Transforms;
 
 namespace Unity.Animation.Hybrid
@@ -63,7 +64,12 @@ namespace Unity.Animation.Hybrid
             if (exposedTransforms?.Length > 0)
                 Debug.LogWarning($"Root transform [{bones[0].name}] cannot have IExposeTransform components and will be ignored");
 
-            entityManager.AddComponentData(rigEntity, new RigRootEntity { Value = system.TryGetPrimaryEntity(bones[0]) });
+            entityManager.AddComponentData(rigEntity,
+                new RigRootEntity
+                {
+                    Value = system.TryGetPrimaryEntity(bones[0]),
+                    RemapToRootMatrix = AffineTransform.identity
+                });
 
             for (int boneIndex = 1; boneIndex < boneCount; ++boneIndex)
             {

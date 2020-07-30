@@ -10,6 +10,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+using Unity.Collections;
 
 namespace Unity.Animation.Tests
 {
@@ -26,6 +27,15 @@ namespace Unity.Animation.Tests
 
         Scene m_Scene;
         GameObject m_BlendShapeGO;
+
+        Entity GetFirstEntityWithComponent<T>(NativeArray<Entity> entities)
+        {
+            for (int i = 0; i < entities.Length; ++i)
+                if (m_Manager.HasComponent<T>(entities[i]))
+                    return entities[i];
+
+            return Entity.Null;
+        }
 
         [SetUp]
         protected override void SetUp()
@@ -63,7 +73,7 @@ namespace Unity.Animation.Tests
                 var settings = GameObjectConversionSettings.FromWorld(World, blobAssetStore);
                 GameObjectConversionUtility.ConvertScene(scene, settings);
 
-#if UNITY_ENTITIES_0_12_OR_NEWER && !ENABLE_COMPUTE_DEFORMATIONS
+#if !ENABLE_COMPUTE_DEFORMATIONS
                 UnityEngine.TestTools.LogAssert.Expect(
                     LogType.Error,
                     "DOTS SkinnedMeshRenderer blendshapes are only supported via compute shaders in hybrid renderer. Make sure to add 'ENABLE_COMPUTE_DEFORMATIONS' to your scripting defines in Player settings."
@@ -72,12 +82,14 @@ namespace Unity.Animation.Tests
 
                 using (var entities = m_Manager.GetAllEntities(Collections.Allocator.Persistent))
                 {
-                    Assert.That(entities.Length, Is.EqualTo(1));
-                    Assert.IsTrue(m_Manager.HasComponent<BlendShapeWeight>(entities[0]));
-                    Assert.IsTrue(m_Manager.HasComponent<BlendShapeChunkMapping>(entities[0]));
+                    Assert.NotZero(entities.Length); // rig entity and rendering deformation entity
 
-                    var bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entities[0]);
-                    var bsChunkMapping = m_Manager.GetComponentData<BlendShapeChunkMapping>(entities[0]);
+                    var entity = GetFirstEntityWithComponent<BlendShapeWeight>(entities);
+                    Assert.IsTrue(entity != Entity.Null);
+                    Assert.IsTrue(m_Manager.HasComponent<BlendShapeChunkMapping>(entity));
+
+                    var bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entity);
+                    var bsChunkMapping = m_Manager.GetComponentData<BlendShapeChunkMapping>(entity);
                     Assert.That(bsBuffer.Length, Is.EqualTo(4));
                     Assert.That(bsChunkMapping.Size, Is.EqualTo(4));
                 }
@@ -85,9 +97,6 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-#if !UNITY_ENTITIES_0_12_OR_NEWER
-        [Ignore("DOTS Blendshape only supported in 2020.1 and above")]
-#endif
         public void CanAnimateBlendshapeWeights()
         {
             var scene = SceneManager.GetActiveScene();
@@ -106,18 +115,20 @@ namespace Unity.Animation.Tests
 
                 using (var entities = m_Manager.GetAllEntities(Collections.Allocator.Persistent))
                 {
-                    Assert.That(entities.Length, Is.EqualTo(1));
-                    Assert.IsTrue(m_Manager.HasComponent<BlendShapeWeight>(entities[0]));
+                    Assert.NotZero(entities.Length); // rig entity and rendering deformation entity
 
-                    var bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entities[0]);
+                    var entity = GetFirstEntityWithComponent<BlendShapeWeight>(entities);
+                    Assert.IsTrue(entity != Entity.Null);
+
+                    var bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entity);
                     Assert.That(bsBuffer.Length, Is.EqualTo(4));
                     Assert.That(bsBuffer[0].Value, Is.EqualTo(0f));
                     Assert.That(bsBuffer[1].Value, Is.EqualTo(0f));
                     Assert.That(bsBuffer[2].Value, Is.EqualTo(0f));
                     Assert.That(bsBuffer[3].Value, Is.EqualTo(0f));
 
-                    var rig = m_Manager.GetComponentData<Rig>(entities[0]);
-                    var animatedDataBuffer = m_Manager.GetBuffer<AnimatedData>(entities[0]).AsNativeArray();
+                    var rig = m_Manager.GetComponentData<Rig>(entity);
+                    var animatedDataBuffer = m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray();
                     var stream = AnimationStream.Create(rig, animatedDataBuffer);
 
                     Core.EvaluateClip(ClipManager.Instance.GetClipFor(rig, m_BlendshapeClip), 1f, ref stream, 0);
@@ -125,7 +136,7 @@ namespace Unity.Animation.Tests
                     m_Manager.World.GetOrCreateSystem<ComputeSkinMatrixSystem>().Update();
                     m_Manager.CompleteAllJobs();
 
-                    bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entities[0]);
+                    bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entity);
                     Assert.That(bsBuffer[0].Value, Is.EqualTo(m_BlendShapeConstantClip_Value1));
                     Assert.That(bsBuffer[1].Value, Is.EqualTo(m_BlendShapeConstantClip_Value2));
                     Assert.That(bsBuffer[2].Value, Is.EqualTo(m_BlendShapeConstantClip_Value3));

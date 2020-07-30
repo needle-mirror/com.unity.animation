@@ -287,16 +287,4 @@ namespace Unity.Animation.Hybrid
     }
 }
 
-namespace Unity.Animation
-{
-    using Unity.Animation.Hybrid;
-
-    public static class ClipBuilder
-    {
-        [System.Obsolete("ClipBuilder.AnimationClipToDenseClip has been deprecated. Use AnimationClip.ToDenseClip instead. (RemovedAfter 2020-07-15)")]
-        public static BlobAssetReference<Clip> AnimationClipToDenseClip(AnimationClip sourceClip, BindingHashDelegate bindingHash = null) =>
-            sourceClip.ToDenseClip(bindingHash);
-    }
-}
-
 #endif

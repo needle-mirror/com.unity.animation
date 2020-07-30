@@ -88,21 +88,4 @@ namespace Unity.Animation
     public class ComputeSkinMatrixSystem : ComputeDeformationDataSystemBase
     {
     }
-
-#if !UNITY_ENTITIES_0_12_OR_NEWER
-    [ExecuteAlways]
-    [UpdateInGroup(typeof(PostAnimationSystemGroup))]
-    [UpdateAfter(typeof(ComputeSkinMatrixSystem))]
-    internal class PrepareSkinMatrixToRendererSystem : PrepareSkinMatrixToRendererSystemBase
-    {
-    }
-
-    [ExecuteAlways]
-    [UpdateInGroup(typeof(PresentationSystemGroup))]
-    internal class FinalizePushSkinMatrixToRendererSystem : FinalizePushSkinMatrixToRendererSystemBase
-    {
-        protected override PrepareSkinMatrixToRendererSystemBase PrepareSkinMatrixToRenderSystem =>
-            World.GetExistingSystem<PrepareSkinMatrixToRendererSystem>();
-    }
-#endif
 }

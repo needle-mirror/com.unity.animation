@@ -14,6 +14,11 @@ namespace Unity.Animation
         public int SkinMeshIndex;
     }
 
+    internal struct SkinnedMeshRootEntity : IComponentData
+    {
+        public Entity Value;
+    }
+
     public struct BindPose : IBufferElementData
     {
         public float4x4 Value;

@@ -90,7 +90,7 @@ namespace Unity.Animation
 #endif
 
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
-                AnimationStreamUtils.SetDefaultValues(ref outputStream);
+                outputStream.ResetToDefaultValues();
                 outputStream.ClearChannelMasks();
 
                 int expectedWeightDataSize = Core.WeightDataSize(data.RigDefinition);

@@ -5,6 +5,7 @@ namespace Unity.Animation
 {
     public static partial class mathex
     {
+        const float k_2PI = math.PI * 2f;
         const float k_EpsilonDeterminant = 1e-6f;
         const float k_EpsilonSq = 1e-9f;
         const float k_EpsilonRCP = 1e-9f;
@@ -371,6 +372,43 @@ namespace Unity.Animation
             }
 
             return mulScale(i, scaleInv);
+        }
+
+        /// <summary>
+        /// Returns the angle that a quaternion rotates by in angle-axis representation.
+        /// </summary>
+        /// <param name="q">Unit quaternion</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float angle(quaternion q) =>
+            2f * math.acos(math.clamp(q.value.w, -1f, 1f));
+
+        /// <summary>
+        /// Returns the axis that the quaternion rotates around in angle-axis representation.
+        /// Note that if the quaternion does not rotate (identity), the axis is arbitrary.
+        /// </summary>
+        /// <param name="q">Unit quaternion</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static float3 axis(quaternion q)
+        {
+            float denom = math.sqrt(1f - q.value.w * q.value.w);
+            return math.select(q.value.xyz * math.rcp(denom), math.float3(1f, 0f, 0f), math.abs(denom) < k_EpsilonNormalSqrt);
+        }
+
+        /// <summary>
+        /// Unwind angle (in radians) to be between [-PI, PI] range
+        /// </summary>
+        /// <param name="a">radians</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal static float unwind(float a)
+        {
+            // Naive implementation
+            //while (a > math.PI)
+            //    a -= k_2PI;
+            //while (a < -math.PI)
+            //    a += k_2PI;
+
+            a = math.fmod(a + math.PI, k_2PI);
+            return math.select(a - math.PI, a + math.PI, a < 0f);
         }
     }
 }

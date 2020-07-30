@@ -5,6 +5,7 @@ namespace Unity.Animation.Tests
 {
     public class ManagedGraphTests : AnimationTestsFixture
     {
+        [DisableAutoCreation]
         internal class TestAnimationSystem : AnimationSystemBase<
             TestAnimationSystem.Tag,
             NotSupportedTransformHandle,

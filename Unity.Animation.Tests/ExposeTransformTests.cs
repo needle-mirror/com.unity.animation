@@ -161,7 +161,7 @@ namespace Unity.Animation.Tests
 
                     var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input));
 
-                    AnimationStreamUtils.MemCpy(ref outputStream, ref inputStream);
+                    outputStream.CopyFrom(ref inputStream);
                 }
             }
 
@@ -196,7 +196,7 @@ namespace Unity.Animation.Tests
             m_ExpectedStreamBufferDefault = new NativeArray<AnimatedData>(m_Rig.Value.Bindings.StreamSize, Allocator.Persistent);
 
             var stream = AnimationStream.Create(m_Rig, m_ExpectedStreamBufferAll);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             for (int i = 1; i < stream.Rig.Value.Skeleton.BoneCount; i++)
             {
                 var tmp = float4x4.TRS(new float3(i), quaternion.identity, new float3(1));
@@ -204,7 +204,7 @@ namespace Unity.Animation.Tests
             }
 
             stream = AnimationStream.Create(m_Rig, m_ExpectedStreamBufferHalf);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
             for (int i = 1; i < stream.Rig.Value.Skeleton.BoneCount; i++)
             {
                 if (i % 2 == 0)
@@ -221,7 +221,7 @@ namespace Unity.Animation.Tests
             }
 
             stream = AnimationStream.Create(m_Rig, m_ExpectedStreamBufferDefault);
-            AnimationStreamUtils.SetDefaultValues(ref stream);
+            stream.ResetToDefaultValues();
 
             m_ExpectedStreamAll = AnimationStream.CreateReadOnly(m_Rig, m_ExpectedStreamBufferAll);
             m_ExpectedStreamHalf = AnimationStream.CreateReadOnly(m_Rig, m_ExpectedStreamBufferHalf);
@@ -285,7 +285,7 @@ namespace Unity.Animation.Tests
                 rig,
                 m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
             );
-            AnimationStreamUtils.SetDefaultValues(ref ecsStream);
+            ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
@@ -350,7 +350,7 @@ namespace Unity.Animation.Tests
                 rig,
                 m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
             );
-            AnimationStreamUtils.SetDefaultValues(ref ecsStream);
+            ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
@@ -535,7 +535,7 @@ namespace Unity.Animation.Tests
                 rig,
                 m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
             );
-            AnimationStreamUtils.SetDefaultValues(ref ecsStream);
+            ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
             // Validate that the PostAnimationGraphSystem copy the transform value into the stream

@@ -41,14 +41,8 @@ namespace Unity.Animation
         internal static void CopyFrom(this ref UnsafeBitArray bits, ref UnsafeBitArray src)
         {
             AssertSameLength(ref bits, ref src);
-#if UNITY_ENTITIES_0_12_OR_NEWER
+
             bits.Copy(0, ref src, 0, bits.Length);
-#else
-            for (int i = 0; i < bits.Length; i += k_SizeMultiple)
-            {
-                bits.SetBits(i, src.GetBits(i, k_SizeMultiple), k_SizeMultiple);
-            }
-#endif
         }
 
         /// <summary>
