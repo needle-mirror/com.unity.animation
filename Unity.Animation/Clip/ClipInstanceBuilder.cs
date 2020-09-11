@@ -1,6 +1,7 @@
+using System.Diagnostics;
+
 using Unity.Collections;
 using Unity.Entities;
-using UnityEngine.Assertions;
 using Unity.Burst;
 using Unity.Jobs;
 
@@ -106,6 +107,13 @@ namespace Unity.Animation
                 return instanceBindings;
             }
 
+            [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+            static void ValidateBindingIndex(int value)
+            {
+                if (value == -1)
+                    throw new System.InvalidOperationException($"Binding not found.");
+            }
+
             static void FillCurvesForBindings(
                 ref BlobBuilderArray<float> samples,
                 int keyFloatCount,
@@ -122,9 +130,8 @@ namespace Unity.Animation
                     // Find binding in clip bindings.
                     var binding = instanceBindings[i];
                     var clipBindingIndex = Core.FindBindingIndex(ref sourceClipBindings, binding);
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.IsTrue(clipBindingIndex != -1);
-#endif
+
+                    ValidateBindingIndex(clipBindingIndex);
 
                     // Copy all the curves for this binding to the clip instance.
                     var clipCurveIndex = sourceClipCurveOffset + clipBindingIndex * keyFloatCount;
@@ -156,6 +163,8 @@ namespace Unity.Animation
             }
         }
 
+        // TODO rename to RunCreate etc
+        // TODO add non jobified version
         public static BlobAssetReference<ClipInstance> Create(
             BlobAssetReference<RigDefinition> rigDefinition,
             BlobAssetReference<Clip> sourceClip

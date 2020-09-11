@@ -1,6 +1,5 @@
 using Unity.Mathematics;
 using Unity.Collections;
-using UnityEngine.Assertions;
 using System.Runtime.CompilerServices;
 
 namespace Unity.Animation
@@ -41,11 +40,9 @@ namespace Unity.Animation
 
         public static void SolveTwoBoneIK(ref AnimationStream stream, in TwoBoneIKData data, float weight)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(data.RootIndex > -1);
-            Assert.IsTrue(data.MidIndex  > -1);
-            Assert.IsTrue(data.TipIndex  > -1);
-#endif
+            Core.ValidateGreater(data.RootIndex, -1);
+            Core.ValidateGreater(data.MidIndex, -1);
+            Core.ValidateGreater(data.TipIndex, -1);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -157,11 +154,9 @@ namespace Unity.Animation
 
         public static void SolvePositionConstraint(ref AnimationStream stream, in PositionConstraintData data, float weight)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(data.Index > -1);
-            Assert.IsTrue(data.SourcePositions.Length == data.SourceOffsets.Length);
-            Assert.IsTrue(data.SourcePositions.Length == data.SourceWeights.Length);
-#endif
+            Core.ValidateGreater(data.Index, -1);
+            Core.ValidateBufferLengthsAreEqual(data.SourcePositions.Length,  data.SourceOffsets.Length);
+            Core.ValidateBufferLengthsAreEqual(data.SourcePositions.Length,  data.SourceWeights.Length);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -220,11 +215,9 @@ namespace Unity.Animation
 
         public static void SolveRotationConstraint(ref AnimationStream stream, in RotationConstraintData data, float weight)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(data.Index > -1);
-            Assert.IsTrue(data.SourceRotations.Length == data.SourceOffsets.Length);
-            Assert.IsTrue(data.SourceRotations.Length == data.SourceWeights.Length);
-#endif
+            Core.ValidateGreater(data.Index, -1);
+            Core.ValidateBufferLengthsAreEqual(data.SourceRotations.Length,  data.SourceOffsets.Length);
+            Core.ValidateBufferLengthsAreEqual(data.SourceRotations.Length,  data.SourceWeights.Length);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -285,11 +278,9 @@ namespace Unity.Animation
 
         public static void SolveParentConstraint(ref AnimationStream stream, in ParentConstraintData data, float weight)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(data.Index > -1);
-            Assert.IsTrue(data.SourceTx.Length == data.SourceOffsets.Length);
-            Assert.IsTrue(data.SourceTx.Length == data.SourceWeights.Length);
-#endif
+            Core.ValidateGreater(data.Index, -1);
+            Core.ValidateBufferLengthsAreEqual(data.SourceTx.Length,  data.SourceOffsets.Length);
+            Core.ValidateBufferLengthsAreEqual(data.SourceTx.Length,  data.SourceWeights.Length);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -371,11 +362,10 @@ namespace Unity.Animation
 
         public static void SolveAimConstraint(ref AnimationStream stream, in AimConstraintData data, float weight)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(data.Index > -1);
-            Assert.IsTrue(data.SourcePositions.Length == data.SourceOffsets.Length);
-            Assert.IsTrue(data.SourcePositions.Length == data.SourceWeights.Length);
-#endif
+            Core.ValidateGreater(data.Index, -1);
+            Core.ValidateBufferLengthsAreEqual(data.SourcePositions.Length,  data.SourceOffsets.Length);
+            Core.ValidateBufferLengthsAreEqual(data.SourcePositions.Length,  data.SourceWeights.Length);
+
             weight = math.saturate(weight);
             if (!(weight > 0f))
                 return;
@@ -468,9 +458,8 @@ namespace Unity.Animation
 
         public static void SolveTwistCorrection(ref AnimationStream stream, in TwistCorrectionData data, float weight)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(data.TwistIndices.Length == data.TwistWeights.Length);
-#endif
+            Core.ValidateBufferLengthsAreEqual(data.TwistIndices.Length,  data.TwistWeights.Length);
+
             if (data.TwistIndices.Length == 0)
                 return;
 
@@ -485,12 +474,11 @@ namespace Unity.Animation
 
             for (int i = 0; i < data.TwistIndices.Length; ++i)
             {
+                Core.ValidateGreater(data.TwistIndices[i], -1);
+
                 float twistWeight = math.clamp(data.TwistWeights[i], -1f, 1f);
                 quaternion rot = mathex.lerp(quaternion.identity, mathex.select(twistRot, invTwistRot, math.sign(twistWeight) < 0f), math.abs(twistWeight));
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                Assert.IsTrue(data.TwistIndices[i] > -1);
-#endif
                 stream.SetLocalToParentRotation(data.TwistIndices[i], mathex.lerp(defaultStream.GetLocalToParentRotation(data.TwistIndices[i]), rot, weight));
             }
         }

@@ -2,19 +2,14 @@ using Unity.Burst;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "0df2a515c02040f28f0f30fff4653b6e", version: 1,   isHidden: true)]
     public class FloatMulNode
         : NodeDefinition<FloatMulNode.Data, FloatMulNode.SimPorts, FloatMulNode.KernelData, FloatMulNode.KernelDefs, FloatMulNode.Kernel>
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileFloatMul = new ProfilerMarker("Animation.FloatMul");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -33,9 +28,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileFloatMul;
-#endif
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
@@ -43,25 +35,8 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileFloatMul.Begin();
-#endif
-
                 context.Resolve(ref ports.Output) = context.Resolve(ports.InputA) * context.Resolve(ports.InputB);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileFloatMul.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileFloatMul = k_ProfileFloatMul;
-        }
-
-#endif
     }
 }

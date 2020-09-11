@@ -148,8 +148,6 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, m_BlendTree);
             Set.SetData(blendTreeNode, BlendTree1DNode.KernelPorts.BlendParameter, blendValue);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             return new TestData { Entity = entity, BlendTreeNode = blendTreeNode };
         }
 
@@ -165,6 +163,7 @@ namespace Unity.Animation.Tests
             Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void SettingBlendTreeAssetWithInvalidMotionThrow()
         {
@@ -180,11 +179,12 @@ namespace Unity.Animation.Tests
 
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.Rig, m_Rig);
 
-            Assert.Throws(Is.TypeOf<System.InvalidOperationException>()
-                .And.Message.EqualTo("Motion in BlendTree1D is not valid"),
+            Assert.Throws(Is.TypeOf<System.NullReferenceException>()
+                .And.Message.EqualTo("Clip is null."),
                 () => Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, blendTreeAsset));
         }
 
+#endif
         [Test]
         public void CanSetRigDefinitionThenBlendTreeAsset()
         {

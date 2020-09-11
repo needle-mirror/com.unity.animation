@@ -4,7 +4,6 @@ using Unity.Entities;
 using Unity.Transforms;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
@@ -46,7 +45,8 @@ namespace Unity.Animation
             {
                 ref var defaultValues = ref rigDefinition.Value.DefaultValues;
 
-                Assert.AreEqual(Data.Length, defaultValues.Length);
+                Core.ValidateBufferLengthsAreEqual(Data.Length, defaultValues.Length);
+
                 UnsafeUtility.MemCpy(Data.GetUnsafePtr(), defaultValues.GetUnsafePtr(), UnsafeUtility.SizeOf<float>() * defaultValues.Length);
             }
         }

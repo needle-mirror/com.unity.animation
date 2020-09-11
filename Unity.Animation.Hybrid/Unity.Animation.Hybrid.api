@@ -92,20 +92,15 @@ namespace Unity.Animation.Hybrid
         public UnityEngine.Transform SkeletonRootBone { get; set; }
         public RigComponent() {}
         public void ExcludeBoneAndDescendants(UnityEngine.Transform bone);
+        public Unity.Animation.RigBuilderData ExtractRigBuilderData(Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
         public void IncludeBoneAndAncestors(UnityEngine.Transform bone);
         public void IncludeBoneAndDescendants(UnityEngine.Transform bone);
+        public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> ToRigDefinition(Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
     }
 
-    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversion", 8)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class RigConversion : GameObjectConversionSystem
+    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversion", 11)] [Unity.Entities.UpdateInGroup(typeof(GameObjectConversionGroup))] public class RigConversion : GameObjectConversionSystem
     {
         public RigConversion() {}
-        protected virtual void OnCreateForCompiler();
-        protected virtual void OnUpdate();
-    }
-
-    [Unity.Entities.ConverterVersion(@"Unity.Animation.Hybrid.RigConversionCleanup", 2)] [Unity.Entities.UpdateInGroup(typeof(GameObjectAfterConversionGroup))] public class RigConversionCleanup : GameObjectConversionSystem
-    {
-        public RigConversionCleanup() {}
         protected virtual void OnCreateForCompiler();
         protected virtual void OnUpdate();
     }
@@ -113,9 +108,9 @@ namespace Unity.Animation.Hybrid
     public static class RigGenerator
     {
         public static string ComputeRelativePath(UnityEngine.Transform target, UnityEngine.Transform ancestor);
-        public static Unity.Animation.IAnimationChannel[] ExtractAnimationChannelFromRigComponent(Unity.Animation.Hybrid.RigComponent rigComponent, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
+        [System.Obsolete(@"ExtractAnimationChannelFromRigComponent has been deprecated. Use RigComponent.ExtractRigBuilderData. (RemovedAfter 2020-12-01).", false)] public static Unity.Animation.IAnimationChannel[] ExtractAnimationChannelFromRigComponent(Unity.Animation.Hybrid.RigComponent rigComponent, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
         public static Unity.Animation.SkeletonNode[] ExtractSkeletonNodesFromGameObject(UnityEngine.GameObject root, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
-        public static Unity.Animation.SkeletonNode[] ExtractSkeletonNodesFromRigComponent(Unity.Animation.Hybrid.RigComponent rigComponent, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
+        [System.Obsolete(@"ExtractSkeletonNodesFromRigComponent has been deprecated. Use RigComponent.ExtractRigBuilderData. (RemovedAfter 2020-12-01).", false)] public static Unity.Animation.SkeletonNode[] ExtractSkeletonNodesFromRigComponent(Unity.Animation.Hybrid.RigComponent rigComponent, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
         public static Unity.Animation.SkeletonNode[] ExtractSkeletonNodesFromTransforms(UnityEngine.Transform root, UnityEngine.Transform[] transforms, Unity.Animation.Hybrid.BindingHashDelegate bindingHash = default(Unity.Animation.Hybrid.BindingHashDelegate));
         public static int FindTransformIndex(UnityEngine.Transform transform, UnityEngine.Transform[] transforms);
     }

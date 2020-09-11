@@ -3,21 +3,16 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6d62b890d24a4b769ae7b9481e017743", version: 1, category: "Animation Core/Mixers", description: "Blends N animation streams together given weights per stream")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of animation streams", groupIndex: 1, minInstance: 2, maxInstance: -1)]
     public class NMixerNode
         : NodeDefinition<NMixerNode.Data, NMixerNode.SimPorts, NMixerNode.KernelData, NMixerNode.KernelDefs, NMixerNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileNMixer = new ProfilerMarker("Animation.NMixer");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -44,9 +39,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileNMixer;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -56,50 +48,28 @@ namespace Unity.Animation
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
-                if (outputStream.IsNull)
-                {
-                    throw new System.InvalidOperationException($"NMixerNode Output is invalid.");
-                }
+                outputStream.ValidateIsNotNull();
 
                 var inputArray = context.Resolve(ports.Inputs);
                 var weightArray = context.Resolve(ports.Weights);
-                if (inputArray.Length != weightArray.Length)
-                    throw new System.InvalidOperationException($"NMixerNode: Inputs And Weight Port array length mismatch. Expecting '{weightArray.Length}' but was '{inputArray.Length}'.");
 
-                var sumWeight = 0.0f;
+                Core.ValidateBufferLengthsAreEqual(inputArray.Length, weightArray.Length);
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileNMixer.Begin();
-#endif
-
-                Core.MixerBegin(ref outputStream);
+                var state = Core.MixerBegin(ref outputStream);
 
                 for (int i = 0; i < inputArray.Length; ++i)
                 {
                     var inputStream = AnimationStream.CreateReadOnly(data.RigDefinition, inputArray[i].ToNative(context));
                     if (weightArray[i] > 0 && !inputStream.IsNull)
                     {
-                        sumWeight = Core.MixerAdd(ref outputStream, ref inputStream, weightArray[i], sumWeight);
+                        state = Core.MixerAdd(ref outputStream, ref inputStream, weightArray[i], state);
                     }
                 }
 
                 var defaultPoseInputStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.DefaultPoseInput));
-                Core.MixerEnd(ref outputStream, ref defaultPoseInputStream, sumWeight);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileNMixer.End();
-#endif
+                Core.MixerEnd(ref outputStream, ref defaultPoseInputStream, state);
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileNMixer = k_ProfileNMixer;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

@@ -1,10 +1,12 @@
 using System;
+using System.Diagnostics;
 
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Collections;
 using Unity.Burst;
+
 
 namespace Unity.Animation
 {
@@ -23,6 +25,16 @@ namespace Unity.Animation
         public BufferTypeHandle<TReadTransformHandle> ReadTransforms;
         public uint LastSystemVersion;
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        void ValidateHasOnlyOneEntityPerTransform(NativeArray<TReadTransformHandle> readTransforms)
+        {
+            var end = readTransforms.Unique(new RigEntityBuilder.TransformHandleComparer<TReadTransformHandle>());
+            if (end < readTransforms.Length)
+            {
+                throw new InvalidOperationException($"Cannot have multiple entity targeting the same transform index. Ignoring Entity '{readTransforms[end].Entity}' targeting transform index '{readTransforms[end].Index}'.");
+            }
+        }
+
         public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
         {
             var didChange = chunk.DidChange(ReadTransforms, LastSystemVersion);
@@ -35,11 +47,8 @@ namespace Unity.Animation
             {
                 var readTransforms = readTransformAccessor[i].AsNativeArray();
                 readTransforms.Sort(new RigEntityBuilder.TransformHandleComparer<TReadTransformHandle>());
-                var end = readTransforms.Unique(new RigEntityBuilder.TransformHandleComparer<TReadTransformHandle>());
-                if (end < readTransforms.Length)
-                {
-                    throw new InvalidOperationException($"Cannot have multiple entity targeting the same transform index. Ignoring Entity '{readTransforms[end].Entity}' targeting transform index '{readTransforms[end].Index}'.");
-                }
+
+                ValidateHasOnlyOneEntityPerTransform(readTransforms);
             }
         }
     }

@@ -12,6 +12,7 @@ namespace Unity.Animation.Tests
         private float3 m_ClipRootLocalTranslation1 => new float3(100.0f, 0.0f, 0.0f);
         private quaternion m_ClipRootLocalRotation1 => quaternion.RotateX(math.radians(90.0f));
         private float3 m_ClipRootLocalScale1 => new float3(10.0f, 1.0f, 1.0f);
+        private int m_ClipRootInt1 => 1;
 
         private float3 m_ClipChildLocalTranslation1 => new float3(0.0f, 100.0f, 0.0f);
         private quaternion m_ClipChildLocalRotation1 => quaternion.RotateY(math.radians(90.0f));
@@ -20,13 +21,13 @@ namespace Unity.Animation.Tests
         private float3 m_ClipRootLocalTranslation2 => new float3(0.0f, 100.0f, 0.0f);
         private quaternion m_ClipRootLocalRotation2 => quaternion.RotateY(math.radians(90.0f));
         private float3 m_ClipRootLocalScale2 => new float3(1.0f, 1.0f, 10.0f);
+        private int m_ClipRootInt2 => 4;
 
         private float3 m_ClipChildLocalTranslation2 => new float3(100.0f, 0.0f, 0.0f);
         private quaternion m_ClipChildLocalRotation2 => quaternion.RotateX(math.radians(90.0f));
         private float3 m_ClipChildLocalScale2 => new float3(1.0f, 10.0f, 1.0f);
 
         private Rig m_Rig;
-        private BlobAssetReference<RigDefinition> m_AnotherRig;
         private BlobAssetReference<Clip> m_ConstantClip1;
         private BlobAssetReference<Clip> m_ConstantClip2;
 
@@ -57,23 +58,12 @@ namespace Unity.Animation.Tests
                 },
             };
 
-            return RigBuilder.CreateRigDefinition(skeletonNodes);
-        }
-
-        private static BlobAssetReference<RigDefinition> CreateAnotherRigDefinition()
-        {
-            var skeletonNodes = new[]
+            var animationChannels = new IAnimationChannel[]
             {
-                new SkeletonNode
-                {
-                    ParentIndex = -1, Id = "Root", AxisIndex = -1,
-                    LocalTranslationDefaultValue = new float3(0, 0, 0),
-                    LocalRotationDefaultValue = new quaternion(0, 0, 0, 1),
-                    LocalScaleDefaultValue = new float3(1, 1, 1),
-                },
+                new IntChannel { DefaultValue = 0, Id = new StringHash("Int1") }
             };
 
-            return RigBuilder.CreateRigDefinition(skeletonNodes);
+            return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels);
         }
 
         public void Setup()
@@ -84,7 +74,9 @@ namespace Unity.Animation.Tests
             var denseClip1 = CreateConstantDenseClip(
                 new[] { ("Root", m_ClipRootLocalTranslation1), ("Child1", m_ClipChildLocalTranslation1) },
                 new[] { ("Root", m_ClipRootLocalRotation1), ("Child1", m_ClipChildLocalRotation1) },
-                new[] { ("Root", m_ClipRootLocalScale1),    ("Child1", m_ClipChildLocalScale1) });
+                new[] { ("Root", m_ClipRootLocalScale1),    ("Child1", m_ClipChildLocalScale1) },
+                new(string, float)[0],
+                new[] {("Int1", m_ClipRootInt1)});
 
             var blobPath = "LayerMixerNodeTestsDenseClip1.blob";
             BlobFile.WriteBlobAsset(ref denseClip1, blobPath);
@@ -92,7 +84,9 @@ namespace Unity.Animation.Tests
             var denseClip2 = CreateConstantDenseClip(
                 new[] { ("Root", m_ClipRootLocalTranslation2), ("Child1", m_ClipChildLocalTranslation2) },
                 new[] { ("Root", m_ClipRootLocalRotation2), ("Child1", m_ClipChildLocalRotation2) },
-                new[] { ("Root", m_ClipRootLocalScale2),    ("Child1", m_ClipChildLocalScale2) });
+                new[] { ("Root", m_ClipRootLocalScale2),    ("Child1", m_ClipChildLocalScale2) },
+                new(string, float)[0],
+                new[] {("Int1", m_ClipRootInt2)});
 
             blobPath = "LayerMixerNodeTestsDenseClip2.blob";
             BlobFile.WriteBlobAsset(ref denseClip2, blobPath);
@@ -106,7 +100,6 @@ namespace Unity.Animation.Tests
 
             // Create rig
             m_Rig = new Rig { Value = CreateTestRigDefinition() };
-            m_AnotherRig = CreateAnotherRigDefinition();
 
             // Clip #1
             {
@@ -188,7 +181,12 @@ namespace Unity.Animation.Tests
                 }
             };
 
-            var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes) };
+            var animationChannels = new IAnimationChannel[]
+            {
+                new IntChannel { DefaultValue = 5, Id = new StringHash("Int1") }
+            };
+
+            var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels) };
 
             var entity = m_Manager.CreateEntity();
             SetupRigEntity(entity, m_Rig, Entity.Null);
@@ -199,8 +197,6 @@ namespace Unity.Animation.Tests
 
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, rig);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -215,6 +211,7 @@ namespace Unity.Animation.Tests
                 Assert.That(streamECS.GetLocalToParentRotation(i), Is.EqualTo(skeletonNodes[i].LocalRotationDefaultValue).Using(RotationComparer));
                 Assert.That(streamECS.GetLocalToParentScale(i), Is.EqualTo(skeletonNodes[i].LocalScaleDefaultValue).Using(ScaleComparer));
             }
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(5));
         }
 
         [Test]
@@ -239,8 +236,6 @@ namespace Unity.Animation.Tests
             set.Connect(clipNode, ClipNode.KernelPorts.Output, layerMixer, LayerMixerNode.KernelPorts.Inputs, 0);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -255,6 +250,8 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(m_ClipChildLocalTranslation1).Using(TranslationComparer), "Child1 localTranslation doesn't match clip localTranslation");
             Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(m_ClipChildLocalRotation1).Using(RotationComparer), "Child1 localRotation doesn't match clip localRotation");
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(m_ClipChildLocalScale1).Using(ScaleComparer), "Child1 localScale doesn't match clip localScale");
+
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(m_ClipRootInt1));
         }
 
         [Test]
@@ -264,6 +261,7 @@ namespace Unity.Animation.Tests
             var expectedLocalTranslation = math.lerp(m_ClipChildLocalTranslation1, m_ClipChildLocalTranslation2, k_BlendValue);
             var expectedLocalRotation = mathex.lerp(m_ClipChildLocalRotation1, m_ClipChildLocalRotation2, k_BlendValue);
             var expectedLocalScale = math.lerp(m_ClipChildLocalScale1, m_ClipChildLocalScale2, k_BlendValue);
+            var expectedInt = math.select(m_ClipRootInt1, m_ClipRootInt2, k_BlendValue > 0.5);
 
             var entity = m_Manager.CreateEntity();
             SetupRigEntity(entity, m_Rig, Entity.Null);
@@ -291,8 +289,6 @@ namespace Unity.Animation.Tests
 
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -303,6 +299,7 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer), "Child1 localTranslation doesn't match blended value");
             Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedLocalRotation).Using(RotationComparer), "Child1 localRotation doesn't match blended value");
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedLocalScale).Using(ScaleComparer), "Child1 localScale doesn't match blended value");
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
         }
 
         [Test]
@@ -320,6 +317,8 @@ namespace Unity.Animation.Tests
             var expectedChildLocalTranslation1 = defaultStream.GetLocalToParentTranslation(1) + (m_ClipChildLocalTranslation1 * layerWeight);
             var expectedChildLocalRotation1 = mathex.mul(defaultStream.GetLocalToParentRotation(1), mathex.quatWeight(m_ClipChildLocalRotation1, layerWeight));
             var expectedChildLocalScale1 = defaultStream.GetLocalToParentScale(1) + (m_ClipChildLocalScale1 * layerWeight);
+
+            var expectedInt = defaultStream.GetInt(0) + math.select(0, m_ClipRootInt1, layerWeight > 0.5);
 
             var entity = m_Manager.CreateEntity();
             SetupRigEntity(entity, m_Rig, Entity.Null);
@@ -341,8 +340,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -357,6 +354,8 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation1).Using(TranslationComparer), "Child1 localTranslation doesn't match expected value");
             Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation1).Using(RotationComparer), "Child1 localRotation doesn't match expected value");
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale1).Using(ScaleComparer), "Child1 localScale doesn't match expected value");
+
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
         }
 
         [Test]
@@ -376,6 +375,8 @@ namespace Unity.Animation.Tests
             var expectedChildLocalTranslation1 = defaultStream.GetLocalToParentTranslation(1) + (m_ClipChildLocalTranslation1 * layer1Weight) + (m_ClipChildLocalTranslation2 * layer2Weight);
             var expectedChildLocalRotation1 = mathex.mul(math.mul(defaultStream.GetLocalToParentRotation(1),  mathex.quatWeight(m_ClipChildLocalRotation1, layer1Weight)), mathex.quatWeight(m_ClipChildLocalRotation2, layer2Weight));
             var expectedChildLocalScale1 = defaultStream.GetLocalToParentScale(1) + (m_ClipChildLocalScale1 * layer1Weight) + (m_ClipChildLocalScale2 * layer2Weight);
+
+            var expectedInt = defaultStream.GetInt(0) + math.select(0, m_ClipRootInt1, layer1Weight > 0.5) + math.select(0, m_ClipRootInt2, layer2Weight > 0.5);
 
             var entity = m_Manager.CreateEntity();
             SetupRigEntity(entity, m_Rig, Entity.Null);
@@ -404,8 +405,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -420,6 +419,8 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation1).Using(TranslationComparer), "Child1 localTranslation doesn't match expected value");
             Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation1).Using(RotationComparer), "Child1 localRotation doesn't match expected value");
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale1).Using(ScaleComparer), "Child1 localScale doesn't match expected value");
+
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
         }
 
         [Test]
@@ -427,9 +428,11 @@ namespace Unity.Animation.Tests
         [TestCase(0.5f, 0.5f)]
         [TestCase(1.0f, 1.0f)]
         [TestCase(0.0f, 0.5f)]
+        [TestCase(0.0f, 0.8f)]
         [TestCase(0.0f, 1.0f)]
         public void CanMixMultipleAdditiveLayerAndMaskChannel(float layer0Weight, float layer1Weight)
         {
+            float intMask = 0.7f;
             var defaultStream = AnimationStream.FromDefaultValues(m_Rig);
 
             // Root is masked on layer 2
@@ -440,6 +443,8 @@ namespace Unity.Animation.Tests
             var expectedChildLocalTranslation1 = defaultStream.GetLocalToParentTranslation(1) + (m_ClipChildLocalTranslation1 * layer0Weight) + (m_ClipChildLocalTranslation2 * layer1Weight);
             var expectedChildLocalRotation1 = mathex.mul(math.mul(defaultStream.GetLocalToParentRotation(1), mathex.quatWeight(m_ClipChildLocalRotation1, layer0Weight)), mathex.quatWeight(m_ClipChildLocalRotation2, layer1Weight));
             var expectedChildLocalScale1 = defaultStream.GetLocalToParentScale(1) + (m_ClipChildLocalScale1 * layer0Weight) + (m_ClipChildLocalScale2 * layer1Weight);
+
+            var expectedInt = defaultStream.GetInt(0) + math.select(0, m_ClipRootInt1, layer0Weight > 0.5) + math.select(0, m_ClipRootInt2, layer1Weight * intMask > 0.5);
 
             var entity = m_Manager.CreateEntity();
             SetupRigEntity(entity, m_Rig, Entity.Null);
@@ -456,17 +461,19 @@ namespace Unity.Animation.Tests
 
             var weightNode = CreateNode<WeightBuilderNode>();
             set.SendMessage(weightNode, WeightBuilderNode.SimulationPorts.Rig, m_Rig);
-            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 3);
-            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 3);
+            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 4);
+            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 4);
 
             // layer 2 only affect Child1 translation, rotation, and scale
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 0, m_Rig.Value.Value.Bindings.TranslationBindingIndex + 1);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 1, m_Rig.Value.Value.Bindings.RotationBindingIndex + 1);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 2, m_Rig.Value.Value.Bindings.ScaleBindingIndex + 1);
+            set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 3, m_Rig.Value.Value.Bindings.IntBindingIndex);
 
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 0, 1f);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 1, 1f);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 2, 1f);
+            set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 3, intMask);
 
             var layerMixer = CreateNode<LayerMixerNode>();
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
@@ -484,8 +491,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -500,6 +505,8 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(expectedChildLocalTranslation1).Using(TranslationComparer), "Child1 localTranslation doesn't match expected value");
             Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(expectedChildLocalRotation1).Using(RotationComparer), "Child1 localRotation doesn't match expected value");
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(expectedChildLocalScale1).Using(ScaleComparer), "Child1 localScale doesn't match expected value");
+
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
         }
 
         [Test]
@@ -521,8 +528,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             Assert.DoesNotThrow(() => m_AnimationGraphSystem.Update());
         }
 
@@ -540,16 +545,18 @@ namespace Unity.Animation.Tests
 
             var weightNode = CreateNode<WeightBuilderNode>();
             set.SendMessage(weightNode, WeightBuilderNode.SimulationPorts.Rig, m_Rig);
-            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 3);
-            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 3);
+            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 4);
+            set.SetPortArraySize(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 4);
 
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 0, m_Rig.Value.Value.Bindings.TranslationBindingIndex + 1);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 1, m_Rig.Value.Value.Bindings.RotationBindingIndex + 1);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 2, m_Rig.Value.Value.Bindings.ScaleBindingIndex + 1);
+            set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelIndices, 3, m_Rig.Value.Value.Bindings.IntBindingIndex);
 
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 0, 1f);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 1, 1f);
             set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 2, 1f);
+            set.SetData(weightNode, WeightBuilderNode.KernelPorts.ChannelWeights, 3, 1f);
 
             var layerMixer = CreateNode<LayerMixerNode>();
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
@@ -561,8 +568,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(entity);
             set.Connect(layerMixer, LayerMixerNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -579,6 +584,8 @@ namespace Unity.Animation.Tests
             Assert.That(streamECS.GetLocalToParentTranslation(1), Is.EqualTo(m_ClipChildLocalTranslation1).Using(TranslationComparer), "Child1 localTranslation doesn't match clip localTranslation");
             Assert.That(streamECS.GetLocalToParentRotation(1), Is.EqualTo(m_ClipChildLocalRotation1).Using(RotationComparer), "Child1 localRotation doesn't match clip localRotation");
             Assert.That(streamECS.GetLocalToParentScale(1), Is.EqualTo(m_ClipChildLocalScale1).Using(ScaleComparer), "Child1 localScale doesn't match clip localScale");
+
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(m_ClipRootInt1));
         }
     }
 }

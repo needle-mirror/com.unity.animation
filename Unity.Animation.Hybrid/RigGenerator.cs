@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 
 namespace Unity.Animation.Hybrid
@@ -20,6 +21,18 @@ namespace Unity.Animation.Hybrid
             return -1;
         }
 
+        /// <summary>
+        /// Calculates path from an ancestor transform to a target transform.
+        /// </summary>
+        /// <param name="target">The leaf transform of the path</param>
+        /// <param name="ancestor">The root transform of the path.</param>
+        /// <returns>Returns a string representing the path in a transform hierarchy from a given root transform down to a given target transform.</returns>
+        /// <remarks>
+        /// The ancestor transform must be higher in the hierarchy than the target transform.
+        /// The target and ancestor may also be the same transform.
+        ///
+        /// This is the same function as AnimationUtility.CalculateTransformPath, except that it also works at runtime.
+        /// </remarks>
         public static string ComputeRelativePath(Transform target, Transform ancestor)
         {
             var stack = new List<Transform>(10);
@@ -70,11 +83,13 @@ namespace Unity.Animation.Hybrid
             return ExtractSkeletonNodesFromTransforms(root.transform, transforms, bindingHash);
         }
 
+        [System.Obsolete("ExtractSkeletonNodesFromRigComponent has been deprecated. Use RigComponent.ExtractRigBuilderData. (RemovedAfter 2020-12-01).", false)]
         public static SkeletonNode[] ExtractSkeletonNodesFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)
         {
             return ExtractSkeletonNodesFromTransforms(rigComponent.transform, rigComponent.Bones, bindingHash);
         }
 
+        [System.Obsolete("ExtractAnimationChannelFromRigComponent has been deprecated. Use RigComponent.ExtractRigBuilderData. (RemovedAfter 2020-12-01).", false)]
         public static IAnimationChannel[] ExtractAnimationChannelFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)
         {
             var channels = new List<IAnimationChannel>();

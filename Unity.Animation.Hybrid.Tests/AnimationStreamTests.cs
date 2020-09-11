@@ -28,24 +28,6 @@ namespace Unity.Animation.Tests
         const int k_FloatId = 0;
         const int k_IntId = 0;
 
-        static BlobAssetReference<RigDefinition> CreateTestRigDefinition()
-        {
-            var skeletonNodes = new[]
-            {
-                new SkeletonNode { ParentIndex = -1, Id = "Root", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 0, Id = "Child1", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 0, Id = "Child2", AxisIndex = -1 }
-            };
-
-            var customChannels = new IAnimationChannel[]
-            {
-                new FloatChannel { Id = "myFloat", DefaultValue = k_DefaultFloatValue },
-                new IntChannel { Id = "myInt", DefaultValue = k_DefaultIntValue }
-            };
-
-            return RigBuilder.CreateRigDefinition(skeletonNodes, null, customChannels);
-        }
-
         public void Setup()
         {
 #if UNITY_EDITOR
@@ -66,8 +48,14 @@ namespace Unity.Animation.Tests
         {
             base.OneTimeSetUp();
 
+            var customChannels = new IAnimationChannel[]
+            {
+                new FloatChannel { Id = "myFloat", DefaultValue = k_DefaultFloatValue },
+                new IntChannel { Id = "myInt", DefaultValue = k_DefaultIntValue }
+            };
+
             // Create rig
-            m_Rig = new Rig { Value = CreateTestRigDefinition() };
+            m_Rig = new Rig { Value = CreateTestRigDefinition(3, customChannels) };
 
             // Constant hierarchy clip
             {
@@ -95,8 +83,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(entity);
             Set.Connect(clipNode, ClipNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             var data = new TestData { Entity = entity, Buffer = CreateGraphValue(clipNode, ClipNode.KernelPorts.Output) };
 
@@ -150,8 +136,8 @@ namespace Unity.Animation.Tests
                 m_Manager.GetBuffer<AnimatedData>(data.Entity).AsNativeArray()
             );
 
-            Assert.Throws<System.InvalidOperationException>(() => stream.ClearChannelMasks());
-            Assert.Throws<System.InvalidOperationException>(() => stream.SetChannelMasks(true));
+            Assert.Throws<System.InvalidOperationException>(() => stream.ClearMasks());
+            Assert.Throws<System.InvalidOperationException>(() => stream.SetMasks(true));
             Assert.Throws<System.InvalidOperationException>(() => stream.SetFloat(0, 0.0f));
             Assert.Throws<System.InvalidOperationException>(() => stream.SetInt(0, 0));
             Assert.Throws<System.InvalidOperationException>(() => stream.SetLocalToParentRotation(0, quaternion.identity));
@@ -288,6 +274,56 @@ namespace Unity.Animation.Tests
             Assert.Throws<System.NotFiniteNumberException>(() => graphStream.SetLocalToRootTRS(1, nanFloat3, nanQuaternion, nanFloat3));
 
             readWriteBuffer.Dispose();
+        }
+
+        [Test]
+        [TestCase(1, 0, 0)]
+        [TestCase(2, 0, 0)]
+        [TestCase(30, 0, 0)]
+        [TestCase(130, 0, 0)]
+        [TestCase(0, 1, 0)]
+        [TestCase(0, 10, 0)]
+        [TestCase(0, 98, 0)]
+        [TestCase(0, 0, 1)]
+        [TestCase(0, 0, 10)]
+        [TestCase(0, 0, 54)]
+        [TestCase(33, 5, 8)]
+        [TestCase(44, 2, 9)]
+        [TestCase(200, 200, 200)]
+        [TestCase(1000, 1000, 1000)]
+        public void AnimationStreamSizeMatchRigDefinitionSize(int skeletonCount, int floatCount, int intCount)
+        {
+            var customChannels = new IAnimationChannel[floatCount + intCount];
+            for (int i = 0; i < floatCount; i++)
+            {
+                customChannels[i] = new FloatChannel { Id = $"float{i}", DefaultValue = 0.0f };
+            }
+
+            for (int i = 0; i < intCount; i++)
+            {
+                customChannels[floatCount + i] = new IntChannel { Id = $"int{i}", DefaultValue = 0 };
+            }
+
+            var rig = CreateTestRigDefinition(skeletonCount, customChannels);
+
+            var interpolatedCurveCount =  rig.Value.Bindings.CurveCount - rig.Value.Bindings.RotationCurveCount - rig.Value.Bindings.IntCurveCount;
+            var rotationCurveCount =  rig.Value.Bindings.RotationCurveCount;
+            var discreetCurveCount =  rig.Value.Bindings.IntCurveCount;
+
+            var interpolatedDataChunkCount = (int)math.ceil(interpolatedCurveCount / (float)BindingSet.k_InterpolatedDataChunkSize);
+            var DiscreteDataChunkCount = (int)math.ceil(discreetCurveCount / (float)BindingSet.k_DiscreteDataChunkSize);
+            var RotationDataChunkCount = (int)math.ceil(rotationCurveCount / (float)BindingSet.k_RotationDataChunkSize);
+
+            var ChannelSize = interpolatedDataChunkCount * BindingSet.k_InterpolatedDataChunkSize + DiscreteDataChunkCount * BindingSet.k_DiscreteDataChunkSize + RotationDataChunkCount * BindingSet.k_RotationDataChunkSize;
+
+            const int bitsInBytes = 8;
+            const int bitsIn8Bytes = 8 * bitsInBytes;
+            const int bitsIn4Bytes = 4 * bitsInBytes;
+            var maskSizeIn4Bytes = Core.AlignUp(rig.Value.Bindings.BindingCount, bitsIn8Bytes) / bitsIn4Bytes;
+            var expectedStreamSize = ChannelSize + (maskSizeIn4Bytes * 2);
+
+
+            Assert.That(rig.Value.Bindings.StreamSize, Is.EqualTo(expectedStreamSize), "Stream size doesn't match expected value");
         }
     }
 }

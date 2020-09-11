@@ -12,6 +12,8 @@ namespace Unity.Animation.Hybrid
                 InTangent = inKey.inTangent,
                 OutTangent = inKey.outTangent,
                 Value = inKey.value,
+                InWeight = inKey.weightedMode == UnityEngine.WeightedMode.In || inKey.weightedMode == UnityEngine.WeightedMode.Both ? inKey.inWeight : KeyframeData.DEFAULT_WEIGHT,
+                OutWeight = inKey.weightedMode == UnityEngine.WeightedMode.Out || inKey.weightedMode == UnityEngine.WeightedMode.Both ? inKey.outWeight : KeyframeData.DEFAULT_WEIGHT,
             };
 
             return (inKey.time, key);
@@ -45,7 +47,7 @@ namespace Unity.Animation.Hybrid
 
             var blobBuilder = new BlobBuilder(Allocator.Temp);
             ref var curveBlob = ref blobBuilder.ConstructRoot<AnimationCurveBlob>();
-            FillKeyframeCurveBlob(curve, ref blobBuilder, ref curveBlob);
+            FillAnimationCurveBlob(curve, ref blobBuilder, ref curveBlob);
 
             var outputClip = blobBuilder.CreateBlobAssetReference<AnimationCurveBlob>(Allocator.Persistent);
 
@@ -54,17 +56,26 @@ namespace Unity.Animation.Hybrid
             return outputClip;
         }
 
-        static void FillKeyframeCurveBlob(UnityEngine.AnimationCurve sourceCurve, ref BlobBuilder blobBuilder, ref AnimationCurveBlob curveBlob)
+        /// <summary>
+        /// Allocates memory in a blob and initializes it with the values of a UnityEngine animation curve.
+        /// </summary>
+        /// <param name="sourceCurve">The curve to be converted to a blob.</param>
+        /// <param name="blobBuilder">The blob builder used to fill the blob.</param>
+        /// <param name="curveBlob">The blob to which the curve is copied.</param>
+        public static void FillAnimationCurveBlob(UnityEngine.AnimationCurve sourceCurve, ref BlobBuilder blobBuilder, ref AnimationCurveBlob curveBlob)
         {
-            var times = blobBuilder.Allocate(ref curveBlob.KeyframesTime, sourceCurve.length);
-            var keyframes = blobBuilder.Allocate(ref curveBlob.KeyframesData, sourceCurve.length);
-
             float length = sourceCurve.length;
+            bool isHermitCurve = true;
+            for (int i = 0; i < length; ++i)
+            {
+                isHermitCurve &= sourceCurve.keys[i].weightedMode == UnityEngine.WeightedMode.None;
+            }
+
+            var builder = curveBlob.CreateBuilder(blobBuilder, isHermitCurve ? AnimationCurveType.Hermite : AnimationCurveType.Bezier, sourceCurve.length);
             for (var i = 0; i < length; ++i)
             {
-                (var time, var key) = KeyframeConversion(sourceCurve.keys[i]);
-                times[i] = time;
-                keyframes[i] = key;
+                var(time, key) = KeyframeConversion(sourceCurve.keys[i]);
+                builder.SetKeyframe(i, time, key);
             }
         }
     }

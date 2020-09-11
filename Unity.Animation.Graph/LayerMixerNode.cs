@@ -3,10 +3,6 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
     public enum BlendingMode
@@ -15,6 +11,7 @@ namespace Unity.Animation
         Additive,
     }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "368c53e919534c6f99c0d1b2577e3e2b", version: 1, category: "Animation Core/Mixers", description: "Blends animation streams based on an ordered layer approach. Each layer can blend in either override or additive mode. Weight masks can be built using the WeightBuilderNode.")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of layers", groupIndex: 1, minInstance: 2, maxInstance: -1, simulationPortToDrive: "LayerCount")]
     public class LayerMixerNode
@@ -22,9 +19,7 @@ namespace Unity.Animation
         , IMsgHandler<ushort>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.LayerMixPose");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -55,9 +50,6 @@ namespace Unity.Animation
 
         public unsafe struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition>    RigDefinition;
 
             public int                                  LayerCount;
@@ -73,25 +65,14 @@ namespace Unity.Animation
                 var weightMaskArray = context.Resolve(ports.WeightMasks);
                 var blendingModeArray = context.Resolve(ports.BlendingModes);
 
-                if (inputArray.Length != data.LayerCount)
-                    throw new System.InvalidOperationException($"LayerMixerNode: Inputs Port array length mismatch. Expecting '{data.LayerCount}' but was '{inputArray.Length}'.");
-
-                if (weightArray.Length != data.LayerCount)
-                    throw new System.InvalidOperationException($"LayerMixerNode: Weights Port array length mismatch. Expecting '{data.LayerCount}' but was '{weightArray.Length}'.");
-
-                if (weightMaskArray.Length != data.LayerCount)
-                    throw new System.InvalidOperationException($"LayerMixerNode: WeightMasks Port array length mismatch. Expecting '{data.LayerCount}' but was '{weightMaskArray.Length}'.");
-
-                if (blendingModeArray.Length != data.LayerCount)
-                    throw new System.InvalidOperationException($"LayerMixerNode: BlendingModes Port array length mismatch. Expecting '{data.LayerCount}' but was '{blendingModeArray.Length}'.");
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
+                Core.ValidateBufferLengthsAreEqual(data.LayerCount, inputArray.Length);
+                Core.ValidateBufferLengthsAreEqual(data.LayerCount, weightArray.Length);
+                Core.ValidateBufferLengthsAreEqual(data.LayerCount, weightMaskArray.Length);
+                Core.ValidateBufferLengthsAreEqual(data.LayerCount, blendingModeArray.Length);
 
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
                 outputStream.ResetToDefaultValues();
-                outputStream.ClearChannelMasks();
+                outputStream.ClearMasks();
 
                 int expectedWeightDataSize = Core.WeightDataSize(data.RigDefinition);
                 for (int i = 0; i < inputArray.Length; ++i)
@@ -116,21 +97,8 @@ namespace Unity.Animation
                         }
                     }
                 }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected unsafe override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfilerMarker = k_ProfilerMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

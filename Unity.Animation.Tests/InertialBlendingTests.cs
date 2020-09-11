@@ -4,7 +4,6 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using UnityEngine;
-using AssertionException = UnityEngine.Assertions.AssertionException;
 
 namespace Unity.Animation.Tests
 {
@@ -373,7 +372,6 @@ namespace Unity.Animation.Tests
             parameters.Dispose();
         }
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
 
         [TestCase(0.01f, -1)]
@@ -383,7 +381,7 @@ namespace Unity.Animation.Tests
         {
             var parameters = new ComputeInertialBlendingCoefficientsParameters(m_TestRig);
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.ComputeInertialBlendingCoefficients(
                     ref parameters.CurrentInput,
@@ -494,7 +492,7 @@ namespace Unity.Animation.Tests
             var wrongLengthDirectionArray = new NativeArray<float3>(10, Allocator.Temp);
             var wrongLengthCoefficientsArray = new NativeArray<InertialBlendingCoefficients>(10, Allocator.Temp);
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.ComputeInertialBlendingCoefficients(
                     ref parameters.CurrentInput,
@@ -506,7 +504,7 @@ namespace Unity.Animation.Tests
                     parameters.Directions);
             });
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.ComputeInertialBlendingCoefficients(
                     ref parameters.CurrentInput,
@@ -518,7 +516,7 @@ namespace Unity.Animation.Tests
                     uninitializedDirectionArray);
             });
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.ComputeInertialBlendingCoefficients(
                     ref parameters.CurrentInput,
@@ -530,7 +528,7 @@ namespace Unity.Animation.Tests
                     parameters.Directions);
             });
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.ComputeInertialBlendingCoefficients(
                     ref parameters.CurrentInput,
@@ -554,7 +552,7 @@ namespace Unity.Animation.Tests
         {
             var parameters = new ComputeInertialBlendingCoefficientsParameters(m_TestRig);
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.InertialBlend(ref parameters.CurrentInput,
                     ref parameters.LastPose,
@@ -632,7 +630,7 @@ namespace Unity.Animation.Tests
             var wrongLengthDirectionArray = new NativeArray<float3>(10, Allocator.Temp);
             var wrongLengthCoefficientsArray = new NativeArray<InertialBlendingCoefficients>(10, Allocator.Temp);
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.InertialBlend(ref parameters.CurrentInput,
                     ref parameters.LastPose,
@@ -642,7 +640,7 @@ namespace Unity.Animation.Tests
                     0.5f);
             });
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.InertialBlend(ref parameters.CurrentInput,
                     ref parameters.LastPose,
@@ -652,7 +650,7 @@ namespace Unity.Animation.Tests
                     0.5f);
             });
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.InertialBlend(ref parameters.CurrentInput,
                     ref parameters.LastPose,
@@ -662,7 +660,7 @@ namespace Unity.Animation.Tests
                     0.5f);
             });
 
-            Assert.Throws<AssertionException>(() =>
+            Assert.Throws<InvalidOperationException>(() =>
             {
                 Core.InertialBlend(ref parameters.CurrentInput,
                     ref parameters.LastPose,
@@ -677,7 +675,6 @@ namespace Unity.Animation.Tests
             parameters.Dispose();
         }
 
-#endif
 #endif
 
         [TestCase(0, 0, 0, 0, 0)]

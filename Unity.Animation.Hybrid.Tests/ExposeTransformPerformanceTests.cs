@@ -10,7 +10,7 @@ using System.Collections.Generic;
 
 namespace Unity.Animation.PerformanceTests
 {
-    [Category("performance"), Category("animation")]
+    [Category("Performance"), Category("Animation")]
     public class ExposeTransformPerformanceTests : AnimationTestsFixture
     {
         BlobAssetReference<RigDefinition> CreateRigDefinition(int boneCount)

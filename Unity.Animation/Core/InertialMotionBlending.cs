@@ -1,7 +1,6 @@
 using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Mathematics;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
@@ -129,12 +128,11 @@ namespace Unity.Animation
             currentInput.ValidateRigEquality(ref lastOutput);
             currentInput.ValidateRigEquality(ref secondLastOutput);
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount + currentInput.FloatCount, outCoefficients.Length);
-            Assert.AreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount, outDirections.Length);
-            Assert.IsTrue(deltaTime > 0f);
-            Assert.IsTrue(duration >= 0f);
-#endif
+            Core.ValidateBufferLengthsAreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount + currentInput.FloatCount, outCoefficients.Length);
+            Core.ValidateBufferLengthsAreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount, outDirections.Length);
+            Core.ValidateGreater(deltaTime, 0.0f);
+            Core.ValidateGreaterOrEqual(duration, 0f);
+
             int translationOffset = InertialBlendingCoefficients.GetTranslationsOffset(currentInput.Rig);
             for (int i = 0; i < currentInput.TranslationCount; i++)
             {
@@ -214,12 +212,12 @@ namespace Unity.Animation
         {
             currentInput.ValidateIsNotNull();
             currentInput.ValidateRigEquality(ref outputPose);
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount + currentInput.FloatCount, interpolationFactors.Length);
-            Assert.AreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount, interpolationDirections.Length);
-            Assert.IsTrue(duration >= remainingTime);
-            Assert.IsTrue(remainingTime >= 0);
-#endif
+
+            Core.ValidateBufferLengthsAreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount + currentInput.FloatCount, interpolationFactors.Length);
+            Core.ValidateBufferLengthsAreEqual(currentInput.TranslationCount + currentInput.RotationCount + currentInput.ScaleCount, interpolationDirections.Length);
+            Core.ValidateGreaterOrEqual(duration, remainingTime);
+            Core.ValidateGreaterOrEqual(remainingTime, 0f);
+
             var t = duration - remainingTime;
             var timePowers = InertialBlendingCoefficients.ComputeTimePowers(t);
 

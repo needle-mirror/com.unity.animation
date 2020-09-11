@@ -165,19 +165,16 @@ namespace Unity.Animation.Tests
             var rig1 = m_Rig_RootIdentity;
             var rig1Transforms = CreateRigTransforms(rig1, Entity.Null);
             SetupRigEntity(rig1Transforms[0], rig1, rig1Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig1Transforms[0]);
             m_Manager.AddBuffer<AnimatedLocalToRoot>(rig1Transforms[0]).ResizeUninitialized(2);
 
             var rig2 = m_Rig_RootOffset;
             var rig2Transforms = CreateRigTransforms(rig2, Entity.Null);
             SetupRigEntity(rig2Transforms[0], rig2, rig2Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig2Transforms[0]);
             m_Manager.AddBuffer<AnimatedLocalToRoot>(rig2Transforms[0]).ResizeUninitialized(2);
 
             var rig3 = m_Rig_RootOffset;
             var rig3Transforms = CreateRigTransforms(rig3, Entity.Null);
             SetupRigEntity(rig3Transforms[0], rig3, rig3Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig3Transforms[0]);
             m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rig3Transforms[0]);
             m_Manager.AddBuffer<AnimatedLocalToRoot>(rig3Transforms[0]).ResizeUninitialized(2);
 
@@ -205,7 +202,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rig1Entity, math.float3(1f, 2f, 3f), quaternion.RotateY(math.radians(5f)), 1f, Entity.Null);
             var rig1Transforms = CreateRigTransforms(rig1, rig1Entity);
             SetupRigEntity(rig1Entity, rig1, rig1Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig1Entity);
             m_Manager.AddBuffer<AnimatedLocalToRoot>(rig1Entity).ResizeUninitialized(2);
 
             var rig2 = m_Rig_RootOffset;
@@ -213,7 +209,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rig2Entity, math.float3(1f, 2f, -3f), quaternion.RotateY(math.radians(-5f)), 1f, Entity.Null);
             var rig2Transforms = CreateRigTransforms(rig2, rig2Entity);
             SetupRigEntity(rig2Entity, rig2, rig2Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig2Entity);
             m_Manager.AddBuffer<AnimatedLocalToRoot>(rig2Entity).ResizeUninitialized(2);
 
             var rig3 = m_Rig_RootOffset;
@@ -221,7 +216,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rig3Entity, math.float3(3f, 2f, 1f), quaternion.RotateX(math.radians(-5f)), 1f, Entity.Null);
             var rig3Transforms = CreateRigTransforms(rig3, Entity.Null);
             SetupRigEntity(rig3Entity, rig3, rig3Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig3Entity);
             m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rig3Entity);
             m_Manager.AddBuffer<AnimatedLocalToRoot>(rig3Entity).ResizeUninitialized(2);
 
@@ -250,17 +244,14 @@ namespace Unity.Animation.Tests
             var rig1 = m_Rig_RootIdentity;
             var rig1Transforms = CreateRigTransforms(rig1, Entity.Null);
             SetupRigEntity(rig1Transforms[0], rig1, rig1Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig1Transforms[0]);
 
             var rig2 = m_Rig_RootOffset;
             var rig2Transforms = CreateRigTransforms(rig2, Entity.Null);
             SetupRigEntity(rig2Transforms[0], rig2, rig2Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig2Transforms[0]);
 
             var rig3 = m_Rig_RootOffset;
             var rig3Transforms = CreateRigTransforms(rig3, Entity.Null);
             SetupRigEntity(rig3Transforms[0], rig3, rig3Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig3Transforms[0]);
             m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rig3Transforms[0]);
 
             ExecuteSystemPipeline();
@@ -287,21 +278,18 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rig1Entity, math.float3(1f, 2f, 3f), quaternion.RotateY(math.radians(5f)), 1f, Entity.Null);
             var rig1Transforms = CreateRigTransforms(rig1, rig1Entity);
             SetupRigEntity(rig1Entity, rig1, rig1Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig1Entity);
 
             var rig2 = m_Rig_RootOffset;
             var rig2Entity = m_Manager.CreateEntity();
             SetupTransformComponents(rig2Entity, math.float3(1f, 2f, -3f), quaternion.RotateY(math.radians(-5f)), 1f, Entity.Null);
             var rig2Transforms = CreateRigTransforms(rig2, rig2Entity);
             SetupRigEntity(rig2Entity, rig2, rig2Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig2Entity);
 
             var rig3 = m_Rig_RootOffset;
             var rig3Entity = m_Manager.CreateEntity();
             SetupTransformComponents(rig3Entity, math.float3(3f, 2f, 1f), quaternion.RotateX(math.radians(-5f)), 1f, Entity.Null);
             var rig3Transforms = CreateRigTransforms(rig3, Entity.Null);
             SetupRigEntity(rig3Entity, rig3, rig3Transforms[0]);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rig3Entity);
             m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rig3Entity);
 
             ExecuteSystemPipeline();

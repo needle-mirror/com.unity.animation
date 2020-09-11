@@ -108,6 +108,22 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
+        public void RigComponent_ExcludeAllChildrenSetChildAsRootAndInclude_ChildIsIncluded()
+        {
+            var boneInHierarchy1 = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy2 = CreateBoneInHierarchy(boneInHierarchy1);
+            var boneInHierarchy3 = CreateBoneInHierarchy(boneInHierarchy2);
+
+            rigComponent.ExcludeBoneAndDescendants(boneInHierarchy1);
+            rigComponent.SkeletonRootBone = boneInHierarchy2;
+            rigComponent.IncludeBoneAndDescendants(boneInHierarchy2);
+
+            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy3));
+            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy2));
+            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy1));
+        }
+
+        [Test]
         public void RigComponent_WhenGrandchildIsIncluded_ExcludeChild_GrandchildIsAlsoExcluded()
         {
             var boneInHierarchy1 = CreateBoneInHierarchy(rigComponent);

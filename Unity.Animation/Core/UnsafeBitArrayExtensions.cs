@@ -9,14 +9,14 @@ namespace Unity.Animation
         const int k_SizeMultiple = 64;
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        static void AssertSameLength(ref UnsafeBitArray source, ref UnsafeBitArray destination)
+        static void ValidateLengthsAreEqual(ref UnsafeBitArray source, ref UnsafeBitArray destination)
         {
             if (source.Length != destination.Length)
                 throw new ArgumentException($"UnsafeBitArray must be of the same length: {source.Length} vs {destination.Length}.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        static void AssertLengthIsMultipleOf64(ref UnsafeBitArray bits)
+        static void ValidateLengthIsMultipleOf64(ref UnsafeBitArray bits)
         {
             if ((bits.Length & (k_SizeMultiple - 1)) != 0)
                 throw new ArgumentException($"UnsafeBitArray length must be a multiple of 64: {bits.Length}.");
@@ -40,7 +40,7 @@ namespace Unity.Animation
         /// </remarks>
         internal static void CopyFrom(this ref UnsafeBitArray bits, ref UnsafeBitArray src)
         {
-            AssertSameLength(ref bits, ref src);
+            ValidateLengthsAreEqual(ref bits, ref src);
 
             bits.Copy(0, ref src, 0, bits.Length);
         }
@@ -55,8 +55,8 @@ namespace Unity.Animation
         /// </remarks>
         internal static void OrBits64(this ref UnsafeBitArray bits, ref UnsafeBitArray src)
         {
-            AssertSameLength(ref bits, ref src);
-            AssertLengthIsMultipleOf64(ref src);
+            ValidateLengthsAreEqual(ref bits, ref src);
+            ValidateLengthIsMultipleOf64(ref src);
 
             var length = src.Length;
             for (int i = 0; i < length; i += k_SizeMultiple)
@@ -77,9 +77,9 @@ namespace Unity.Animation
         /// </remarks>
         internal static void OrBits64(this ref UnsafeBitArray bits, ref UnsafeBitArray lhs, ref UnsafeBitArray rhs)
         {
-            AssertSameLength(ref bits, ref lhs);
-            AssertSameLength(ref lhs, ref rhs);
-            AssertLengthIsMultipleOf64(ref lhs);
+            ValidateLengthsAreEqual(ref bits, ref lhs);
+            ValidateLengthsAreEqual(ref lhs, ref rhs);
+            ValidateLengthIsMultipleOf64(ref lhs);
 
             var length = lhs.Length;
             for (int i = 0; i < length; i += k_SizeMultiple)
@@ -99,8 +99,8 @@ namespace Unity.Animation
         /// </remarks>
         internal static void AndBits64(this ref UnsafeBitArray bits, ref UnsafeBitArray src)
         {
-            AssertSameLength(ref bits, ref src);
-            AssertLengthIsMultipleOf64(ref src);
+            ValidateLengthsAreEqual(ref bits, ref src);
+            ValidateLengthIsMultipleOf64(ref src);
 
             var length = src.Length;
             for (int i = 0; i < length; i += k_SizeMultiple)
@@ -121,9 +121,9 @@ namespace Unity.Animation
         /// </remarks>
         internal static void AndBits64(this ref UnsafeBitArray bits, ref UnsafeBitArray lhs, ref UnsafeBitArray rhs)
         {
-            AssertSameLength(ref bits, ref lhs);
-            AssertSameLength(ref lhs, ref rhs);
-            AssertLengthIsMultipleOf64(ref lhs);
+            ValidateLengthsAreEqual(ref bits, ref lhs);
+            ValidateLengthsAreEqual(ref lhs, ref rhs);
+            ValidateLengthIsMultipleOf64(ref lhs);
 
             var length = lhs.Length;
             for (int i = 0; i < length; i += k_SizeMultiple)
@@ -141,7 +141,7 @@ namespace Unity.Animation
         /// </remarks>
         internal static void InvertBits64(this ref UnsafeBitArray bits)
         {
-            AssertLengthIsMultipleOf64(ref bits);
+            ValidateLengthIsMultipleOf64(ref bits);
 
             var length = bits.Length;
             for (int i = 0; i < length; i += k_SizeMultiple)

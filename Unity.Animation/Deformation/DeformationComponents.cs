@@ -35,16 +35,4 @@ namespace Unity.Animation
         public int RigIndex;
         public int Size;
     }
-
-    [System.Obsolete("SkinMatrix is deprecated use Unity.Deformations.SkinMatrix instead. (RemovedAfter 2020-08-19)", false)]
-    public struct SkinMatrix : IBufferElementData
-    {
-        public float3x4 Value;
-    }
-
-    [System.Obsolete("SkinnedMeshRigEntity is deprecated use RigEntity instead. (RemovedAfter 2020-08-19). (UnityUpgradable) -> RigEntity", false)]
-    public struct SkinnedMeshRigEntity : IComponentData
-    {
-        public Entity Value;
-    }
 }

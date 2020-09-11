@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Unity.Entities;
 using Unity.Mathematics;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
@@ -27,11 +26,10 @@ namespace Unity.Animation
                 m_ClipInstanceMap[key] = clipInstance;
             }
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(clipInstance.IsCreated);
-            Assert.AreEqual(clipInstance.Value.RigHashCode, rigDefinition.Value.GetHashCode());
-            Assert.AreEqual(clipInstance.Value.ClipHashCode, clip.Value.GetHashCode());
-#endif
+            Core.ValidateIsCreated(clipInstance);
+            Core.ValidateAreEqual(clipInstance.Value.RigHashCode, rigDefinition.Value.GetHashCode());
+            Core.ValidateAreEqual(clipInstance.Value.ClipHashCode, clip.Value.GetHashCode());
+
             return clipInstance;
         }
     }

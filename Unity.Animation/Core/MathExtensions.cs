@@ -1,5 +1,6 @@
 using Unity.Mathematics;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
 
 namespace Unity.Animation
 {
@@ -352,6 +353,12 @@ namespace Unity.Animation
             return c;
         }
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void ThrowSingularMatrixException()
+        {
+            throw new System.ArithmeticException("Singular matrix.");
+        }
+
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float3x3 inverse(float3x3 m)
         {
@@ -364,11 +371,8 @@ namespace Unity.Animation
             if (!adjInverse(ms, out float3x3 i, k_EpsilonDeterminant))
             {
                 // TODO: Handle singular exceptions with SVD
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                throw new System.ArithmeticException("Singular matrix!");
-#else
+                ThrowSingularMatrixException();
                 return float3x3.identity;
-#endif
             }
 
             return mulScale(i, scaleInv);

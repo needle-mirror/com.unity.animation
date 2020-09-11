@@ -5,21 +5,16 @@ using Unity.DataFlowGraph.Attributes;
 using Unity.Mathematics;
 using Unity.Entities;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "bf4c5a78bcd94ce7a5ad2d0efd5fa50b", version: 1, category: "Animation Core/Constraints", description: "Two bone IK solver")]
     public class TwoBoneIKNode
         : NodeDefinition<TwoBoneIKNode.Data, TwoBoneIKNode.SimPorts, TwoBoneIKNode.KernelData, TwoBoneIKNode.KernelDefs, TwoBoneIKNode.Kernel>
         , IMsgHandler<TwoBoneIKNode.SetupMessage>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.TwoBoneIKNode");
-#endif
+#pragma warning restore 0618
 
         [Serializable]
         public struct SetupMessage
@@ -65,9 +60,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
 
             public int RootIndex;
@@ -84,17 +76,11 @@ namespace Unity.Animation
             {
                 var input = ctx.Resolve(ports.Input);
                 var output = ctx.Resolve(ref ports.Output);
-                if (input.Length != output.Length)
-                    throw new InvalidOperationException($"TwoBoneIKNode: Input Length '{input.Length}' does not match Output Length '{output.Length}'");
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
+                Core.ValidateBufferLengthsAreEqual(output.Length, input.Length);
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
-                if (stream.IsNull)
-                    throw new ArgumentNullException("TwoBoneIKNode: Invalid output stream");
+                stream.ValidateIsNotNull();
 
                 var ikData = new Core.TwoBoneIKData
                 {
@@ -110,28 +96,24 @@ namespace Unity.Animation
                 };
 
                 Core.SolveTwoBoneIK(ref stream, ikData, ctx.Resolve(ports.Weight));
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
         }
 
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            kData.ProfilerMarker = k_ProfilerMarker;
-#endif
+
             kData.RootIndex = -1;
             kData.MidIndex = -1;
             kData.TipIndex = -1;
             kData.TargetOffset = RigidTransform.identity;
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.TargetPositionWeight, 1f);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.TargetRotationWeight, 1f);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Target, float4x4.identity);
+#pragma warning restore 0618
         }
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)

@@ -6,21 +6,6 @@ namespace Unity.Animation.Tests
 {
     class TimeNodesTests : AnimationTestsFixture
     {
-        [Test]
-        public void CanGetDeltaTime()
-        {
-            var deltaTimeNode = CreateNode<DeltaTimeNode>();
-
-            var output = CreateGraphValue(deltaTimeNode, DeltaTimeNode.KernelPorts.DeltaTime);
-
-            float deltaTime = Time.deltaTime;
-            Set.Update(default);
-
-            float value = Set.GetValueBlocking(output);
-
-            Assert.That(value, Is.EqualTo(deltaTime));
-        }
-
         [TestCase(0, 2)]
         [TestCase(0.5f, 3)]
         [TestCase(1, 4.2f)]

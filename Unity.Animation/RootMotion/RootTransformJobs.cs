@@ -207,17 +207,17 @@ namespace Unity.Animation
                 var rigRoot = rigRoots[i].Value;
 
                 t = EntityTranslation.HasComponent(rigRoot) ?
-                    SelectAndSetEntityComponentData(rigRoot, EntityTranslation, t, stream.GetTranslationChannelMask(0)) :
+                    SelectAndSetEntityComponentData(rigRoot, EntityTranslation, t, stream.PassMask.IsTranslationSet(0)) :
                     k_DefaultTranslation;
 
                 r = EntityRotation.HasComponent(rigRoot) ?
-                    SelectAndSetEntityComponentData(rigRoot, EntityRotation, r, stream.GetRotationChannelMask(0)) :
+                    SelectAndSetEntityComponentData(rigRoot, EntityRotation, r, stream.PassMask.IsRotationSet(0)) :
                     k_DefaultRotation;
 
                 if (EntityNonUniformScale.HasComponent(rigRoot))
-                    s = SelectAndSetEntityComponentData(rigRoot, EntityNonUniformScale, s, stream.GetScaleChannelMask(0));
+                    s = SelectAndSetEntityComponentData(rigRoot, EntityNonUniformScale, s, stream.PassMask.IsScaleSet(0));
                 else if (EntityScale.HasComponent(rigRoot))
-                    s.Value = SelectAndSetEntityComponentData(rigRoot, EntityScale, new Scale { Value = s.Value.x }, stream.GetScaleChannelMask(0)).Value;
+                    s.Value = SelectAndSetEntityComponentData(rigRoot, EntityScale, new Scale { Value = s.Value.x }, stream.PassMask.IsScaleSet(0)).Value;
                 else
                     s = k_DefaultNonUniformScale;
 
@@ -308,9 +308,9 @@ namespace Unity.Animation
                 var rigRoot = rigRoots[i].Value;
 
                 var deltaTx = RigidTransform.identity;
-                if (stream.GetTranslationChannelMask(0))
+                if (stream.PassMask.IsTranslationSet(0))
                     deltaTx.pos = stream.GetLocalToParentTranslation(0);
-                if (stream.GetRotationChannelMask(0))
+                if (stream.PassMask.IsRotationSet(0))
                     deltaTx.rot = stream.GetLocalToParentRotation(0);
 
                 RigidTransform absoluteTx = RigidTransform.identity;

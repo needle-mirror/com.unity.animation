@@ -458,8 +458,10 @@ namespace Unity.Animation.Tests
             Set.ReleaseGraphValue(output);
         }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
         internal class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
         {
+#pragma warning restore 0618
 #pragma warning disable 0649
             public struct SimPorts : ISimulationPortDefinition
             {
@@ -509,7 +511,8 @@ namespace Unity.Animation.Tests
 
             var outputStream = AnimationStream.CreateReadOnly(m_Rig, DFGUtils.GetGraphValueTempNativeBuffer(Set, output));
 
-            Assert.That(outputStream.HasNoChannelMasks(), Is.True);
+            Assert.That(outputStream.PassMask.HasNone(), Is.True);
+            Assert.That(outputStream.FrameMask.HasNone(), Is.True);
         }
     }
 }

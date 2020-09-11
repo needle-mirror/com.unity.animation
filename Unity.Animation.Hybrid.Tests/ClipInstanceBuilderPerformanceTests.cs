@@ -9,7 +9,7 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Animation.PerformanceTests
 {
-    [Category("performance"), Category("animation")]
+    [Category("Performance"), Category("Animation")]
     public class ClipInstanceBuilderPerformanceTests : AnimationTestsFixture
     {
         [Performance]

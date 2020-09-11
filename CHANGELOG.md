@@ -5,6 +5,99 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.7.1-preview.2] - 2020-09-11
+
+### Changed
+- Added missing explicit dependency on com.unity.modules.animation
+- Upgraded com.unity.dataflowgraph to 0.17.0-preview.4
+
+## [0.7.1-preview.1] - 2020-09-09
+
+### Changed
+- Upgraded com.unity.collections to 0.12.0-preview.13
+- Upgraded com.unity.entities to 0.14.0-preview.19
+- Upgraded com.unity.jobs to 0.5.0-preview.14
+- Upgraded com.unity.mathematics to 1.2.1
+- Upgraded com.unity.dataflowgraph to 0.17.0-preview.3
+
+### Deprecated
+- `DeltaTimeNode` has been deprecated because it was using `UnityEngine.Time.DeltaTime` instead of `World.Time.DeltaTime`, but the latter is not accessible from inside a node. Instead, set the kernel time data of the nodes with `SetData` or use a `KernelPassThroughNodeFloat`.
+
+### Fixed
+- Fixed bug in `UberClipNode.Bake` to prevent out of bound reads from rotation data.
+
+## [0.7.0-preview.1] - 2020-08-28
+
+### Added
+- Added a new section in `AnimationStream` for discrete channels:
+    - Size can be accessed using `BindingSet.DiscreteDataChunkCount` or `AnimationStream.DiscreteDataChunkCount`
+    - Pointer can be accessed using `AnimationStream.GetDiscreteDataChunkUnsafePtr()`
+- Added `FillAnimationCurveBlob(UnityEngine.AnimationCurve sourceCurve, ref BlobBuilder blobBuilder, ref AnimationCurveBlob curveBlob)` to the public API.
+- Added `AnimationCurveCache` to the public API. It is used to cache the curve interval accessed during evaluation.
+- Added `Evaluate(float time, ref AnimationCurveBlob curveBlob, ref AnimationCurveCache cache)` that can be used to evaluate directly an AnimationCurveBlob.
+- Added ref struct `ChannelMask` to the public API. This is used by the `AnimationStream` to reference the masks within a stream. 
+- Added property `AnimationStream.PassMask` and `AnimationStream.FrameMask`.
+- Added `UNITY_ENABLE_ANIMATION_PROFILING` preprocessor to turn ON animation profiler marker.
+- Added bezier interpolation support for animation curves. Curves using bezier keyframes will be 66% bigger, but curve only using hermit keyframes remain the same size.
+- Added the helper function `ToRigDefinition` to the `RigComponent`.
+- Added `RigComponent.ExtractRigBuilderData` to build the data used to create the rig definition.
+- Added `RigBuilder.CreateRigDefinition(Unity.Animation.RigBuilderData rigBuilderData)` that takes an intermediate data structure to create the rig definition.
+- Added `RigBuilder.RunCreateRigDefinitionJob` that creates a rig definition from a job. Note that this cannot be called from another job (jobs cannot be nested).
+
+### Changed
+- Improved support for int channels:
+    - `AnimationStream` uses a separate section for int channels.
+    - All core blending methods blend int channels using `math.select` instead of `math.lerp`.
+- Renamed some members of `BindingSet`:
+    - `RotationChunkCount` to `RotationDataChunkCount`
+    - `DataChunkCount` to `InterpolatedDataChunkCount`
+- Renamed some members of `AnimationStream`:
+    - `RotationChunkCount` to `RotationDataChunkCount`
+    - `DataChunkCount` to `InterpolatedDataChunkCount`
+    - `GetDataChunkUnsafePtr()` to `GetInterpolatedDataChunkUnsafePtr()`
+    - `GetRotationChunkUnsafePtr()` to `GetRotationDataChunkUnsafePtr()`
+- All validation checks can now be turned on/off by using Burst menu options Jobs/Burst/Safety Checks. Since we now rely on `ENABLE_UNITY_COLLECTIONS_CHECKS`, validation checks are only available in the editor build.
+- Changed `AnimationStream` masking from one mask to two masks: 
+    - `AnimationStream.PassMask` is always cleared at the beginning of an `AnimationGraphSystemBase` update, see `PreAnimationGraphSystem` and `PostAnimationGraphSystem`, and contains all the channels that were modified within this system update.
+    - `AnimationStream.FrameMask` is always cleared at the beginning of a new frame in the `InitializationSystemGroup` update, and contains all the channels that were modified within the complete frame.
+    - Renamed `AnimationStream.AndChannelMasks()` to `AnimationStream.AndMasks()`, this method operates on both Pass and Frame masks.
+    - Renamed `AnimationStream.OrChannelMasks()` to `AnimationStream.OrMasks()`, this method operates on both Pass and Frame masks.
+    - Renamed `AnimationStream.ClearChannelMasks()` to `AnimationStream.ClearMasks()`, this method operates on both Pass and Frame masks.
+    - Renamed `AnimationStream.SetChannelMasks()` to `AnimationStream.SetMasks()`, this method operates on both Pass and Frame masks.
+    - Renamed `AnimationStream.CopyChannelMasksFrom()` to `AnimationStream.CopyMasksFrom()`, this method operates on both Pass and Frame masks.
+- Changed the way to build new `AnimationCurve`s. Instead of allocating the time and keyframe buffers, one can now call the `AnimationCurve.CreateBuilder` and use the builder to set the keyframes and times. See the implementation of `CurveConversion.FillAnimationCurveBlob` for an example.
+
+### Deprecated
+- Deprecated `UNITY_DISABLE_ANIMATION_CHECKS`. To be Burst compatible in standalone builds all asserts and exceptions have to be guarded by `ENABLE_UNITY_COLLECTIONS_CHECKS`
+- Deprecated animation system tags. This is not required anymore in order to evaluate an animation system graph. Evaluation is solely based on the graph nodes that read/write `AnimatedData` from/to entities.
+    - `IAnimationSystemTag` is deprecated and will be removed.
+    - `IAnimationSystem` is deprecated and replaced with `IAnimationGraphSystem`.
+    - `AnimationSystemBase` is deprecated and replaced with `AnimationGraphSystemBase`
+    - `Tag` struct and `TagComponent` property from `PreAnimationGraphSystem` and `PostAnimationGraphSystem` are deprecated and will be removed.
+- Deprecated `UNITY_DISABLE_ANIMATION_PROFILING` since now all systems and DFG nodes provide profiler marker service.
+- Deprecated `RigGenerator.ExtractAnimationChannelFromRigComponent`. Use `RigComponent.ExtractRigBuilderData` instead.
+- Deprecated `RigGenerator.ExtractSkeletonNodesFromRigComponent`. Use `RigComponent.ExtractRigBuilderData` instead.
+
+### Removed
+- Removed the following methods since we now have two different masks in the `AnimationStream`, you first need to retrieve the mask that you want to query with either `AnimationStream.PassMask` or `AnimationStream.FrameMask` and then call the equivalent methods on `ChannelMask`:
+    - `AnimationStream.GetChannelMaskBitCount()` -> `ChannelMask.CountChannels()`.
+    - `AnimationStream.GetFloatChannelMask()` -> `ChannelMask.IsFloatSet()`.
+    - `AnimationStream.GetIntChannelMask()` -> `ChannelMask.IsIntSet()`.
+    - `AnimationStream.GetTranslationChannelMask()` -> `ChannelMask.IsTranslationSet()`.
+    - `AnimationStream.GetRotationChannelMask()` -> `ChannelMask.IsRotationSet()`.
+    - `AnimationStream.GetScaleChannelMask()` -> `ChannelMask.IsScaleSet()`.
+    - `AnimationStream.HasAllChannelMasks()` -> `ChannelMask.HasAll()`.    
+    - `AnimationStream.HasAnyChannelMasks()` -> `ChannelMask.HasAny()`.
+    - `AnimationStream.HasNoChannelMasks()` -> `ChannelMask.HasNone()`.
+- Removed all animation specific profiler marker from DFG nodes and ECS systems since now both package provide profiler marker: 
+    - For DFG you need to add `DFG_PER_NODE_PROFILING` in your project settings to enable DFG node profiling.
+- Removed the `AnimationCurve.KeyframesData` array. To access keyframes use `AnimationCurve.this[int]`.
+
+### Fixed
+- Fixed a bug where the bones in the RigComponent Bones list would not be editable when a skeleton root bone was set when its parent was deselected
+- Fixed a bug where sampling int channels close to keyframes would interpolate.
+- Fixed a bug where when evaluating a curve, if the cache was reused the wrong times would be used for evaluation.
+
 ## [0.6.0-preview.2] - 2020-07-30
 
 ### Added

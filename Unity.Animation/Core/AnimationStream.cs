@@ -2,7 +2,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
-using UnityEngine.Assertions;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Collections;
@@ -59,9 +58,14 @@ namespace Unity.Animation
         Ptr<quaternion4> m_LocalRotationData;
 
         /// <summary>
-        /// Channel masks keep track of which channels have been modified.
+        /// Channel Pass masks keep track of which channels have been modified in a pass (PreAnimationGraphSystem vs PostAnimationGraphSystem).
         /// </summary>
-        UnsafeBitArray   m_ChannelMasks;
+        internal UnsafeBitArray   m_ChannelPassMasks;
+
+        /// <summary>
+        /// Channel Frame masks keep track of which channels have been modified in a frame.
+        /// </summary>
+        internal UnsafeBitArray   m_ChannelFrameMasks;
 
         int m_IsReadOnly;
 
@@ -108,6 +112,9 @@ namespace Unity.Animation
             ref var bindings = ref rig.Value.Bindings;
             float* floatPtr = (float*)ptr;
 
+            var maskSizeInBytes = Core.AlignUp(bindings.BindingCount, 64) / 8;
+            var maskSizeIn4Bytes = Core.AlignUp(bindings.BindingCount, 64) / 32;
+
             return new AnimationStream()
             {
                 Rig = rig,
@@ -116,7 +123,8 @@ namespace Unity.Animation
                 m_FloatData = new Ptr<float>((floatPtr + bindings.FloatSamplesOffset)),
                 m_IntData = new Ptr<int>((int*)(floatPtr + bindings.IntSamplesOffset)),
                 m_LocalRotationData = new Ptr<quaternion4>((quaternion4*)(floatPtr + bindings.RotationSamplesOffset)),
-                m_ChannelMasks = new UnsafeBitArray((void*)(floatPtr + bindings.ChannelMaskOffset), Core.AlignUp(bindings.BindingCount / sizeof(byte) * 8, 8)),
+                m_ChannelPassMasks = new UnsafeBitArray((void*)(floatPtr + bindings.ChannelMaskOffset), maskSizeInBytes),
+                m_ChannelFrameMasks = new UnsafeBitArray((void*)(floatPtr + bindings.ChannelMaskOffset + maskSizeIn4Bytes), maskSizeInBytes),
                 IsReadOnly = isReadOnly
             };
         }
@@ -204,7 +212,8 @@ namespace Unity.Animation
             ValidateIndexBoundsForTranslation(index);
 
             m_LocalTranslationData.Set(index, translation);
-            m_ChannelMasks.Set(Rig.Value.Bindings.TranslationBindingIndex + index, true);
+            m_ChannelPassMasks.Set(Rig.Value.Bindings.TranslationBindingIndex + index, true);
+            m_ChannelFrameMasks.Set(Rig.Value.Bindings.TranslationBindingIndex + index, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -221,7 +230,8 @@ namespace Unity.Animation
             q4.y[idx] = rotation.value.y;
             q4.z[idx] = rotation.value.z;
             q4.w[idx] = rotation.value.w;
-            m_ChannelMasks.Set(Rig.Value.Bindings.RotationBindingIndex + index, true);
+            m_ChannelPassMasks.Set(Rig.Value.Bindings.RotationBindingIndex + index, true);
+            m_ChannelFrameMasks.Set(Rig.Value.Bindings.RotationBindingIndex + index, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -233,7 +243,8 @@ namespace Unity.Animation
             ValidateIndexBoundsForScale(index);
 
             m_LocalScaleData.Set(index, scale);
-            m_ChannelMasks.Set(Rig.Value.Bindings.ScaleBindingIndex + index, true);
+            m_ChannelPassMasks.Set(Rig.Value.Bindings.ScaleBindingIndex + index, true);
+            m_ChannelFrameMasks.Set(Rig.Value.Bindings.ScaleBindingIndex + index, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -245,7 +256,8 @@ namespace Unity.Animation
             ValidateIndexBoundsForFloat(index);
 
             m_FloatData.Set(index, value);
-            m_ChannelMasks.Set(Rig.Value.Bindings.FloatBindingIndex + index, true);
+            m_ChannelPassMasks.Set(Rig.Value.Bindings.FloatBindingIndex + index, true);
+            m_ChannelFrameMasks.Set(Rig.Value.Bindings.FloatBindingIndex + index, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -256,7 +268,8 @@ namespace Unity.Animation
             ValidateIndexBoundsForInt(index);
 
             m_IntData.Set(index, value);
-            m_ChannelMasks.Set(Rig.Value.Bindings.IntBindingIndex + index, true);
+            m_ChannelPassMasks.Set(Rig.Value.Bindings.IntBindingIndex + index, true);
+            m_ChannelFrameMasks.Set(Rig.Value.Bindings.IntBindingIndex + index, true);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -554,11 +567,22 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void* GetUnsafePtr() => (void*)m_LocalTranslationData.m_Ptr;
 
+        [Obsolete("GetDataChunkUnsafePtr has been renamed to GetInterpolatedDataChunkUnsafePtr (RemovedAfter 2020-11-04).", false)]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe float4* GetDataChunkUnsafePtr() => (float4*)m_LocalTranslationData.m_Ptr;
+        public unsafe float4* GetDataChunkUnsafePtr() => GetInterpolatedDataChunkUnsafePtr();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe quaternion4* GetRotationChunkUnsafePtr() => m_LocalRotationData.m_Ptr;
+        public unsafe float4* GetInterpolatedDataChunkUnsafePtr() => (float4*)m_LocalTranslationData.m_Ptr;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe int4* GetDiscreteDataChunkUnsafePtr() => (int4*)m_IntData.m_Ptr;
+
+        [Obsolete("GetRotationChunkUnsafePtr has been renamed to GetRotationDataChunkUnsafePtr (RemovedAfter 2020-11-04).", false)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe quaternion4* GetRotationChunkUnsafePtr() => GetRotationDataChunkUnsafePtr();
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public unsafe quaternion4* GetRotationDataChunkUnsafePtr() => m_LocalRotationData.m_Ptr;
 
         public int TranslationCount
         {
@@ -572,10 +596,12 @@ namespace Unity.Animation
             get => Rig.Value.Bindings.RotationBindings.Length;
         }
 
-        public int RotationChunkCount
+        [Obsolete("RotationChunkCount has been renamed to RotationDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> RotationDataChunkCount", false)]
+        public int RotationChunkCount => RotationDataChunkCount;
+        public int RotationDataChunkCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Rig.Value.Bindings.RotationChunkCount;
+            get => Rig.Value.Bindings.RotationDataChunkCount;
         }
 
         public int ScaleCount
@@ -596,21 +622,54 @@ namespace Unity.Animation
             get => Rig.Value.Bindings.IntBindings.Length;
         }
 
-        public int DataChunkCount
+        public int DiscreteDataChunkCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            get => Rig.Value.Bindings.DataChunkCount;
+            get => Rig.Value.Bindings.DiscreteDataChunkCount;
+        }
+
+        [Obsolete("DataChunkCount has been renamed to InterpolatedDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> InterpolatedDataChunkCount", false)]
+        public int DataChunkCount => InterpolatedDataChunkCount;
+        public int InterpolatedDataChunkCount
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => Rig.Value.Bindings.InterpolatedDataChunkCount;
+        }
+
+        /// <summary>
+        /// Pass channel masks, always cleared at the beginning of the frame in <see cref="BeginFrameAnimationSystem"/> an in <see cref="AnimationGraphSystemBase"/> update( <see cref="PreAnimationGraphSystem"/> and <see cref="PostAnimationGraphSystem"/>).
+        /// </summary>
+        public ChannelMask PassMask
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { unsafe { ValidateIsNotNull();  return new ChannelMask(m_ChannelPassMasks.Ptr, Rig, IsReadOnly); } }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set { unsafe { ValidateIsNotNull(); ValidateIsWritable(); m_ChannelPassMasks.CopyFrom(ref value.m_Masks); } }
+        }
+
+        /// <summary>
+        /// Frame channel masks, always cleared at the beginning of the frame in <see cref="BeginFrameAnimationSystem"/>.
+        /// </summary>
+        public ChannelMask FrameMask
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get { unsafe { ValidateIsNotNull(); return new ChannelMask(m_ChannelFrameMasks.Ptr, Rig, IsReadOnly); } }
+
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            set { unsafe { ValidateIsNotNull(); ValidateIsWritable(); m_ChannelFrameMasks.CopyFrom(ref value.m_Masks); } }
         }
 
         /// <summary>
         /// Clear all channel masks
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void ClearChannelMasks()
+        public void ClearMasks()
         {
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.Clear();
+            m_ChannelPassMasks.Clear();
+            m_ChannelFrameMasks.Clear();
         }
 
         /// <summary>
@@ -618,11 +677,12 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="value">Value of masks to set.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void SetChannelMasks(bool value)
+        public void SetMasks(bool value)
         {
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.SetBits(value);
+            m_ChannelPassMasks.SetBits(value);
+            m_ChannelFrameMasks.SetBits(value);
         }
 
         /// <summary>
@@ -630,12 +690,14 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="src">Source AnimationStream.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void CopyChannelMasksFrom(ref AnimationStream src)
+        public void CopyMasksFrom(ref AnimationStream src)
         {
             src.ValidateIsNotNull();
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.CopyFrom(ref src.m_ChannelMasks);
+            ValidateCompatibility(ref src);
+            m_ChannelPassMasks.CopyFrom(ref src.m_ChannelPassMasks);
+            m_ChannelFrameMasks.CopyFrom(ref src.m_ChannelFrameMasks);
         }
 
         /// <summary>
@@ -643,12 +705,14 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="other">Other AnimationStream to OR channel masks with.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void OrChannelMasks(ref AnimationStream other)
+        public void OrMasks(ref AnimationStream other)
         {
             other.ValidateIsNotNull();
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.OrBits64(ref other.m_ChannelMasks);
+            ValidateCompatibility(ref other);
+            m_ChannelPassMasks.OrBits64(ref other.m_ChannelPassMasks);
+            m_ChannelFrameMasks.OrBits64(ref other.m_ChannelFrameMasks);
         }
 
         /// <summary>
@@ -658,13 +722,16 @@ namespace Unity.Animation
         /// <param name="lhs">Input AnimationStream</param>
         /// <param name="rhs">Input AnimationStream</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void OrChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs)
+        public void OrMasks(ref AnimationStream lhs, ref AnimationStream rhs)
         {
             lhs.ValidateIsNotNull();
             rhs.ValidateIsNotNull();
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.OrBits64(ref lhs.m_ChannelMasks, ref rhs.m_ChannelMasks);
+            ValidateCompatibility(ref lhs);
+            ValidateCompatibility(ref rhs);
+            m_ChannelPassMasks.OrBits64(ref lhs.m_ChannelPassMasks, ref rhs.m_ChannelPassMasks);
+            m_ChannelFrameMasks.OrBits64(ref lhs.m_ChannelFrameMasks, ref rhs.m_ChannelFrameMasks);
         }
 
         /// <summary>
@@ -672,12 +739,14 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="other">Other AnimationStream to AND channel masks with.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AndChannelMasks(ref AnimationStream other)
+        public void AndMasks(ref AnimationStream other)
         {
             other.ValidateIsNotNull();
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.AndBits64(ref other.m_ChannelMasks);
+            ValidateCompatibility(ref other);
+            m_ChannelPassMasks.AndBits64(ref other.m_ChannelPassMasks);
+            m_ChannelFrameMasks.AndBits64(ref other.m_ChannelFrameMasks);
         }
 
         /// <summary>
@@ -687,118 +756,16 @@ namespace Unity.Animation
         /// <param name="lhs">Input AnimationStream</param>
         /// <param name="rhs">Input AnimationStream</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public void AndChannelMasks(ref AnimationStream lhs, ref AnimationStream rhs)
+        public void AndMasks(ref AnimationStream lhs, ref AnimationStream rhs)
         {
             lhs.ValidateIsNotNull();
             rhs.ValidateIsNotNull();
             ValidateIsNotNull();
             ValidateIsWritable();
-            m_ChannelMasks.AndBits64(ref lhs.m_ChannelMasks, ref rhs.m_ChannelMasks);
-        }
-
-        /// <summary>
-        /// Calculate number of set bits.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public int GetChannelMaskBitCount()
-        {
-            ValidateIsNotNull();
-            return m_ChannelMasks.CountBits(0, m_ChannelMasks.Length);
-        }
-
-        /// <summary>
-        /// Returns true if Any channels bit are set.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasAnyChannelMasks()
-        {
-            ValidateIsNotNull();
-            return m_ChannelMasks.TestAny(0, m_ChannelMasks.Length);
-        }
-
-        /// <summary>
-        /// Returns true if All channels bit are set.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasAllChannelMasks()
-        {
-            ValidateIsNotNull();
-            return m_ChannelMasks.TestAll(0, m_ChannelMasks.Length);
-        }
-
-        /// <summary>
-        /// Returns true if none of channels bit are set.
-        /// </summary>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool HasNoChannelMasks()
-        {
-            ValidateIsNotNull();
-            return m_ChannelMasks.TestNone(0, m_ChannelMasks.Length);
-        }
-
-        /// <summary>
-        /// Return translation channel mask.
-        /// </summary>
-        /// <param name="index">Translation channel index.</param>
-        /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool GetTranslationChannelMask(int index)
-        {
-            ValidateIsNotNull();
-            ValidateIndexBoundsForTranslation(index);
-            return m_ChannelMasks.IsSet(Rig.Value.Bindings.TranslationBindingIndex + index);
-        }
-
-        /// <summary>
-        /// Return rotation channel mask.
-        /// </summary>
-        /// <param name="index">Rotation channel index.</param>
-        /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool GetRotationChannelMask(int index)
-        {
-            ValidateIsNotNull();
-            ValidateIndexBoundsForRotation(index);
-            return m_ChannelMasks.IsSet(Rig.Value.Bindings.RotationBindingIndex + index);
-        }
-
-        /// <summary>
-        /// Return scale channel mask.
-        /// </summary>
-        /// <param name="index">Scale channel index.</param>
-        /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool GetScaleChannelMask(int index)
-        {
-            ValidateIsNotNull();
-            ValidateIndexBoundsForScale(index);
-            return m_ChannelMasks.IsSet(Rig.Value.Bindings.ScaleBindingIndex + index);
-        }
-
-        /// <summary>
-        /// Return float channel mask.
-        /// </summary>
-        /// <param name="index">Float channel index.</param>
-        /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool GetFloatChannelMask(int index)
-        {
-            ValidateIsNotNull();
-            ValidateIndexBoundsForFloat(index);
-            return m_ChannelMasks.IsSet(Rig.Value.Bindings.FloatBindingIndex + index);
-        }
-
-        /// <summary>
-        /// Return int channel mask.
-        /// </summary>
-        /// <param name="index">Int channel index.</param>
-        /// <returns></returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool GetIntChannelMask(int index)
-        {
-            ValidateIsNotNull();
-            ValidateIndexBoundsForInt(index);
-            return m_ChannelMasks.IsSet(Rig.Value.Bindings.IntBindingIndex + index);
+            ValidateCompatibility(ref lhs);
+            ValidateCompatibility(ref rhs);
+            m_ChannelPassMasks.AndBits64(ref lhs.m_ChannelPassMasks, ref rhs.m_ChannelPassMasks);
+            m_ChannelFrameMasks.AndBits64(ref lhs.m_ChannelFrameMasks, ref rhs.m_ChannelFrameMasks);
         }
 
         /// <summary>
@@ -839,24 +806,23 @@ namespace Unity.Animation
         [Obsolete("Use AnimationStream.CopyFrom(ref AnimationStream other) instead. (RemovedAfter 2020-09-30).")]
         unsafe public static void MemCpy(ref AnimationStream dst, ref AnimationStream src)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(dst.IsNull || src.IsNull);
+            dst.ValidateIsNotNull();
+            src.ValidateIsNotNull();
 
-            Assert.AreEqual(dst.TranslationCount, src.TranslationCount);
-            Assert.AreEqual(dst.RotationCount, src.RotationCount);
-            Assert.AreEqual(dst.ScaleCount, src.ScaleCount);
-            Assert.AreEqual(dst.FloatCount, src.FloatCount);
-            Assert.AreEqual(dst.IntCount, src.IntCount);
-#endif
+            Core.ValidateBufferLengthsAreEqual(dst.TranslationCount, src.TranslationCount);
+            Core.ValidateBufferLengthsAreEqual(dst.RotationCount, src.RotationCount);
+            Core.ValidateBufferLengthsAreEqual(dst.ScaleCount, src.ScaleCount);
+            Core.ValidateBufferLengthsAreEqual(dst.FloatCount, src.FloatCount);
+            Core.ValidateBufferLengthsAreEqual(dst.IntCount, src.IntCount);
+
             UnsafeUtility.MemCpy(dst.GetUnsafePtr(), src.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * src.Rig.Value.Bindings.StreamSize);
         }
 
         [Obsolete("Use AnimationStream.ResetToDefaultValues() instead. (RemovedAfter 2020-09-30).")]
         unsafe public static void SetDefaultValues(ref AnimationStream stream)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(stream.IsNull);
-#endif
+            stream.ValidateIsNotNull();
+
             ref var rig = ref stream.Rig.Value;
             UnsafeUtility.MemCpy(stream.GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * rig.Bindings.ChannelSize);
         }
@@ -864,9 +830,8 @@ namespace Unity.Animation
         [Obsolete("Use AnimationStream.ResetToZero() instead. (RemovedAfter 2020-09-30).")]
         unsafe public static void MemClear(ref AnimationStream stream)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsFalse(stream.IsNull);
-#endif
+            stream.ValidateIsNotNull();
+
             UnsafeUtility.MemClear(stream.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * stream.Rig.Value.Bindings.StreamSize);
         }
     }
@@ -968,6 +933,18 @@ namespace Unity.Animation
 
                 return values;
             }
+        }
+
+        public UnsafeBitArray ChannelPassMask
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => m_Stream.m_ChannelPassMasks;
+        }
+
+        public UnsafeBitArray ChannelFrameMask
+        {
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            get => m_Stream.m_ChannelFrameMasks;
         }
     }
 }

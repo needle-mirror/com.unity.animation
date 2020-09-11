@@ -128,8 +128,10 @@ namespace Unity.Animation.Tests
             }
         }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
         internal class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
         {
+#pragma warning restore 0618
 #pragma warning disable 0649
             public struct SimPorts : ISimulationPortDefinition
             {
@@ -249,8 +251,6 @@ namespace Unity.Animation.Tests
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             for (int i = 0; i < entityTransforms.Count; i++)
             {
                 RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
@@ -288,7 +288,7 @@ namespace Unity.Animation.Tests
             ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
+            // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -310,8 +310,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -353,7 +351,7 @@ namespace Unity.Animation.Tests
             ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
+            // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -375,8 +373,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -430,8 +426,6 @@ namespace Unity.Animation.Tests
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
 
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
-
             for (int i = 1; i < entityTransforms.Count; i++)
             {
                 if (i % 2 == 0)
@@ -460,7 +454,7 @@ namespace Unity.Animation.Tests
             );
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem copy the transform value into the stream since we are targeting only PreAnimationGraphSystem.Tag
+            // Validate that the PostAnimationGraphSystem copy the transform value into the stream since we are targeting only PreAnimationGraphSystem
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -486,9 +480,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
@@ -565,8 +556,6 @@ namespace Unity.Animation.Tests
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             for (int i = 1; i < entityTransforms.Count; i++)
             {
                 RigEntityBuilder.AddWriteTransformHandle<PostAnimationGraphSystem.WriteTransformHandle>(
@@ -603,8 +592,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
@@ -654,8 +641,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             // Writing to a transform in the hierarchy should update the children.
             RigEntityBuilder.AddWriteTransformHandle<PreAnimationGraphSystem.WriteTransformHandle>(
@@ -728,8 +713,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             RigEntityBuilder.AddWriteTransformHandle<PreAnimationGraphSystem.WriteTransformHandle>(
                 m_Manager, rigEntity, entityTransforms[preIndex], preIndex
@@ -824,9 +807,6 @@ namespace Unity.Animation.Tests
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(rigEntity);
-
             for (int i = 1; i < entityTransforms.Count; i++)
             {
                 RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
@@ -858,8 +838,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             for (int i = entityTransforms.Count - 1; i > 0; i--)
             {
@@ -920,8 +898,6 @@ namespace Unity.Animation.Tests
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             var entityNode = CreateComponentNode(rigEntity, PreSet);
             var testNode = CreateNode<TestNode>(PreSet);
 
@@ -961,8 +937,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {

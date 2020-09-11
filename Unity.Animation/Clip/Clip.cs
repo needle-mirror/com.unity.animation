@@ -24,7 +24,7 @@ namespace Unity.Animation
 
     /// <summary>
     /// Clip instance is a filtered version of the dense clip holding only relevant sorted curves
-    /// given a specific rig defintion
+    /// given a specific rig definition
     /// </summary>
     public struct ClipInstance
     {
@@ -39,9 +39,5 @@ namespace Unity.Animation
         public int RigHashCode;
         // Clip hash code used to generate this clip instance
         public int ClipHashCode;
-
-        [System.Obsolete("ClipInstance.Create has been deprecated. Use ClipInstanceBuilder.Create instead. (RemovedAfter 2020-07-15)")]
-        public static BlobAssetReference<ClipInstance> Create(BlobAssetReference<RigDefinition> rigDefinition, BlobAssetReference<Clip> sourceClip) =>
-            ClipInstanceBuilder.Create(rigDefinition, sourceClip);
     }
 }

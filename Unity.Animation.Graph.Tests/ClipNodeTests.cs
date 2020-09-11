@@ -253,8 +253,6 @@ namespace Unity.Animation.Tests
             set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, clip);
             set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             return new TestDataClipNode { Entity = entity, ClipNode = clipNode };
         }
 
@@ -279,8 +277,6 @@ namespace Unity.Animation.Tests
             set.SendMessage(uberNode, UberClipNode.SimulationPorts.Clip, clip);
             Set.SendMessage(uberNode, UberClipNode.SimulationPorts.Configuration, config);
             set.SetData(uberNode, UberClipNode.KernelPorts.Time, time);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             return new TestDataUberClipNode { Entity = entity, UberClipNode = uberNode };
         }
@@ -307,8 +303,6 @@ namespace Unity.Animation.Tests
             set.SendMessage(clipPlayerNode, ClipPlayerNode.SimulationPorts.Clip, clip);
             set.SetData(clipPlayerNode, ClipPlayerNode.KernelPorts.Speed, speed);
             set.SetData(clipPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, deltaTime);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             return new TestDataClipPlayerNode { Entity = entity, ClipPlayerNode = clipPlayerNode };
         }
@@ -711,40 +705,34 @@ namespace Unity.Animation.Tests
             set.SetData(layerMixerNode, LayerMixerNode.KernelPorts.Weights, 0, 1f);
 
             var clipLoopPlayerNode = Set.Create<ClipPlayerNode>();
-            var deltaTimeNode = Set.Create<DeltaTimeNode>();
 
             set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
             set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Rig, m_Rig);
             set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Clip, m_LinearHierarchyClip);
             set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Speed, 1.0f);
+            set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, World.Time.DeltaTime);
 
-            set.Connect(deltaTimeNode, DeltaTimeNode.KernelPorts.DeltaTime, clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime);
             set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 0);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
             set.Destroy(clipLoopPlayerNode);
-            set.Destroy(deltaTimeNode);
 
             m_AnimationGraphSystem.Update();
 
             clipLoopPlayerNode = Set.Create<ClipPlayerNode>();
-            deltaTimeNode = Set.Create<DeltaTimeNode>();
 
             set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
             set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Rig, m_Rig);
             set.SendMessage(clipLoopPlayerNode, ClipPlayerNode.SimulationPorts.Clip, m_LinearHierarchyClip);
             set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Speed, 1.0f);
+            set.SetData(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime, World.Time.DeltaTime);
 
-            set.Connect(deltaTimeNode, DeltaTimeNode.KernelPorts.DeltaTime, clipLoopPlayerNode, ClipPlayerNode.KernelPorts.DeltaTime);
             set.Connect(clipLoopPlayerNode, ClipPlayerNode.KernelPorts.Output, layerMixerNode, LayerMixerNode.KernelPorts.Inputs, 0);
 
             m_AnimationGraphSystem.Update();
 
             set.Destroy(clipLoopPlayerNode);
-            set.Destroy(deltaTimeNode);
         }
     }
 }

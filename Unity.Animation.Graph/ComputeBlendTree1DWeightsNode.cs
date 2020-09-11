@@ -3,20 +3,15 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "aac0d8d10f594218aa77961604da05e2", version: 1, category: "Animation Core/Blend Trees", description: "Computes 1D BlendTree weights based on parameter input", isHidden: true)]
     public class ComputeBlendTree1DWeightsNode
         : NodeDefinition<ComputeBlendTree1DWeightsNode.Data, ComputeBlendTree1DWeightsNode.SimPorts, ComputeBlendTree1DWeightsNode.KernelData, ComputeBlendTree1DWeightsNode.KernelDefs, ComputeBlendTree1DWeightsNode.Kernel>
         , IMsgHandler<BlobAssetReference<BlendTree1D>>
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.ComputeBlendTree1DWeights");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -42,9 +37,6 @@ namespace Unity.Animation
         }
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<BlendTree1D> BlendTree;
         }
 
@@ -53,14 +45,9 @@ namespace Unity.Animation
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-                if (!data.BlendTree.IsCreated)
-                    throw new System.InvalidOperationException($"ComputeBlendTree1DWeightsNode: BlendTree is invalid.");
+                Core.ValidateIsCreated(data.BlendTree);
 
                 var weights = context.Resolve(ref ports.Weights);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
 
                 Core.ComputeBlendTree1DWeights(data.BlendTree, context.Resolve(in ports.BlendParameter), ref weights);
 
@@ -72,21 +59,8 @@ namespace Unity.Animation
                 }
 
                 context.Resolve(ref ports.Duration) = duration;
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
         {

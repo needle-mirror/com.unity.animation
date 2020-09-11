@@ -3,20 +3,15 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "d10f1f8e08af4dc094ec9a0503838b1d", version: 1, category: "Animation Core/Utils", description: "Adds two animation streams")]
     public class AddPoseNode
         : NodeDefinition<AddPoseNode.Data, AddPoseNode.SimPorts, AddPoseNode.KernelData, AddPoseNode.KernelDefs, AddPoseNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.AddPoseNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -39,9 +34,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -53,31 +45,14 @@ namespace Unity.Animation
                 if (data.RigDefinition == BlobAssetReference<RigDefinition>.Null)
                     return;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
-
                 // Fill the destination stream with default values.
                 var inputStreamA = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.InputA));
                 var inputStreamB = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.InputB));
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
 
                 Core.AddPose(ref outputStream, ref inputStreamA, ref inputStreamB);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

@@ -4,12 +4,15 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "e995e3e7e5d640e5b6123dfcef20eba7", version: 1, isHidden: true)]
     public class LoopNode
         : NodeDefinition<LoopNode.Data, LoopNode.SimPorts, LoopNode.KernelData, LoopNode.KernelDefs, LoopNode.Kernel>
         , IMsgHandler<int>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             public MessageInput<LoopNode, Rig> Rig;
@@ -108,11 +111,13 @@ namespace Unity.Animation
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SendMessage(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Input, rig);
 
             Set.SetData(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 0, rig.Value.Value.Bindings.TranslationBindingIndex);
             Set.SetData(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 1, rig.Value.Value.Bindings.RotationBindingIndex);
             Set.SetData(nodeData.WeightChannelsNode, WeightBuilderNode.KernelPorts.ChannelIndices, 2, rig.Value.Value.Bindings.ScaleBindingIndex);
+#pragma warning restore 0618
         }
 
         public void HandleMessage(in MessageContext ctx, in int msg)

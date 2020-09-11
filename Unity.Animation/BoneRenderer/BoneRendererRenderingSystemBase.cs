@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -6,20 +7,11 @@ using Unity.Entities;
 using Unity.Mathematics;
 
 using UnityEngine;
-using UnityEngine.Assertions;
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
 
 namespace Unity.Animation
 {
     public abstract class BoneRendererRenderingSystemBase : SystemBase
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_Marker = new ProfilerMarker("BoneRendererRenderingSystemBase");
-#endif
-
         EntityQuery m_Query;
 
         const int kMaxDrawMeshInstanceCount = 1023;
@@ -37,8 +29,7 @@ namespace Unity.Animation
                 ComponentType.ReadOnly<BoneRenderer.BoneRendererEntity>()
             );
 
-            Assert.AreEqual(UnsafeUtility.SizeOf<float4>(), sizeof(Vector4), "Size mismatch between float4 and Vector4.");
-            Assert.AreEqual(UnsafeUtility.SizeOf<float4x4>(), sizeof(Matrix4x4), "Size mismatch between float4x4 and Matrix4x4.");
+            ValidateMathTypeSizesAreEqual();
 
             m_Matrices = new Matrix4x4[kMaxDrawMeshInstanceCount];
             m_Colors = new Vector4[kMaxDrawMeshInstanceCount];
@@ -49,9 +40,6 @@ namespace Unity.Animation
 
         protected override unsafe void OnUpdate()
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            k_Marker.Begin();
-#endif
             CompleteDependency();
 
             var boneWireMaterial = BoneRendererUtils.GetBoneWireMaterial();
@@ -136,10 +124,15 @@ namespace Unity.Animation
                 m_Query.ResetFilter();
                 chunks.Dispose();
             }
+        }
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            k_Marker.End();
-#endif
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal static void ValidateMathTypeSizesAreEqual()
+        {
+            if (UnsafeUtility.SizeOf<float4>() != UnsafeUtility.SizeOf<Vector4>())
+                throw new System.InvalidOperationException("Size mismatch between float4 and Vector4.");
+            if (UnsafeUtility.SizeOf<float4x4>() != UnsafeUtility.SizeOf<Matrix4x4>())
+                throw new System.InvalidOperationException("Size mismatch between float4x4 and Matrix4x4.");
         }
     }
 }

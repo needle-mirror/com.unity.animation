@@ -5,23 +5,19 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Collections;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 using System;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6f515a98326e46108f9f2f9c251c3afb", version: 1, category: "Animation Core/Constraints", description: "Twist correction is mainly used to redistribute a percentage of the source rotation over a leaf bone in order to correct mesh deformation artifacts.")]
     [PortGroupDefinition(portGroupSizeDescription: "Twist Bone Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class TwistCorrectionNode
         : NodeDefinition<TwistCorrectionNode.Data, TwistCorrectionNode.SimPorts, TwistCorrectionNode.KernelData, TwistCorrectionNode.KernelDefs, TwistCorrectionNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.TwistCorrectionNode");
-#endif
+#pragma warning restore 0618
+
         public enum TwistAxis
         {
             X, Y, Z
@@ -60,9 +56,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -73,21 +66,17 @@ namespace Unity.Animation
             {
                 var input = ctx.Resolve(ports.Input);
                 var output = ctx.Resolve(ref ports.Output);
-                if (input.Length != output.Length)
-                    throw new InvalidOperationException($"TwistCorrectionNode: Input Length '{input.Length}' doesn't match Output Length '{output.Length}'");
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
+                Core.ValidateBufferLengthsAreEqual(output.Length, input.Length);
+
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
-                if (stream.IsNull)
-                    throw new ArgumentNullException($"TwistCorrectionNode: Invalid output stream");
+                stream.ValidateIsNotNull();
 
                 var twistIndexPorts = ctx.Resolve(ports.TwistIndices);
                 var twistWeightPorts = ctx.Resolve(ports.TwistWeights);
-                if (twistIndexPorts.Length != twistWeightPorts.Length)
-                    throw new ArgumentException($"TwistCorrectionNode: TwistIndices and TwistWeights sizes must be the same");
+
+                Core.ValidateBufferLengthsAreEqual(twistWeightPorts.Length, twistIndexPorts.Length);
 
                 var twistIndexArray = new NativeArray<int>(twistIndexPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 var twistWeightArray = new NativeArray<float>(twistWeightPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
@@ -103,10 +92,6 @@ namespace Unity.Animation
                     TwistWeights = twistWeightArray
                 };
                 Core.SolveTwistCorrection(ref stream, twistData, ctx.Resolve(ports.Weight));
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
 
             static float3 Convert(TwistAxis axis)
@@ -126,15 +111,12 @@ namespace Unity.Animation
 
         protected override void Init(InitContext ctx)
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfilerMarker = k_ProfilerMarker;
-#endif
-
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.LocalTwistAxis, TwistAxis.Y);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.SourceRotation, quaternion.identity);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.SourceDefaultRotation,  quaternion.identity);
+#pragma warning restore 0618
         }
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)

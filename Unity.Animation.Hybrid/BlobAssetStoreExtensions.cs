@@ -19,7 +19,7 @@ namespace Unity.Animation.Hybrid
         /// <returns>The RigDefintion BlobAssetReference associated with the original RigComponent</returns>
         public static BlobAssetReference<RigDefinition> GetRigDefinition(this BlobAssetStore blobAssetStore, RigComponent rigComponent) =>
             blobAssetStore.GetBlobAsset(rigComponent,
-                (x) => RigBuilder.CreateRigDefinition(RigGenerator.ExtractSkeletonNodesFromRigComponent(x), null, RigGenerator.ExtractAnimationChannelFromRigComponent(x))
+                (x) => x.ToRigDefinition()
             );
 
         /// <summary>

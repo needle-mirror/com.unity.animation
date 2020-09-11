@@ -143,8 +143,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(entity);
             Set.Connect(deltaNode, DeltaPoseNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
             m_AnimationGraphSystem.Update();
@@ -154,19 +152,20 @@ namespace Unity.Animation.Tests
                 m_Manager.GetBuffer<AnimatedData>(entity).AsNativeArray()
             );
 
+            // Note: The lerp here is to match the clip. Essentially, the clip is a linear curve starting from 0 and
+            // going to m_ClipRootInteger, so to get the value of the clip we do a lerp. The actual operation we test is
+            // -clipA + clipB.
             var expectedLocalTranslation = -m_ClipRootLocalTranslation + math.lerp(float3.zero, m_ClipRootLocalTranslation, time);
             var expectedLocalRotation = mathex.mul(math.conjugate(m_ClipRootLocalRotation), mathex.lerp(quaternion.identity, m_ClipRootLocalRotation, time));
             var expectedLocalScale = -m_ClipRootLocalScale + math.lerp(float3.zero, m_ClipRootLocalScale, time);
             var expectedFloat = -m_ClipRootFloat + math.lerp(0.0f, m_ClipRootFloat, time);
-            var expectedInt = -m_ClipRootInteger + math.lerp(0, m_ClipRootInteger, time);
+            var expectedInt = (int)(-m_ClipRootInteger + math.lerp(0, m_ClipRootInteger, time));
 
             Assert.That(streamECS.GetLocalToParentTranslation(0), Is.EqualTo(expectedLocalTranslation).Using(TranslationComparer));
             Assert.That(streamECS.GetLocalToParentRotation(0), Is.EqualTo(expectedLocalRotation).Using(RotationComparer));
             Assert.That(streamECS.GetLocalToParentScale(0), Is.EqualTo(expectedLocalScale).Using(ScaleComparer));
             Assert.That(streamECS.GetFloat(0), Is.EqualTo(expectedFloat).Within(1).Ulps);
-
-            // TODO@sonny we need to convert int curve to activate this
-            //Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
+            Assert.That(streamECS.GetInt(0), Is.EqualTo(expectedInt));
         }
 
         [TestCase(0.0f)]
@@ -212,9 +211,6 @@ namespace Unity.Animation.Tests
             Set.Connect(clipNode, ClipNode.KernelPorts.Output, anotherEntityNode);
 
             Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(anotherEntity);
 
             m_AnimationGraphSystem.Update();
 

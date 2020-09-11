@@ -191,8 +191,6 @@ namespace Unity.Animation.Tests
 
             CreateGraph(entity, m_Rig, PreSet, m_PreGraphClip);
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(entity);
 
             Assert.That(m_Manager.GetComponentData<Translation>(entity).Value, Is.EqualTo(float3.zero).Using(TranslationComparer));
             Assert.That(m_Manager.GetComponentData<Rotation>(entity).Value, Is.EqualTo(quaternion.identity).Using(RotationComparer));
@@ -257,7 +255,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(entity, entityTranslation, entityRotation, entityScale, Entity.Null);
 
             var clipNode = CreateGraph(entity, m_Rig, PreSet, m_MaskTestClip_TChannels);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
@@ -297,8 +294,6 @@ namespace Unity.Animation.Tests
 
             CreateGraph(entity, m_Rig, PreSet, m_PreGraphClip);
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(entity);
 
             // Add tag to disable root transform handling
             m_Manager.AddComponent<DisableRootTransformReadWriteTag>(entity);
@@ -363,8 +358,6 @@ namespace Unity.Animation.Tests
 
             CreateGraph(entity, m_Rig, PreSet, m_PreGraphClip);
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-            m_Manager.AddComponent<PostAnimationGraphSystem.Tag>(entity);
 
             // Add animated root motion component
             m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
@@ -455,7 +448,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(entity, 0f, quaternion.identity, 1f, Entity.Null);
 
             var clipNode = CreateGraph(entity, m_Rig, PreSet, m_MaskTestClip_TChannels);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             // Add animated root motion component
             m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
@@ -499,7 +491,6 @@ namespace Unity.Animation.Tests
 
             CreateGraph(entity, m_Rig, PreSet, m_PreGraphClip);
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             // Add animated root motion and offset components
             var rmOffset = new RigidTransform(quaternion.AxisAngle(math.float3(1f, 0f, 0f), math.radians(30f)), math.float3(2f, 3f, 4f));
@@ -549,7 +540,6 @@ namespace Unity.Animation.Tests
 
             CreateGraph(entity, m_Rig, PreSet, m_PreGraphClip);
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             // Add animated root motion and teleport
             m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
@@ -630,7 +620,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(offsetEntity, offsetT, offsetR, offsetS, rigEntity);
 
             CreateGraph(rigEntity, m_Rig, PreSet, m_PreGraphClip);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_PreAnimationGraph.Update();
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();

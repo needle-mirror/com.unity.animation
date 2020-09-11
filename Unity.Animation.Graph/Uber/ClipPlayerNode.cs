@@ -5,6 +5,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6e6e48c0c4c84663999acbb0d491ce79", version: 1, category: "Animation Core", description: "Evaluates an animation clip given a clip configuration and time value")]
     public class ClipPlayerNode
         : NodeDefinition<ClipPlayerNode.Data, ClipPlayerNode.SimPorts, ClipPlayerNode.KernelData, ClipPlayerNode.KernelDefs, ClipPlayerNode.Kernel>
@@ -14,6 +15,8 @@ namespace Unity.Animation
         , IMsgHandler<bool>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "bd18527f905e42958967f3209e3e2749", isHidden: true)]

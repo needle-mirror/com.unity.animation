@@ -5,6 +5,7 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "792256a71ac546709adf975eed81325f", version: 1, category: "Animation Core", description: "Evaluates a clip based on the clip configuration mask", isHidden: true)]
     public class ConfigurableClipNode
         : NodeDefinition<ConfigurableClipNode.Data, ConfigurableClipNode.SimPorts, ConfigurableClipNode.KernelData, ConfigurableClipNode.KernelDefs, ConfigurableClipNode.Kernel>
@@ -13,6 +14,8 @@ namespace Unity.Animation
         , IMsgHandler<bool>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "5040b6577c8c43458d62bda53ec0cc6d", isHidden: true)]
@@ -262,6 +265,7 @@ namespace Unity.Animation
                 Set.Connect(data.ClipNode, ClipNode.SimulationPorts.Duration, data.LoopTimeNode, TimeLoopNode.SimulationPorts.Duration);
             }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             // send messages
             Set.SendMessage(data.ClipNode, ClipNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
             Set.SendMessage(data.ClipNode, ClipNode.SimulationPorts.Clip, data.Clip);
@@ -308,6 +312,7 @@ namespace Unity.Animation
             {
                 Set.SendMessage(data.CycleRootMotionNode, CycleRootMotionNode.SimulationPorts.Rig, new Rig { Value = data.RigDefinition });
             }
+#pragma warning restore 0618
         }
 
         void ClearNodes(Data data)

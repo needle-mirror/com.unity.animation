@@ -7,18 +7,10 @@ using Unity.Burst;
 using Unity.Deformations;
 using Unity.Collections.LowLevel.Unsafe;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
     public abstract class ComputeDeformationDataSystemBase : SystemBase
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_Marker = new ProfilerMarker("ComputeDeformationDataSystemBase");
-#endif
-
         EntityQuery m_ComputeSkinMatrixQuery;
         EntityQuery m_CopySparseBlendShapeWeightQuery;
         EntityQuery m_CopyContiguousBlendShapeWeightQuery;
@@ -32,9 +24,6 @@ namespace Unity.Animation
 
         protected override void OnUpdate()
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            k_Marker.Begin();
-#endif
             var computeSkinMatrixJob = new ComputeSkinMatrixJob
             {
                 EntityAnimatedLocalToRoot = GetBufferFromEntity<AnimatedLocalToRoot>(true),
@@ -66,10 +55,6 @@ namespace Unity.Animation
             }.ScheduleParallel(m_CopyContiguousBlendShapeWeightQuery, copySparseBlendShapeJob);
 
             Dependency = JobHandle.CombineDependencies(computeSkinMatrixJob, copyContiguousBlendShapeJob);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            k_Marker.End();
-#endif
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
@@ -239,15 +224,6 @@ namespace Unity.Animation
                     }
                 }
             }
-        }
-    }
-
-    [System.Obsolete("ComputeSkinMatrixSystemBase is deprecated use ComputeDeformationDataSystemBase instead. (RemovedAfter 2020-08-19). ComputeDeformationDataSystemBase (UnityUpgradable)", false)]
-    public abstract class ComputeSkinMatrixSystemBase : SystemBase
-    {
-        protected override void OnUpdate()
-        {
-            throw new System.NotImplementedException();
         }
     }
 }

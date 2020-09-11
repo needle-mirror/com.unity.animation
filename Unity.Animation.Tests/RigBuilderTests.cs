@@ -41,6 +41,7 @@ namespace Unity.Animation.Tests
             Assert.That(rig.Value.Bindings.IntBindings.Length, Is.EqualTo(0));
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void CannotCreateRigSkeletonWithoutRoot()
         {
@@ -183,6 +184,7 @@ namespace Unity.Animation.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => RigBuilder.CreateRigDefinition(skeletonNodes, axis, animationChannel));
         }
 
+#endif
         [Test]
         public void CanRemoveDuplicateChannelFromRigDefinition()
         {

@@ -1,6 +1,7 @@
 {
     "name": "Unity.Animation.Graph.Tests",
     "references": [
+        "Unity.Collections",
         "Unity.Entities",
         "Unity.Mathematics",
         "Unity.DataFlowGraph",

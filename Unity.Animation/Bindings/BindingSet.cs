@@ -1,3 +1,4 @@
+using System;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
@@ -13,8 +14,9 @@ namespace Unity.Animation
         public BlobArray<StringHash> FloatBindings;
         public BlobArray<StringHash> IntBindings;
 
-        internal static readonly int k_RotationPadding = UnsafeUtility.SizeOf<quaternion4>() / UnsafeUtility.SizeOf<AnimatedData>();
-        internal static readonly int k_DataPadding = UnsafeUtility.SizeOf<float4>() / UnsafeUtility.SizeOf<AnimatedData>();
+        internal static readonly int k_RotationDataChunkSize = UnsafeUtility.SizeOf<quaternion4>() / UnsafeUtility.SizeOf<AnimatedData>();
+        internal static readonly int k_DiscreteDataChunkSize = UnsafeUtility.SizeOf<int4>() / UnsafeUtility.SizeOf<AnimatedData>();
+        internal static readonly int k_InterpolatedDataChunkSize = UnsafeUtility.SizeOf<float4>() / UnsafeUtility.SizeOf<AnimatedData>();
 
         // Key type float count
         public static readonly int TranslationKeyFloatCount = 3;
@@ -47,8 +49,13 @@ namespace Unity.Animation
         public int IntSamplesOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int ChannelMaskOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
 
-        public int RotationChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
-        public int DataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
+        [Obsolete("RotationChunkCount has been renamed to RotationDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> RotationDataChunkCount", false)]
+        public int RotationChunkCount => RotationDataChunkCount;
+        [Obsolete("DataChunkCount has been renamed to InterpolatedDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> InterpolatedDataChunkCount", false)]
+        public int DataChunkCount => InterpolatedDataChunkCount;
+        public int RotationDataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
+        public int DiscreteDataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
+        public int InterpolatedDataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int ChannelSize { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int StreamSize { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
     }
@@ -67,8 +74,9 @@ namespace Unity.Animation
             };
 
             dataLayout.CurveCount =  dataLayout.TranslationCurveCount + dataLayout.RotationCurveCount + dataLayout.ScaleCurveCount + dataLayout.FloatCurveCount + dataLayout.IntCurveCount;
-            dataLayout.RotationChunkCount = 0;
-            dataLayout.DataChunkCount = 0;
+            dataLayout.RotationDataChunkCount = 0;
+            dataLayout.DiscreteDataChunkCount = 0;
+            dataLayout.InterpolatedDataChunkCount = 0;
 
             dataLayout.ChannelSize = dataLayout.CurveCount;
             dataLayout.StreamSize  = dataLayout.CurveCount;
@@ -106,21 +114,20 @@ namespace Unity.Animation
 
             dataLayout.CurveCount =  dataLayout.TranslationCurveCount + dataLayout.RotationCurveCount + dataLayout.ScaleCurveCount + dataLayout.FloatCurveCount + dataLayout.IntCurveCount;
 
-            bool hasRotationPadding = math.modf(rotationCount / 4f, out float rotationChunkCount) > 0f;
-            var dataCurveCount = (dataLayout.CurveCount - dataLayout.RotationCurveCount);
-            bool hasDataPadding = math.modf(dataCurveCount / 4f, out float dataChunkCount) > 0f;
+            var dataCurveCount = (dataLayout.CurveCount - dataLayout.RotationCurveCount - dataLayout.IntCurveCount);
 
-            dataLayout.DataChunkCount = math.select((int)dataChunkCount, (int)dataChunkCount + 1, hasDataPadding);
-            dataLayout.RotationChunkCount = math.select((int)rotationChunkCount, (int)rotationChunkCount + 1, hasRotationPadding);
+            dataLayout.InterpolatedDataChunkCount = (int)math.ceil(dataCurveCount / (float)BindingSet.k_InterpolatedDataChunkSize);
+            dataLayout.DiscreteDataChunkCount = (int)math.ceil(dataLayout.IntCurveCount / (float)BindingSet.k_DiscreteDataChunkSize);
+            dataLayout.RotationDataChunkCount = (int)math.ceil(dataLayout.RotationCurveCount / (float)BindingSet.k_RotationDataChunkSize);
 
-            dataLayout.ChannelSize = dataLayout.DataChunkCount * BindingSet.k_DataPadding + dataLayout.RotationChunkCount * BindingSet.k_RotationPadding;
+            dataLayout.ChannelSize = dataLayout.InterpolatedDataChunkCount * BindingSet.k_InterpolatedDataChunkSize + dataLayout.DiscreteDataChunkCount * BindingSet.k_DiscreteDataChunkSize + dataLayout.RotationDataChunkCount * BindingSet.k_RotationDataChunkSize;
 
             dataLayout.TranslationSamplesOffset = 0;
             dataLayout.ScaleSamplesOffset = dataLayout.TranslationSamplesOffset + dataLayout.TranslationCurveCount;
             dataLayout.FloatSamplesOffset = dataLayout.ScaleSamplesOffset + dataLayout.ScaleCurveCount;
-            dataLayout.IntSamplesOffset = dataLayout.FloatSamplesOffset + dataLayout.FloatCurveCount;
-            dataLayout.RotationSamplesOffset = dataLayout.DataChunkCount * BindingSet.k_DataPadding;
-            dataLayout.ChannelMaskOffset = dataLayout.RotationSamplesOffset + dataLayout.RotationChunkCount * BindingSet.k_RotationPadding;
+            dataLayout.IntSamplesOffset = dataLayout.InterpolatedDataChunkCount * BindingSet.k_InterpolatedDataChunkSize;
+            dataLayout.RotationSamplesOffset = dataLayout.IntSamplesOffset +  dataLayout.DiscreteDataChunkCount * BindingSet.k_DiscreteDataChunkSize;
+            dataLayout.ChannelMaskOffset = dataLayout.RotationSamplesOffset + dataLayout.RotationDataChunkCount * BindingSet.k_RotationDataChunkSize;
 
             dataLayout.TranslationBindingIndex = 0;
             dataLayout.ScaleBindingIndex = dataLayout.TranslationBindingIndex + translationCount;
@@ -129,7 +136,13 @@ namespace Unity.Animation
             dataLayout.RotationBindingIndex = dataLayout.IntBindingIndex + intCount;
             dataLayout.BindingCount = translationCount + rotationCount + scaleCount + floatCount + intCount;
 
-            dataLayout.StreamSize = dataLayout.ChannelSize + Core.AlignUp(dataLayout.BindingCount / sizeof(byte) * 8, 8);
+            // Mask size must be multiple of 8-bytes. see UnsafeBitArray
+            // StreamSize is the number of 4-bytes needed
+            const int bitsInBytes = 8;
+            const int bitsIn8Bytes = 8 * bitsInBytes;
+            const int bitsIn4Bytes = 4 * bitsInBytes;
+            var maskSizeIn4Bytes = Core.AlignUp(dataLayout.BindingCount, bitsIn8Bytes) / bitsIn4Bytes;
+            dataLayout.StreamSize = dataLayout.ChannelSize + (maskSizeIn4Bytes * 2);
 
             return dataLayout;
         }

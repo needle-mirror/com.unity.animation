@@ -41,7 +41,7 @@ namespace Unity.Animation
     /// </summary>
     public struct NotSupportedRootMotion : IAnimatedRootMotion
     {
-        public RigidTransform Delta { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public RigidTransform Delta { get { Core.NotImplementedException(); return new RigidTransform(); } set => Core.NotImplementedException(); }
     }
 
     /// <summary>

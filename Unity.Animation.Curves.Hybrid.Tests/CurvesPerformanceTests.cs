@@ -4,7 +4,7 @@ using NUnit.Framework;
 using Unity.Animation.Hybrid;
 using Unity.PerformanceTesting;
 
-namespace Unity.Animation.Tests
+namespace Unity.Animation.PerformanceTests
 {
     public class CurvesPerformancesTest
     {

@@ -4,20 +4,15 @@ using Unity.Mathematics;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "0d7b1e6e91364decbb7284a9014ebbce", version: 1, category: "Animation Core/Root Motion", description: "Computes the delta root motion from a previous and current animation stream. This node is internally used by the UberClipNode.")]
     public class DeltaRootMotionNode
         : NodeDefinition<DeltaRootMotionNode.Data, DeltaRootMotionNode.SimPorts, DeltaRootMotionNode.KernelData, DeltaRootMotionNode.KernelDefs, DeltaRootMotionNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.DeltaRootMotionNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -42,9 +37,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -55,10 +47,6 @@ namespace Unity.Animation
             {
                 if (data.RigDefinition == BlobAssetReference<RigDefinition>.Null)
                     return;
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
 
                 // Fill the destination stream with default values.
                 var prevStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Previous));
@@ -75,21 +63,8 @@ namespace Unity.Animation
 
                 outputStream.SetLocalToParentTranslation(0, deltaX.pos);
                 outputStream.SetLocalToParentRotation(0, deltaX.rot);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

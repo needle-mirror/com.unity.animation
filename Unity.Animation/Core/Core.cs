@@ -3,7 +3,6 @@ using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
@@ -56,24 +55,32 @@ namespace Unity.Animation
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
 
             // Blend 4-wide lerp non rotation data
-            float4* input1Data = input1.GetDataChunkUnsafePtr();
-            float4* input2Data = input2.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            float4* input1Data = input1.GetInterpolatedDataChunkUnsafePtr();
+            float4* input2Data = input2.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputData[i] = math.lerp(input1Data[i], input2Data[i], wMask[wIdx] * weight);
             }
 
+            int4* input1IntData = input1.GetDiscreteDataChunkUnsafePtr();
+            int4* input2IntData = input2.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputIntData[i] = math.select(input1IntData[i], input2IntData[i], wMask[wIdx] * weight > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* input1Rot = input1.GetRotationChunkUnsafePtr();
-            quaternion4* input2Rot = input2.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            quaternion4* input1Rot = input1.GetRotationDataChunkUnsafePtr();
+            quaternion4* input2Rot = input2.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputRot[i] = mathex.lerp(input1Rot[i], input2Rot[i], wMask[wIdx] * weight);
             }
 
-            output.OrChannelMasks(ref input1, ref input2);
+            output.OrMasks(ref input1, ref input2);
         }
 
         unsafe static public void Blend(
@@ -88,24 +95,32 @@ namespace Unity.Animation
             output.ValidateRigEquality(ref input2);
 
             // Blend 4 wide lerp non rotation data
-            float4* input1Data = input1.GetDataChunkUnsafePtr();
-            float4* input2Data = input2.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            float4* input1Data = input1.GetInterpolatedDataChunkUnsafePtr();
+            float4* input2Data = input2.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i)
             {
                 outputData[i] = math.lerp(input1Data[i], input2Data[i], weight);
             }
 
+            int4* input1IntData = input1.GetDiscreteDataChunkUnsafePtr();
+            int4* input2IntData = input2.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i)
+            {
+                outputIntData[i] = math.select(input1IntData[i], input2IntData[i], weight > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* inputRot1 = input1.GetRotationChunkUnsafePtr();
-            quaternion4* inputRot2 = input2.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* inputRot1 = input1.GetRotationDataChunkUnsafePtr();
+            quaternion4* inputRot2 = input2.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.lerp(inputRot1[i], inputRot2[i], weight);
             }
 
-            output.OrChannelMasks(ref input1, ref input2);
+            output.OrMasks(ref input1, ref input2);
         }
 
         static unsafe public void BlendOverrideLayer(
@@ -123,22 +138,29 @@ namespace Unity.Animation
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
 
             // Blend 4-wide lerp non rotation data
-            float4* inputData  = input.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            float4* inputData  = input.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputData[i] = math.lerp(outputData[i], inputData[i], wMask[wIdx] * weight);
             }
 
+            int4* inputIntData = input.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputIntData[i] = math.select(outputIntData[i], inputIntData[i], wMask[wIdx] * weight > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            quaternion4* inputRot  = input.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputRot[i] = mathex.lerp(outputRot[i], inputRot[i], wMask[wIdx] * weight);
             }
 
-            output.OrChannelMasks(ref input);
+            output.OrMasks(ref input);
         }
 
         static unsafe public void BlendOverrideLayer(
@@ -151,22 +173,29 @@ namespace Unity.Animation
             output.ValidateRigEquality(ref input);
 
             // Blend 4-wide lerp non rotation data
-            float4* inputData  = input.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            float4* inputData  = input.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i)
             {
                 outputData[i] = math.lerp(outputData[i], inputData[i], weight);
             }
 
+            int4* inputIntData = input.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i)
+            {
+                outputIntData[i] = math.select(outputIntData[i], inputIntData[i], weight > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* inputRot  = input.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.lerp(outputRot[i], inputRot[i], weight);
             }
 
-            output.OrChannelMasks(ref input);
+            output.OrMasks(ref input);
         }
 
         static unsafe public void BlendAdditiveLayer(
@@ -184,22 +213,29 @@ namespace Unity.Animation
             float4* wMask = (float4*)weightMasks.GetUnsafeReadOnlyPtr();
 
             // Blend 4-wide lerp non rotation data
-            float4* inputData  = input.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            float4* inputData  = input.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputData[i] = math.mad(inputData[i], wMask[wIdx] * weight, outputData[i]);
             }
 
+            int4* inputIntData = input.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputIntData[i] += math.select(0, inputIntData[i], wMask[wIdx] * weight > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            quaternion4* inputRot  = input.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputRot[i] = mathex.mul(outputRot[i], mathex.quatWeight(inputRot[i], wMask[wIdx] * weight));
             }
 
-            output.OrChannelMasks(ref input);
+            output.OrMasks(ref input);
         }
 
         static unsafe public void BlendAdditiveLayer(
@@ -214,22 +250,29 @@ namespace Unity.Animation
             ref var bindings = ref output.Rig.Value.Bindings;
 
             // Blend 4-wide lerp non rotation data
-            float4* inputData  = input.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            float4* inputData  = input.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i)
             {
                 outputData[i] = math.mad(inputData[i], weight, outputData[i]);
             }
 
+            int4* inputIntData = input.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i)
+            {
+                outputIntData[i] += math.select(0, inputIntData[i], weight > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* inputRot  = input.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.mul(outputRot[i], mathex.quatWeight(inputRot[i], weight));
             }
 
-            output.OrChannelMasks(ref input);
+            output.OrMasks(ref input);
         }
 
         static public void RigRemapper(
@@ -241,9 +284,7 @@ namespace Unity.Animation
             destinationStream.ValidateIsNotNull();
             sourceStream.ValidateIsNotNull();
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(remapTable.IsCreated);
-#endif
+            ValidateIsCreated(remapTable);
 
             ref var remap = ref remapTable.Value;
 
@@ -304,9 +345,8 @@ namespace Unity.Animation
                     ref var translationMapping = ref remap.TranslationMappings[localToRootTREntry.x];
                     ref var rotationMapping = ref remap.RotationMappings[localToRootTREntry.y];
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-                    Assert.AreEqual(translationMapping.DestinationIndex, rotationMapping.DestinationIndex);
-#endif
+                    ValidateAreEqual(translationMapping.DestinationIndex, rotationMapping.DestinationIndex);
+
                     float3 tValue;
                     quaternion rValue;
                     if (translationMapping.SourceIndex == rotationMapping.SourceIndex)
@@ -596,7 +636,7 @@ namespace Unity.Animation
             if (additive == 0)
             {
                 stream.ResetToDefaultValues();
-                stream.ClearChannelMasks();
+                stream.ClearMasks();
             }
             else
             {
@@ -737,21 +777,22 @@ namespace Unity.Animation
                 int count = bindings.IntBindings.Length;
                 int curveIndex = bindings.IntSamplesOffset;
 
-                // TODO: Find the algorithm we want. Right now take the left most key.
+                // We always take the value of the key that is the closest to the current time.
+                var keyOffset = math.select(keyframe.Left, keyframe.Right, keyframe.Weight > 0.5f);
                 for (; i + 3 < count; i += 4, curveIndex += BindingSet.IntKeyFloatCount * 4)
                 {
-                    var leftKey = *(float4*)(samplesPtr + curveIndex + keyframe.Left);
+                    var key = *(float4*)(samplesPtr + curveIndex + keyOffset);
 
-                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 0], (int)leftKey.x);
-                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 1], (int)leftKey.y);
-                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 2], (int)leftKey.z);
-                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 3], (int)leftKey.w);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 0], (int)key.x);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 1], (int)key.y);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 2], (int)key.z);
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i + 3], (int)key.w);
                 }
 
                 for (; i < count; ++i, curveIndex += BindingSet.IntKeyFloatCount)
                 {
-                    var leftKey = clip.Samples[curveIndex + keyframe.Left];
-                    stream.SetInt(clipInstance.Value.IntBindingMap[i], (int)leftKey);
+                    var key = clip.Samples[curveIndex + keyOffset];
+                    stream.SetInt(clipInstance.Value.IntBindingMap[i], (int)key);
                 }
             }
         }
@@ -771,69 +812,131 @@ namespace Unity.Animation
             return lastFrameError < 1.0f ? math.lerp(beforeLastValue, atDurationValue, 1.0f / (1.0f - lastFrameError)) : atDurationValue;
         }
 
-        static public void MixerBegin(ref AnimationStream output)
+        /// <summary>
+        /// Struct representing the state of a mixer. A new instance can be created by calling <see cref="Core.MixerBegin"/>,
+        /// and the instance can be used in <see cref="Core.MixerAdd"/> and <see cref="Core.MixerEnd"/>.
+        /// </summary>
+        public struct MixerState
+        {
+            public float WeightSum;
+            public float WeightMax;
+        }
+
+        /// <summary>
+        /// Starts a new mixer that writes to the output animation stream. Usually, after calling this method, <see cref="MixerAdd"/>
+        /// will be called multiple times, and then <see cref="MixerEnd"/> will be called once to finalize the mixing.
+        /// </summary>
+        /// <param name="output">Animation stream that will be the destination for the mixer. Will be modified.</param>
+        /// <returns>The state of the mixer, to be used in <see cref="MixerAdd"/> and <see cref="MixerEnd"/></returns>
+        static public MixerState MixerBegin(ref AnimationStream output)
         {
             output.ValidateIsNotNull();
 
             output.ResetToZero();
+
+            return new MixerState
+            {
+                WeightSum = 0,
+                WeightMax = 0,
+            };
         }
 
+        /// <summary>
+        /// Ends a mixing on an animation stream by taking care of any leftover weights and normalizing quaternions. Usually,
+        /// <see cref="MixerBegin"/> needs to be called to start a mix, and <see cref="MixerAdd"/> is then called multiple times.
+        /// Then, in order to end a mix, <see cref="MixerEnd"/> is called.
+        /// </summary>
+        /// <param name="output">The output animation stream. Will be modified.</param>
+        /// <param name="defaultPoseInput">The default pose of the character/rig. This will get mixed using the remaining weight. Will not be modified.</param>
+        /// <param name="state">The state of the mixer (created by <see cref="MixerBegin"/>, and updated by <see cref="MixerAdd"/>.</param>
         static unsafe public void MixerEnd(
             ref AnimationStream output,
             ref AnimationStream defaultPoseInput,
-            float sumWeight
+            MixerState state
         )
         {
             output.ValidateIsNotNull();
 
-            if (sumWeight < 1.0F)
+            if (state.WeightSum < 1.0F)
             {
                 if (defaultPoseInput.IsNull)
                 {
                     var defaultPoseStream = AnimationStream.FromDefaultValues(output.Rig);
-                    MixerAdd(ref output, ref defaultPoseStream, 1.0F - sumWeight, 0);
+                    MixerAdd(ref output, ref defaultPoseStream, 1.0F - state.WeightSum, state);
                 }
                 else
-                    MixerAdd(ref output, ref defaultPoseInput, 1.0F - sumWeight, 0);
+                    MixerAdd(ref output, ref defaultPoseInput, 1.0F - state.WeightSum, state);
             }
 
             // Normalize 4-wide rotations
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.normalizesafe(outputRot[i]);
             }
         }
 
-        static unsafe public float MixerAdd(
+        /// <summary>
+        /// Adds a pose to the mixer. The mixer needs to be started with <see cref="MixerBegin"/>, then <see cref="MixerAdd"/> can be
+        /// called multiple times. To end the mixer, <see cref="MixerEnd"/> needs to be called. This method will return
+        /// an updated mixer state.
+        /// <br/>
+        /// Each continuous channel is multiplied by the weight before being added to the output stream. Quaternions
+        /// follow the same behaviour.
+        /// The discrete channels with the greatest weight will be used. This includes the default pose, which has an
+        /// implicit weight of <c>1 - WeightSum</c> (so if the weights are <c>0.1, 0.2, 0.3</c>, the default pose will
+        /// be used, since it would have a weight of <c>1.0 - 0.6 = 0.4</c>). If all weights are equal, the first one is
+        /// used.
+        /// </summary>
+        /// <param name="output">The animation stream the mixer will write to. Will be modified.</param>
+        /// <param name="add">The pose that will be added to output. Will not be modified.</param>
+        /// <param name="weight">The weight of the pose</param>
+        /// <param name="state">The state of the mixer (created by <see cref="MixerBegin"/>, and updated by <see cref="MixerAdd"/>.</param>
+        /// <returns>The new state of the mixer</returns>
+        static unsafe public MixerState MixerAdd(
             ref AnimationStream output,
             ref AnimationStream add,
             float weight,
-            float sumWeight
+            MixerState state
         )
         {
             output.ValidateIsNotNull();
             output.ValidateRigEquality(ref add);
 
             // Add 4-wide non rotational data
-            float4* addData    = add.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            float4* addData    = add.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i)
             {
                 outputData[i] = math.mad(addData[i], weight, outputData[i]);
             }
 
+            if (weight > state.WeightMax)
+            {
+                state.WeightMax = weight;
+                int4* intData    = add.GetDiscreteDataChunkUnsafePtr();
+                int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+                // We are checking for pointer equality in case the user gives the same animation stream as add and output,
+                // and if the memory overlaps, memcopy does not work :(
+                if (intData != outputIntData)
+                    UnsafeUtility.MemCpy(outputIntData, intData, output.DiscreteDataChunkCount * sizeof(int4));
+                else
+                    UnsafeUtility.MemMove(outputIntData, intData, output.DiscreteDataChunkCount * sizeof(int4));
+            }
+
             // Add 4-wide rotations
-            quaternion4* addRot    = add.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* addRot    = add.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.add(outputRot[i], addRot[i] * weight);
             }
 
-            output.OrChannelMasks(ref add);
+            output.OrMasks(ref add);
 
-            return sumWeight + weight;
+            state.WeightSum += weight;
+
+            return state;
         }
 
         static unsafe public void AddPose(
@@ -846,24 +949,32 @@ namespace Unity.Animation
             output.ValidateRigEquality(ref inputA);
             output.ValidateRigEquality(ref inputB);
 
-            float4* inputAData = inputA.GetDataChunkUnsafePtr();
-            float4* inputBData = inputB.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            float4* inputAData = inputA.GetInterpolatedDataChunkUnsafePtr();
+            float4* inputBData = inputB.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i)
             {
                 outputData[i] = inputAData[i] + inputBData[i];
             }
 
+            int4* inputIntAData = inputA.GetDiscreteDataChunkUnsafePtr();
+            int4* inputIntBData = inputB.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i)
+            {
+                outputIntData[i] = inputIntAData[i] + inputIntBData[i];
+            }
+
             // 4-wide add
-            quaternion4* inputARot = inputA.GetRotationChunkUnsafePtr();
-            quaternion4* inputBRot = inputB.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* inputARot = inputA.GetRotationDataChunkUnsafePtr();
+            quaternion4* inputBRot = inputB.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.mul(inputARot[i], inputBRot[i]);
             }
 
-            output.OrChannelMasks(ref inputA, ref inputB);
+            output.OrMasks(ref inputA, ref inputB);
         }
 
         static unsafe public void InversePose(
@@ -875,22 +986,29 @@ namespace Unity.Animation
             output.ValidateRigEquality(ref input);
 
             // 4-wide inverse
-            float4* inputData  = input.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i)
+            float4* inputData  = input.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i)
             {
                 outputData[i] = inputData[i] * -1f;
             }
 
+            int4* inputIntData = input.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i)
+            {
+                outputIntData[i] = -inputIntData[i];
+            }
+
             // Inverse 4-wide rotations
-            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i)
+            quaternion4* inputRot  = input.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i)
             {
                 outputRot[i] = mathex.conjugate(inputRot[i]);
             }
 
-            output.OrChannelMasks(ref input);
+            output.OrMasks(ref input);
         }
 
         static unsafe public void WeightPose(
@@ -907,22 +1025,29 @@ namespace Unity.Animation
             float4* weight = (float4*)weights.GetUnsafeReadOnlyPtr();
 
             // Blend 4-wide lerp non rotation data
-            float4* inputData  = input.GetDataChunkUnsafePtr();
-            float4* outputData = output.GetDataChunkUnsafePtr();
-            for (int i = 0, count = output.DataChunkCount; i < count; ++i, ++wIdx)
+            float4* inputData  = input.GetInterpolatedDataChunkUnsafePtr();
+            float4* outputData = output.GetInterpolatedDataChunkUnsafePtr();
+            for (int i = 0, count = output.InterpolatedDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputData[i] = inputData[i] * weight[wIdx];
             }
 
+            int4* inputIntData = input.GetDiscreteDataChunkUnsafePtr();
+            int4* outputIntData = output.GetDiscreteDataChunkUnsafePtr();
+            for (int i = 0, count = output.DiscreteDataChunkCount; i < count; ++i, ++wIdx)
+            {
+                outputIntData[i] = math.select(0, inputIntData[i], weight[wIdx] > 0.5f);
+            }
+
             // Blend 4-wide rotations
-            quaternion4* inputRot  = input.GetRotationChunkUnsafePtr();
-            quaternion4* outputRot = output.GetRotationChunkUnsafePtr();
-            for (int i = 0, count = output.RotationChunkCount; i < count; ++i, ++wIdx)
+            quaternion4* inputRot  = input.GetRotationDataChunkUnsafePtr();
+            quaternion4* outputRot = output.GetRotationDataChunkUnsafePtr();
+            for (int i = 0, count = output.RotationDataChunkCount; i < count; ++i, ++wIdx)
             {
                 outputRot[i] = mathex.quatWeight(inputRot[i], weight[wIdx]);
             }
 
-            output.OrChannelMasks(ref input);
+            output.OrMasks(ref input);
         }
 
         /// <summary>
@@ -942,9 +1067,8 @@ namespace Unity.Animation
                 return;
 
             int count = stream.Rig.Value.Skeleton.BoneCount;
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(outMatrices.Length, count);
-#endif
+
+            ValidateBufferLengthsAreEqual(outMatrices.Length, count);
 
             outMatrices[0] = math.mul(offset, mathex.float4x4(stream.GetLocalToParentMatrix(0)));
             for (int i = 1; i != count; ++i)
@@ -973,10 +1097,10 @@ namespace Unity.Animation
         )
         {
             int count = stream.Rig.Value.Skeleton.BoneCount;
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(outMatrices1.Length, count);
-            Assert.AreEqual(outMatrices2.Length, count);
-#endif
+
+            ValidateBufferLengthsAreEqual(outMatrices1.Length, count);
+            ValidateBufferLengthsAreEqual(outMatrices2.Length, count);
+
 
             var mat = mathex.float4x4(stream.GetLocalToParentMatrix(0));
             outMatrices1[0] = math.mul(offset1, mat);
@@ -992,27 +1116,6 @@ namespace Unity.Animation
             }
         }
 
-        [System.Obsolete("Core.ComputeLocalToWorld is deprecated use Core.ComputeLocalToRoot instead with localToWorld offset. (RemovedAfter 2020-08-29)", false)]
-        static public void ComputeLocalToWorld(
-            float4x4 localToWorld,
-            ref AnimationStream stream,
-            NativeArray<float4x4> outLocalToWorlds
-        ) => ComputeLocalToRoot(ref stream, localToWorld, outLocalToWorlds);
-
-        [System.Obsolete("This overload of Core.ComputeLocalToRoot is deprecated, use other Core.ComputeLocalToRoot with identity offset. (RemovedAfter 2020-08-29)", false)]
-        static public void ComputeLocalToRoot(
-            ref AnimationStream stream,
-            NativeArray<float4x4> outLocalToRoots
-        ) => ComputeLocalToRoot(ref stream, float4x4.identity, outLocalToRoots);
-
-        [System.Obsolete("Core.ComputeLocalToWorldAndRoot is deprecated use other Core.ComputeLocalToRoot with localToParent and localToWorld offsets. (RemovedAfter 2020-08-29)", false)]
-        static public void ComputeLocalToWorldAndRoot(
-            float4x4 localToWorld,
-            ref AnimationStream stream,
-            NativeArray<float4x4> outLocalToWorlds,
-            NativeArray<float4x4> outLocalToRoots
-        ) => ComputeLocalToRoot(ref stream, float4x4.identity, outLocalToRoots, localToWorld, outLocalToWorlds);
-
         static public void ComputeLocalToParentLinearVelocities(
             ref AnimationStream input,
             ref AnimationStream previousInput,
@@ -1025,12 +1128,11 @@ namespace Unity.Animation
 
             int translationCount = input.Rig.Value.Skeleton.BoneCount;
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(translationCount, outVelocities.Length);
-            Assert.AreNotEqual(0f, deltaTime);
-#endif
+            ValidateBufferLengthsAreEqual(translationCount, outVelocities.Length);
 
             float inverseDeltaTime = math.rcp(deltaTime);
+
+            ValidateIsFinite(inverseDeltaTime);
 
             for (int j = 0; j < translationCount; ++j)
             {
@@ -1054,12 +1156,11 @@ namespace Unity.Animation
 
             int rotationCount = input.Rig.Value.Skeleton.BoneCount;
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(rotationCount, outAngularVelocities.Length);
-            Assert.AreNotEqual(0f, deltaTime);
-#endif
+            ValidateBufferLengthsAreEqual(rotationCount, outAngularVelocities.Length);
 
             float inverseDeltaTime = math.rcp(deltaTime);
+
+            ValidateIsFinite(inverseDeltaTime);
 
             for (int j = 0; j < rotationCount; ++j)
             {
@@ -1087,12 +1188,10 @@ namespace Unity.Animation
 
             int translationCount = input.Rig.Value.Skeleton.BoneCount;
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(translationCount, outVelocities.Length);
-            Assert.AreNotEqual(0f, deltaTime);
-#endif
+            ValidateBufferLengthsAreEqual(translationCount, outVelocities.Length);
 
             float inverseDeltaTime = math.rcp(deltaTime);
+            ValidateIsFinite(inverseDeltaTime);
             for (int j = 0; j < translationCount; ++j)
             {
                 float3 from = math.transform(previousLocalToWorld, previousInput.GetLocalToRootTranslation(j));
@@ -1117,12 +1216,10 @@ namespace Unity.Animation
 
             int rotationCount = input.Rig.Value.Skeleton.BoneCount;
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.AreEqual(rotationCount, outAngularVelocities.Length);
-            Assert.AreNotEqual(0f, deltaTime);
-#endif
+            ValidateBufferLengthsAreEqual(rotationCount, outAngularVelocities.Length);
 
             float inverseDeltaTime = math.rcp(deltaTime);
+            ValidateIsFinite(inverseDeltaTime);
 
             var previousLocalToWorldRot = new quaternion(previousLocalToWorld);
             var localToWorldRot = new quaternion(localToWorld);

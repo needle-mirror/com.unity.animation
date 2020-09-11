@@ -5,14 +5,11 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Collections;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 using System;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "a9a00f02c612463b8c82e7e64a62dab9", version: 1, category: "Animation Core/Constraints", description: "Parent constraint based on multiple sources")]
     [PortGroupDefinition(portGroupSizeDescription: "Source Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class ParentConstraintNode
@@ -20,9 +17,7 @@ namespace Unity.Animation
         , IMsgHandler<ParentConstraintNode.SetupMessage>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.ParentConstraintNode");
-#endif
+#pragma warning restore 0618
 
         [Serializable]
         public struct SetupMessage
@@ -62,9 +57,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
             public int Index;
             public bool3 LocalTranslationAxesMask;
@@ -78,23 +70,19 @@ namespace Unity.Animation
             {
                 var input = ctx.Resolve(ports.Input);
                 var output = ctx.Resolve(ref ports.Output);
-                if (input.Length != output.Length)
-                    throw new InvalidOperationException($"ParentConstrainNode: Input Length '{input.Length}' doesn't match Output Length '{output.Length}'");
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
+                Core.ValidateBufferLengthsAreEqual(output.Length, input.Length);
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
-                if (stream.IsNull)
-                    throw new ArgumentNullException("ParentConstrainNode: Invalid output stream");
+                stream.ValidateIsNotNull();
 
                 var srcTxPorts = ctx.Resolve(ports.SourceTx);
                 var srcOffsetPorts = ctx.Resolve(ports.SourceOffsets);
                 var srcWeightPorts = ctx.Resolve(ports.SourceWeights);
-                if (srcTxPorts.Length != srcOffsetPorts.Length || srcOffsetPorts.Length != srcWeightPorts.Length)
-                    throw new ArgumentException("ParentConstrainNode: SourceTx, SourceOffsets and SourceWeights sizes must be the same");
+
+                Core.ValidateBufferLengthsAreEqual(srcOffsetPorts.Length, srcTxPorts.Length);
+                Core.ValidateBufferLengthsAreEqual(srcOffsetPorts.Length, srcWeightPorts.Length);
 
                 var srcTxArray = new NativeArray<RigidTransform>(srcTxPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 var srcOffsetArray = new NativeArray<RigidTransform>(srcOffsetPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
@@ -118,10 +106,6 @@ namespace Unity.Animation
                     SourceWeights = srcWeightArray
                 };
                 Core.SolveParentConstraint(ref stream, constraintData, ctx.Resolve(ports.Weight));
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
         }
 
@@ -129,15 +113,13 @@ namespace Unity.Animation
         {
             ref var kData = ref GetKernelData(ctx.Handle);
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            kData.ProfilerMarker = k_ProfilerMarker;
-#endif
-
             kData.Index = -1;
             kData.LocalTranslationAxesMask = new bool3(true);
             kData.LocalRotationAxesMask = new bool3(true);
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
+#pragma warning restore 0618
         }
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)

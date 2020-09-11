@@ -27,6 +27,7 @@ namespace Unity.Animation
         public StringHash MotionID;
     }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "859141ab001b4967b5ea5798db0e5879", version: 1, category: "Animation Core", description: "Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden: true)]
     public class UberClipNode
         : NodeDefinition<UberClipNode.Data, UberClipNode.SimPorts, UberClipNode.KernelData, UberClipNode.KernelDefs, UberClipNode.Kernel>
@@ -35,6 +36,8 @@ namespace Unity.Animation
         , IMsgHandler<bool>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "3e1fda046ee345d7868bede5248b110b", isHidden: true)]
@@ -151,6 +154,7 @@ namespace Unity.Animation
                 Set.Connect(nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
             }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Configuration, nodeData.Configuration);
 
             if (normalizedTime && rootMotionFromVelocity)
@@ -176,6 +180,7 @@ namespace Unity.Animation
             Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Clip, nodeData.Clip);
             Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Additive, nodeData.IsAdditive);
             Set.SendMessage(nodeData.OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize, nodeData.RigDefinition.Value.Bindings.StreamSize);
+#pragma warning restore 0618
         }
 
         void ClearNodes(Data nodeData)
@@ -303,15 +308,24 @@ namespace Unity.Animation
                 }
             }
 
+            var defaultStream = AnimationStream.FromDefaultValues(stream.Rig);
             for (int i = 0, count = bindings.RotationBindings.Length, curveIndex = bindings.RotationSamplesOffset; i < count; i++, curveIndex += BindingSet.RotationKeyFloatCount)
             {
                 var index = clipInstance.RotationBindingMap[i];
-
                 var r = stream.GetLocalToParentRotation(index);
-                var prevKeyIndex = (frameIndex - 1) * curveCount;
-                var prevR = Core.GetDataInSample<float4>(ref samples, curveIndex + prevKeyIndex);
-                r.value = math.dot(r.value, prevR) < 0 ? r.value * -1.0f : r.value;
 
+                float4 prevR;
+                if (frameIndex == 0)
+                {
+                    prevR = defaultStream.GetLocalToParentRotation(index).value;
+                }
+                else
+                {
+                    var prevKeyIndex = (frameIndex - 1) * curveCount;
+                    prevR = Core.GetDataInSample<float4>(ref samples, curveIndex + prevKeyIndex);
+                }
+
+                r.value = math.dot(r.value, prevR) < 0 ? r.value * -1.0f : r.value;
                 if (frameIndex < clipInstance.Clip.FrameCount)
                 {
                     Core.SetDataInSample<float4>(ref samples, curveIndex + keyIndex, r.value);

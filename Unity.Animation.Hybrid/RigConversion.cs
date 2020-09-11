@@ -1,12 +1,10 @@
-using System;
 using UnityEngine;
 using Unity.Entities;
-using Unity.Mathematics;
 using Unity.Transforms;
 
 namespace Unity.Animation.Hybrid
 {
-    [ConverterVersion("Unity.Animation.Hybrid.RigConversion", 8)]
+    [ConverterVersion("Unity.Animation.Hybrid.RigConversion", 11)]
     [UpdateInGroup(typeof(GameObjectConversionGroup))]
     public class RigConversion : GameObjectConversionSystem
     {
@@ -15,37 +13,12 @@ namespace Unity.Animation.Hybrid
             Entities.ForEach((RigComponent rigComponent) =>
             {
                 var rigEntity = TryGetPrimaryEntity(rigComponent);
+                var rigDefinition = rigComponent.ToRigDefinition();
 
-                // TODO: Automatic injection of bindings is temporarily added for now since we lack proper tooling.
-                //       In the near future, the prefered way will be for users to add them via RigComponents at
-                //       authoring time prior to conversion. All bindings should be inspectable via the RigComponent and
-                //       injection at conversion time should never happen. In other words, users should know upfront what channels their rigs will
-                //       hold.
-                InjectKnownBindings(rigComponent);
-
-                var skeletonNodes = RigGenerator.ExtractSkeletonNodesFromRigComponent(rigComponent);
-                var channels = RigGenerator.ExtractAnimationChannelFromRigComponent(rigComponent);
-                var rigDefinition = RigBuilder.CreateRigDefinition(skeletonNodes, null, channels);
                 RigEntityBuilder.SetupRigEntity(rigEntity, DstEntityManager, rigDefinition);
 
                 ExposeTransforms(rigComponent, rigComponent.Bones, this, DstEntityManager, rigEntity);
             });
-        }
-
-        // TODO : Remove this function once we can properly author RigComponent channels based on hierarchy components
-        void InjectKnownBindings(RigComponent rigComponent)
-        {
-            var skinnedMeshRenderers = rigComponent.GetComponentsInChildren<SkinnedMeshRenderer>();
-            foreach (var smr in skinnedMeshRenderers)
-            {
-                var channelsToAdd = smr.GetBlendShapeChannels(rigComponent.transform);
-                if (channelsToAdd.Length > 0)
-                {
-                    int floatChannelCount = rigComponent.FloatChannels.Length;
-                    Array.Resize(ref rigComponent.FloatChannels, floatChannelCount + channelsToAdd.Length);
-                    Array.Copy(channelsToAdd, 0, rigComponent.FloatChannels, floatChannelCount, channelsToAdd.Length);
-                }
-            }
         }
 
         internal static void ExposeTransforms(Component component, Transform[] bones, GameObjectConversionSystem system, EntityManager entityManager, Entity rigEntity)

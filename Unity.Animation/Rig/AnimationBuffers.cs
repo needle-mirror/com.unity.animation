@@ -23,10 +23,7 @@ namespace Unity.Animation
         public float4x4 Value;
     }
 
-    /// <summary>
-    /// Tag specifying which AnimationSystemBase the rig entity depends on.
-    /// See Unity.Animation.AnimationSystemBase for details
-    /// </summary>
+    [System.Obsolete("IAnimationSystemTag has been deprecated and is no longer necessary (RemovedAfter 2020-11-04).", false)]
     public interface IAnimationSystemTag : IComponentData
     {
     }

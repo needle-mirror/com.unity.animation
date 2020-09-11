@@ -3,21 +3,16 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "8d7926b8dbcf4072b7cf1a10e29de888", version: 1, category: "Animation Core/Utils", description: "Remaps one animation stream to another given a known remapping table")]
     public class RigRemapperNode
         : NodeDefinition<RigRemapperNode.Data, RigRemapperNode.SimPorts, RigRemapperNode.KernelData, RigRemapperNode.KernelDefs, RigRemapperNode.Kernel>
         , IMsgHandler<BlobAssetReference<RigRemapTable>>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.RigRemapperNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -46,9 +41,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<RigDefinition> SourceRigDefinition;
             public BlobAssetReference<RigDefinition> DestinationRigDefinition;
             public BlobAssetReference<RigRemapTable> RemapTable;
@@ -61,10 +53,6 @@ namespace Unity.Animation
             {
                 if (data.DestinationRigDefinition == default)
                     return;
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
 
                 // Fill the destination stream with default values.
                 var defaultStream = AnimationStream.CreateReadOnly(data.DestinationRigDefinition, context.Resolve(ports.DefaultPoseInput));
@@ -80,21 +68,8 @@ namespace Unity.Animation
                     if (!sourceStream.IsNull)
                         Core.RigRemapper(data.RemapTable, ref destinationStream, ref sourceStream);
                 }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

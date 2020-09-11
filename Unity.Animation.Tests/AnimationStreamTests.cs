@@ -120,8 +120,6 @@ namespace Unity.Animation.Tests
             Set.SendMessage(clipNode, ClipNode.SimulationPorts.Clip, clip);
             Set.SetData(clipNode, ClipNode.KernelPorts.Time, time);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             var data = new TestData { Entity = entity, Buffer = CreateGraphValue(clipNode, ClipNode.KernelPorts.Output) };
 
             m_AnimationGraphSystem.Update();

@@ -13,10 +13,7 @@ namespace Unity.Animation
             where TType : struct
             where TDefinition : NodeDefinition
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            if (src.Length != dst.Length)
-                throw new System.ArgumentException("Source and destination length must be the same");
-#endif
+            Core.ValidateBufferLengthsAreEqual(src.Length, dst.Length);
             for (var i = 0; i < src.Length; ++i)
                 dst[i] = src[i];
         }

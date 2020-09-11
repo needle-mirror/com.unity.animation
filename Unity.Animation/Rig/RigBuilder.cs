@@ -1,25 +1,158 @@
 using System;
+using System.Diagnostics;
+
+using System.Collections.Generic;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
+using Unity.Jobs;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
+
+#if UNITY_ENABLE_ANIMATION_PROFILING
 using Unity.Profiling;
 #endif
 
 namespace Unity.Animation
 {
+    /// <summary>
+    /// An intermediate data representing the rig.
+    /// </summary>
+    /// <remarks>
+    /// If you don't use the RigComponent but your own custom rig representation,
+    /// as long as you hav a method to convert this representation to a RigBuilderData,
+    /// we can build a RigDefinition from it.
+    /// </remarks>
+    public struct RigBuilderData : IDisposable
+    {
+        public NativeList<SkeletonNode> SkeletonNodes;
+        public NativeList<LocalTranslationChannel> TranslationChannels;
+        public NativeList<LocalRotationChannel> RotationChannels;
+        public NativeList<LocalScaleChannel> ScaleChannels;
+        public NativeList<FloatChannel> FloatChannels;
+        public NativeList<IntChannel> IntChannels;
+        public NativeList<Axis> Axes;
+
+        private bool m_IsDisposed;
+
+        /// <summary>
+        /// Constructs all the member lists using the specified type of memory allocation.
+        /// </summary>
+        /// <param name="allocator">A member of the
+        /// [Unity.Collections.Allocator](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html) enumeration.
+        /// </param>
+        public RigBuilderData(Allocator allocator)
+        {
+            SkeletonNodes = new NativeList<SkeletonNode>(allocator);
+            TranslationChannels = new NativeList<LocalTranslationChannel>(allocator);
+            RotationChannels = new NativeList<LocalRotationChannel>(allocator);
+            ScaleChannels = new NativeList<LocalScaleChannel>(allocator);
+            FloatChannels = new NativeList<FloatChannel>(allocator);
+            IntChannels = new NativeList<IntChannel>(allocator);
+            Axes = new NativeList<Axis>(allocator);
+
+            m_IsDisposed = false;
+        }
+
+        /// <summary>
+        /// Reports whether memory for all the member lists is allocated.
+        /// </summary>
+        /// <value>True if this all the member lists have been allocated.</value>
+        /// <remarks>Note that the lists are not allocated if you use the default constructor. You must specify
+        /// at least an allocation type to construct a usable RigBuilderData.</remarks>
+        public bool IsCreated
+        {
+            get
+            {
+                return SkeletonNodes.IsCreated
+                    && TranslationChannels.IsCreated
+                    && RotationChannels.IsCreated
+                    && ScaleChannels.IsCreated
+                    && FloatChannels.IsCreated
+                    && IntChannels.IsCreated
+                    && Axes.IsCreated;
+            }
+        }
+
+        /// <summary>
+        /// Disposes and deallocates all the member lists.
+        /// </summary>
+        public void Dispose()
+        {
+            if (m_IsDisposed) return;
+
+            SkeletonNodes.Dispose();
+            TranslationChannels.Dispose();
+            RotationChannels.Dispose();
+            ScaleChannels.Dispose();
+            FloatChannels.Dispose();
+            IntChannels.Dispose();
+            Axes.Dispose();
+
+            m_IsDisposed = true;
+        }
+    }
+
+    /// <summary>
+    /// This is a helper class that creates the RigDefinition used in the animation systems.
+    /// </summary>
     public static class RigBuilder
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
+#if UNITY_ENABLE_ANIMATION_PROFILING
         static readonly ProfilerMarker k_CreateRigDefMarker = new ProfilerMarker("RigBuilder.CreateRigDefinition");
 #endif
 
-        static void CheckHasOnlyOneRootAndValidParentIndices(SkeletonNode[] skeletonNodes)
+        // TODO: this should be removed once the obsolete CreateRigDefinition is removed.
+        static unsafe RigBuilderData BuildData(SkeletonNode[] skeletonNodes, Axis[] axes, IAnimationChannel[] animationChannels, Allocator allocator = Allocator.Temp)
         {
-            Assert.IsTrue(skeletonNodes != null);
+            var buildData = new RigBuilderData(allocator);
+
+            if (skeletonNodes != null)
+            {
+                fixed(void* ptr = &skeletonNodes[0])
+                {
+                    buildData.SkeletonNodes.AddRange(ptr, skeletonNodes.Length);
+                }
+            }
+
+            if (axes != null)
+            {
+                fixed(void* ptr = &axes[0])
+                {
+                    buildData.Axes.AddRange(ptr, axes.Length);
+                }
+            }
+
+            if (animationChannels != null)
+            {
+                GetAnimationChannels(animationChannels, buildData.TranslationChannels);
+                GetAnimationChannels(animationChannels, buildData.RotationChannels);
+                GetAnimationChannels(animationChannels, buildData.ScaleChannels);
+                GetAnimationChannels(animationChannels, buildData.FloatChannels);
+                GetAnimationChannels(animationChannels, buildData.IntChannels);
+            }
+
+            return buildData;
+        }
+
+        [BurstCompile]
+        internal struct CreateRigDefinitionJob : IJob
+        {
+            public BlobBuilder BlobBuilder;
+            public RigBuilderData RigBuilderData;
+
+            public void Execute()
+            {
+                CreateRigDefinition(RigBuilderData, BlobBuilder);
+            }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void CheckHasOnlyOneRootAndValidParentIndices(NativeList<SkeletonNode> skeletonNodes)
+        {
+            if (!skeletonNodes.IsCreated)
+                throw new System.ArgumentNullException("SkeletonNodes are not created.");
 
             var skeletonNodeCount = skeletonNodes.Length;
             if (skeletonNodeCount > 0 && skeletonNodes[0].ParentIndex != -1)
@@ -50,19 +183,24 @@ namespace Unity.Animation
             }
         }
 
-        static void CheckHasValidAxisIndices(SkeletonNode[] skeletonNodes, Axis[] axes)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void CheckHasValidAxisIndices(NativeList<SkeletonNode> skeletonNodes, NativeList<Axis> axes)
         {
-            Assert.IsTrue(skeletonNodes != null);
+            if (!skeletonNodes.IsCreated)
+                throw new System.ArgumentNullException("SkeletonNodes NativeList is not created.");
+
+            if (!axes.IsCreated)
+                throw new System.ArgumentNullException("Axes NativeList is not created.");
 
             for (int i = 0; i < skeletonNodes.Length; i++)
             {
                 if (skeletonNodes[i].AxisIndex == -1)
                     continue;
 
-                if (skeletonNodes[i].AxisIndex != -1 && axes == null)
+                if (skeletonNodes[i].AxisIndex != -1 && axes.Length == 0)
                 {
                     throw new ArgumentNullException("axis",
-                        $"SkeletonNode[{i}] has an AxisIndex '{skeletonNodes[i].AxisIndex}' but axis is null."
+                        $"SkeletonNode[{i}] has an AxisIndex '{skeletonNodes[i].AxisIndex}' but axis is empty."
                     );
                 }
 
@@ -75,10 +213,15 @@ namespace Unity.Animation
             }
         }
 
-        static void GetAnimationChannels(SkeletonNode[] skeletonNodes, NativeList<LocalTranslationChannel> translationChannels, NativeList<LocalRotationChannel> rotationChannels, NativeList<LocalScaleChannel> scaleChannels)
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void CheckIsRigBuilderDataCreated(RigBuilderData data)
         {
-            Assert.IsTrue(skeletonNodes != null);
+            if (!data.IsCreated)
+                throw new ArgumentNullException("RigBuilderData is not created.");
+        }
 
+        static void GetAnimationChannels(NativeList<SkeletonNode> skeletonNodes, NativeList<LocalTranslationChannel> translationChannels, NativeList<LocalRotationChannel> rotationChannels, NativeList<LocalScaleChannel> scaleChannels)
+        {
             for (int i = 0; i < skeletonNodes.Length; i++)
             {
                 var localTranslationChannel = new LocalTranslationChannel { Id = skeletonNodes[i].Id, DefaultValue = skeletonNodes[i].LocalTranslationDefaultValue };
@@ -95,10 +238,9 @@ namespace Unity.Animation
             }
         }
 
+        // TODO: this should be removed once the obsolete CreateRigDefinition is removed.
         static void GetAnimationChannels<T>(IAnimationChannel[] animationChannels, NativeList<T> filteredAnimationChannels) where T : struct, IEquatable<T>
         {
-            Assert.IsTrue(animationChannels != null);
-
             for (var i = 0; i != animationChannels.Length; i++)
             {
                 var channel = animationChannels[i];
@@ -110,9 +252,19 @@ namespace Unity.Animation
             }
         }
 
-        static void InitializeSkeletonNodes(ref BlobBuilder blobBuilder, SkeletonNode[] skeletonNodes, ref BlobArray<int> parentIndices, ref BlobArray<StringHash> skeletonIds, ref BlobArray<int> axisIndices)
+        static void GetAnimationChannels<T>(NativeList<T> animationChannels, NativeList<T> filteredAnimationChannels) where T : struct, IEquatable<T>
         {
-            if (skeletonNodes == null || skeletonNodes.Length == 0)
+            for (var i = 0; i != animationChannels.Length; i++)
+            {
+                var channel = animationChannels[i];
+                if (!filteredAnimationChannels.Contains(channel))
+                    filteredAnimationChannels.Add(channel);
+            }
+        }
+
+        static void InitializeSkeletonNodes(ref BlobBuilder blobBuilder, NativeList<SkeletonNode> skeletonNodes, ref BlobArray<int> parentIndices, ref BlobArray<StringHash> skeletonIds, ref BlobArray<int> axisIndices)
+        {
+            if (!skeletonNodes.IsCreated || skeletonNodes.Length == 0)
                 return;
 
             var parentIndicesBuilder = blobBuilder.Allocate(ref parentIndices, skeletonNodes.Length);
@@ -126,22 +278,22 @@ namespace Unity.Animation
             }
         }
 
-        static void InitializeAxes(ref BlobBuilder blobBuilder, Axis[] axes, ref BlobArray<Axis> rigAxes)
+        static void InitializeAxes(ref BlobBuilder blobBuilder, NativeList<Axis> axes, ref BlobArray<Axis> rigAxes)
         {
-            if (axes == null || axes.Length == 0)
+            if (!axes.IsCreated || axes.Length == 0)
                 return;
 
             var arrayBuilder = blobBuilder.Allocate(ref rigAxes, axes.Length);
             for (int i = 0; i < axes.Length; ++i)
             {
-                rigAxes[i] = axes[i];
+                arrayBuilder[i] = axes[i];
             }
         }
 
         static void InitializeBindings<T>(ref BlobBuilder blobBuilder, NativeList<T> animationChannels, ref BlobArray<StringHash> bindings)
             where T : struct, IAnimationChannel
         {
-            if (animationChannels.Length == 0)
+            if (!animationChannels.IsCreated || animationChannels.Length == 0)
                 return;
 
             var arrayBuilder = blobBuilder.Allocate(ref bindings, animationChannels.Length);
@@ -155,7 +307,7 @@ namespace Unity.Animation
             where TChannel : struct, IAnimationChannel<TData>
             where TData : unmanaged
         {
-            if (animationChannels.Length == 0)
+            if (!animationChannels.IsCreated || animationChannels.Length == 0)
                 return;
 
             TData* data = (TData*)((float*)arrayBuilder.GetUnsafePtr() + index);
@@ -163,13 +315,11 @@ namespace Unity.Animation
             {
                 data[i] = animationChannels[i].DefaultValue;
             }
-
-            return;
         }
 
         static unsafe void InitializeDefaultRotationValues(int index, ref BlobBuilderArray<float> arrayBuilder, NativeList<LocalRotationChannel> rotationChannels)
         {
-            if (rotationChannels.Length == 0)
+            if (!rotationChannels.IsCreated || rotationChannels.Length == 0)
                 return;
 
             // Fill as SOA 4-wide quaternions
@@ -200,86 +350,141 @@ namespace Unity.Animation
                 q4.z[subIdx] = q.value.z;
                 q4.w[subIdx] = q.value.w;
             }
-
-            return;
         }
 
+        // TODO: this should be deprecated to favour the method that takes a RigBuilderData as an argument.
+        // But this implies to update almost all the tests...
         public static BlobAssetReference<RigDefinition> CreateRigDefinition(IAnimationChannel[] animationChannels)
         {
             return CreateRigDefinition(null, null, animationChannels);
         }
 
+        // TODO: this should be deprecated to favour the method that takes a RigBuilderData as an argument.
+        // But this implies to update almost all the tests...
         public static BlobAssetReference<RigDefinition> CreateRigDefinition(SkeletonNode[] skeletonNodes, Axis[] axis = null)
         {
             return CreateRigDefinition(skeletonNodes, axis, null);
         }
 
+        // TODO: this should be deprecated to favour the method that takes a RigBuilderData as an argument.
+        // But this implies to update almost all the tests...
         public static BlobAssetReference<RigDefinition> CreateRigDefinition(SkeletonNode[] skeletonNodes, Axis[] axes,
             IAnimationChannel[] animationChannels)
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
+            var rigBuilderData = BuildData(skeletonNodes, axes, animationChannels);
+            return CreateRigDefinition(rigBuilderData);
+        }
+
+        /// <summary>
+        /// Creates a BlobAssetReference of the RigDefinition from a RigBuilderData.
+        /// </summary>
+        /// <remarks>
+        /// The <see cref="RigBuilderData"/> structure can be built from a RigComponent using ExtractRigBuilderData,
+        /// or can be filled manually.
+        /// While creating the rig definition, we ensure that there is no duplicates in the skeleton nodes and the custom
+        /// animation channels.
+        /// The TRS bindings in the RigDefinition BindingSet are ordered as: first the skeleton's, then the custom channels'.
+        /// For example, the translations of the skeleton nodes are added to the translation bindings before the custom
+        /// translation channels.
+        /// </remarks>
+        /// <param name="rigBuilderData">The RigBuilderData containing the skeleton, the axes and the custom animation channels.</param>
+        /// <returns>The BlobAssetReference of the RigDefinition.</returns>
+        public static BlobAssetReference<RigDefinition> CreateRigDefinition(RigBuilderData rigBuilderData)
+        {
+#if UNITY_ENABLE_ANIMATION_PROFILING
             k_CreateRigDefMarker.Begin();
 #endif
-
-            var translationChannels = new NativeList<LocalTranslationChannel>(Allocator.Temp);
-            var rotationChannels = new NativeList<LocalRotationChannel>(Allocator.Temp);
-            var scaleChannels = new NativeList<LocalScaleChannel>(Allocator.Temp);
-            var floatChannels = new NativeList<FloatChannel>(Allocator.Temp);
-            var intChannels = new NativeList<IntChannel>(Allocator.Temp);
-
-            // First extract all animated channels from skeleton nodes, each skeleton nodes will create
-            // a dedicated channel for localTranslation, localRotation and localScale
-            if (skeletonNodes != null)
+            BlobAssetReference<RigDefinition> rigDefinitionAsset;
+            using (var blobBuilder = new BlobBuilder(Allocator.Temp))
             {
-                CheckHasOnlyOneRootAndValidParentIndices(skeletonNodes);
-                CheckHasValidAxisIndices(skeletonNodes, axes);
+                CreateRigDefinition(rigBuilderData, blobBuilder);
 
-                GetAnimationChannels(skeletonNodes, translationChannels, rotationChannels, scaleChannels);
+                rigDefinitionAsset = blobBuilder.CreateBlobAssetReference<RigDefinition>(Allocator.Persistent);
+                rigDefinitionAsset.Value.m_HashCode = (int)HashUtils.ComputeHash(ref rigDefinitionAsset);
             }
 
-            if (animationChannels != null)
-            {
-                GetAnimationChannels(animationChannels, translationChannels);
-                GetAnimationChannels(animationChannels, rotationChannels);
-                GetAnimationChannels(animationChannels, scaleChannels);
-                GetAnimationChannels(animationChannels, floatChannels);
-                GetAnimationChannels(animationChannels, intChannels);
-            }
-
-            var blobBuilder = new BlobBuilder(Allocator.Temp);
-
-            ref var rig = ref blobBuilder.ConstructRoot<RigDefinition>();
-
-            InitializeSkeletonNodes(ref blobBuilder, skeletonNodes, ref rig.Skeleton.ParentIndexes, ref rig.Skeleton.Ids, ref rig.Skeleton.AxisIndexes);
-            InitializeAxes(ref blobBuilder, axes, ref rig.Skeleton.Axis);
-
-            InitializeBindings(ref blobBuilder, translationChannels, ref rig.Bindings.TranslationBindings);
-            InitializeBindings(ref blobBuilder, scaleChannels, ref rig.Bindings.ScaleBindings);
-            InitializeBindings(ref blobBuilder, floatChannels, ref rig.Bindings.FloatBindings);
-            InitializeBindings(ref blobBuilder, intChannels, ref rig.Bindings.IntBindings);
-            InitializeBindings(ref blobBuilder, rotationChannels, ref rig.Bindings.RotationBindings);
-
-            rig.Bindings = rig.CreateBindingSet(translationChannels.Length, rotationChannels.Length, scaleChannels.Length, floatChannels.Length, intChannels.Length);
-
-            var arrayBuilder = blobBuilder.Allocate(ref rig.DefaultValues, rig.Bindings.StreamSize);
-
-            InitializeDefaultValues<LocalTranslationChannel, float3>(rig.Bindings.TranslationSamplesOffset, ref arrayBuilder, translationChannels);
-            InitializeDefaultValues<LocalScaleChannel, float3>(rig.Bindings.ScaleSamplesOffset, ref arrayBuilder, scaleChannels);
-            InitializeDefaultValues<FloatChannel, float>(rig.Bindings.FloatSamplesOffset, ref arrayBuilder, floatChannels);
-            InitializeDefaultValues<IntChannel, int>(rig.Bindings.IntSamplesOffset, ref arrayBuilder, intChannels);
-            InitializeDefaultRotationValues(rig.Bindings.RotationSamplesOffset, ref arrayBuilder, rotationChannels);
-
-            var rigDefinitionAsset = blobBuilder.CreateBlobAssetReference<RigDefinition>(Allocator.Persistent);
-
-            blobBuilder.Dispose();
-
-            rigDefinitionAsset.Value.m_HashCode = (int)HashUtils.ComputeHash(ref rigDefinitionAsset);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
+#if UNITY_ENABLE_ANIMATION_PROFILING
             k_CreateRigDefMarker.End();
 #endif
 
             return rigDefinitionAsset;
+        }
+
+        /// <summary>
+        /// Creates a BlobAssetReference of the RigDefinition from a RigBuilderData.
+        /// This function creates runs a job internally and can't be called from another job.
+        /// </summary>
+        /// <param name="rigBuilderData">The RigBuilderData containing the skeleton, the axes and the custom animation channels.</param>
+        /// <returns>The BlobAssetReference of the RigDefinition.</returns>
+        [BurstCompile]
+        public static BlobAssetReference<RigDefinition> RunCreateRigDefinitionJob(RigBuilderData rigBuilderData)
+        {
+#if UNITY_ENABLE_ANIMATION_PROFILING
+            k_CreateRigDefMarker.Begin();
+#endif
+
+            BlobAssetReference<RigDefinition> rigDefinitionAsset;
+            using (var blobBuilder = new BlobBuilder(Allocator.TempJob))
+            {
+                var job = new CreateRigDefinitionJob
+                {
+                    BlobBuilder = blobBuilder,
+                    RigBuilderData = rigBuilderData
+                };
+                job.Run();
+
+                rigDefinitionAsset = blobBuilder.CreateBlobAssetReference<RigDefinition>(Allocator.Persistent);
+                rigDefinitionAsset.Value.m_HashCode = (int)HashUtils.ComputeHash(ref rigDefinitionAsset);
+            }
+
+#if UNITY_ENABLE_ANIMATION_PROFILING
+            k_CreateRigDefMarker.End();
+#endif
+
+            return rigDefinitionAsset;
+        }
+
+        static void CreateRigDefinition(RigBuilderData rigBuilderData, BlobBuilder blobBuilder)
+        {
+            CheckIsRigBuilderDataCreated(rigBuilderData);
+
+            var translations = new NativeList<LocalTranslationChannel>(Allocator.Temp);
+            var rotations = new NativeList<LocalRotationChannel>(Allocator.Temp);
+            var scales = new NativeList<LocalScaleChannel>(Allocator.Temp);
+
+            CheckHasOnlyOneRootAndValidParentIndices(rigBuilderData.SkeletonNodes);
+            CheckHasValidAxisIndices(rigBuilderData.SkeletonNodes, rigBuilderData.Axes);
+
+            GetAnimationChannels(rigBuilderData.SkeletonNodes, translations, rotations, scales);
+            GetAnimationChannels(rigBuilderData.TranslationChannels, translations);
+            GetAnimationChannels(rigBuilderData.RotationChannels, rotations);
+            GetAnimationChannels(rigBuilderData.ScaleChannels, scales);
+
+            ref var rig = ref blobBuilder.ConstructRoot<RigDefinition>();
+
+            InitializeSkeletonNodes(ref blobBuilder, rigBuilderData.SkeletonNodes, ref rig.Skeleton.ParentIndexes, ref rig.Skeleton.Ids, ref rig.Skeleton.AxisIndexes);
+            InitializeAxes(ref blobBuilder, rigBuilderData.Axes, ref rig.Skeleton.Axis);
+
+            InitializeBindings(ref blobBuilder, translations, ref rig.Bindings.TranslationBindings);
+            InitializeBindings(ref blobBuilder, scales, ref rig.Bindings.ScaleBindings);
+            InitializeBindings(ref blobBuilder, rigBuilderData.FloatChannels, ref rig.Bindings.FloatBindings);
+            InitializeBindings(ref blobBuilder, rigBuilderData.IntChannels, ref rig.Bindings.IntBindings);
+            InitializeBindings(ref blobBuilder, rotations, ref rig.Bindings.RotationBindings);
+
+            rig.Bindings = rig.CreateBindingSet(
+                translations.Length,
+                rotations.Length,
+                scales.Length,
+                rigBuilderData.FloatChannels.Length,
+                rigBuilderData.IntChannels.Length);
+
+            var arrayBuilder = blobBuilder.Allocate(ref rig.DefaultValues, rig.Bindings.StreamSize);
+
+            InitializeDefaultValues<LocalTranslationChannel, float3>(rig.Bindings.TranslationSamplesOffset, ref arrayBuilder, translations);
+            InitializeDefaultValues<LocalScaleChannel, float3>(rig.Bindings.ScaleSamplesOffset, ref arrayBuilder, scales);
+            InitializeDefaultValues<FloatChannel, float>(rig.Bindings.FloatSamplesOffset, ref arrayBuilder, rigBuilderData.FloatChannels);
+            InitializeDefaultValues<IntChannel, int>(rig.Bindings.IntSamplesOffset, ref arrayBuilder, rigBuilderData.IntChannels);
+            InitializeDefaultRotationValues(rig.Bindings.RotationSamplesOffset, ref arrayBuilder, rotations);
         }
     }
 }

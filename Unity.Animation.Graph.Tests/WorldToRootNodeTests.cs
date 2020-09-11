@@ -130,7 +130,6 @@ namespace Unity.Animation.Tests
             var rigEntity = m_Manager.CreateEntity();
             SetupTransformComponents(rigEntity, k_RigLocalTranslation, k_RigLocalRotation, k_RigLocalScale, Entity.Null);
             SetupRigEntity(rigEntity, m_Rig, rigEntity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             var targetEntity = m_Manager.CreateEntity();
             SetupTransformComponents(targetEntity, k_TargetLocalTranslation, k_TargetLocalRotation, k_TargetLocalScale, Entity.Null);
@@ -168,7 +167,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rigEntity, k_RigLocalTranslation, k_RigLocalRotation, k_RigLocalScale, Entity.Null);
             SetupRigEntity(rigEntity, m_Rig, rigEntity);
             m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rigEntity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             var targetEntity = m_Manager.CreateEntity();
             SetupTransformComponents(targetEntity, k_TargetLocalTranslation, k_TargetLocalRotation, k_TargetLocalScale, Entity.Null);
@@ -209,7 +207,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rootEntity, k_RootLocalTranslation, k_RootLocalRotation, k_RootLocalScale, offsetEntity);
 
             SetupRigEntity(rigEntity, m_Rig, rootEntity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             var targetEntity = m_Manager.CreateEntity();
             SetupTransformComponents(targetEntity, k_TargetLocalTranslation, k_TargetLocalRotation, k_TargetLocalScale, Entity.Null);
@@ -250,7 +247,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rootEntity, k_RootLocalTranslation, k_RootLocalRotation, k_RootLocalScale, offsetEntity);
 
             SetupRigEntity(rigEntity, m_RootOffsetRig, rootEntity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             var targetEntity = m_Manager.CreateEntity();
             SetupTransformComponents(targetEntity, k_TargetLocalTranslation, k_TargetLocalRotation, k_TargetLocalScale, Entity.Null);
@@ -286,7 +282,6 @@ namespace Unity.Animation.Tests
             SetupTransformComponents(rigEntity, k_RigLocalTranslation, k_RigLocalRotation, k_RigLocalScale, Entity.Null);
 
             SetupRigEntity(rigEntity, m_Rig, rigEntity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             // Add animated root motion and offset components
             var rmOffset = new RigidTransform(quaternion.AxisAngle(math.float3(1f, 0f, 0f), math.radians(30f)), math.float3(2f, 3f, 4f));

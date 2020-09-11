@@ -2,7 +2,6 @@ using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
@@ -10,23 +9,19 @@ namespace Unity.Animation
     {
         public static int WeightDataSize(BlobAssetReference<RigDefinition> rig)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(rig.IsCreated);
-#endif
+            ValidateIsCreated(rig);
+
             ref var bindings = ref rig.Value.Bindings;
-            return bindings.DataChunkCount * BindingSet.k_DataPadding + bindings.RotationCurveCount;
+            return bindings.InterpolatedDataChunkCount * BindingSet.k_InterpolatedDataChunkSize + bindings.DiscreteDataChunkCount * BindingSet.k_DiscreteDataChunkSize + bindings.RotationCurveCount;
         }
 
         internal static int ChannelIndexToWeightDataOffset(BlobAssetReference<RigDefinition> rig, int channelIndex)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(rig.IsCreated);
-#endif
+            ValidateIsCreated(rig);
+
             ref var bindings = ref rig.Value.Bindings;
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(channelIndex < bindings.CurveCount);
-#endif
+            ValidateBufferIndexBounds(channelIndex, bindings.CurveCount);
 
             if (channelIndex < bindings.ScaleBindingIndex)
                 return math.mad(channelIndex - bindings.TranslationBindingIndex, BindingSet.TranslationKeyFloatCount, bindings.TranslationSamplesOffset);
@@ -45,10 +40,8 @@ namespace Unity.Animation
 
         internal static unsafe void SetWeightValueFromOffset(BlobAssetReference<RigDefinition> rig, float weight, int weightOffset, NativeArray<WeightData> weightData)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(weightOffset < weightData.Length);
-            Assert.AreEqual(weightData.Length, WeightDataSize(rig));
-#endif
+            ValidateBufferIndexBounds(weightOffset, weightData.Length);
+            ValidateBufferLengthsAreEqual(weightData.Length, WeightDataSize(rig));
 
             float* ptr = (float*)weightData.GetUnsafePtr() + weightOffset;
             if (weightOffset < rig.Value.Bindings.FloatSamplesOffset)
@@ -59,10 +52,8 @@ namespace Unity.Animation
 
         public static void SetWeightValueFromChannelIndex(BlobAssetReference<RigDefinition> rig, float weight, int channelIndex, NativeArray<WeightData> weightData)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(channelIndex < rig.Value.Bindings.CurveCount);
-            Assert.AreEqual(weightData.Length, WeightDataSize(rig));
-#endif
+            ValidateBufferIndexBounds(channelIndex, rig.Value.Bindings.CurveCount);
+            ValidateBufferLengthsAreEqual(weightData.Length, WeightDataSize(rig));
 
             SetWeightValueFromOffset(rig, weight, ChannelIndexToWeightDataOffset(rig, channelIndex), weightData);
         }
@@ -96,11 +87,9 @@ namespace Unity.Animation
             NativeArray<WeightData> weightData
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(rig.IsCreated);
-            Assert.AreEqual(channelIndices.Length, channelWeights.Length);
-            Assert.AreEqual(WeightDataSize(rig), weightData.Length);
-#endif
+            ValidateIsCreated(rig);
+            ValidateBufferLengthsAreEqual(channelIndices.Length, channelWeights.Length);
+            ValidateBufferLengthsAreEqual(WeightDataSize(rig), weightData.Length);
 
             SetDefaultWeight(defaultWeight, weightData);
             for (int i = 0, count = channelIndices.Length; i < count; ++i)
@@ -117,11 +106,9 @@ namespace Unity.Animation
             NativeArray<WeightData> weightData
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(rig.IsCreated);
-            Assert.IsTrue(channelWeights.Length <= weightOffsets.Length);
-            Assert.AreEqual(WeightDataSize(rig), weightData.Length);
-#endif
+            ValidateIsCreated(rig);
+            ValidateLessOrEqual(channelWeights.Length, weightOffsets.Length);
+            ValidateBufferLengthsAreEqual(WeightDataSize(rig), weightData.Length);
 
             SetDefaultWeight(defaultWeight, weightData);
             for (int i = 0, count = channelWeights.Length; i < count; ++i)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Unity.Collections;
+using Unity.Entities;
 using UnityEngine;
 
 namespace Unity.Animation.Hybrid
@@ -82,6 +83,136 @@ namespace Unity.Animation.Hybrid
         public FloatChannel[] FloatChannels = Array.Empty<FloatChannel>();
         public IntChannel[] IntChannels = Array.Empty<IntChannel>();
 
+        // TODO : Remove this function once we can properly author RigComponent channels based on hierarchy components
+        void InjectKnownBindings()
+        {
+            var skinnedMeshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
+            foreach (var smr in skinnedMeshRenderers)
+            {
+                var channelsToAdd = smr.GetBlendShapeChannels(transform);
+                if (channelsToAdd.Length > 0)
+                {
+                    int floatChannelCount = FloatChannels.Length;
+                    Array.Resize(ref FloatChannels, floatChannelCount + channelsToAdd.Length);
+                    Array.Copy(channelsToAdd, 0, FloatChannels, floatChannelCount, channelsToAdd.Length);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates the DOTS representation of a rig.
+        /// </summary>
+        /// <returns>The blob asset reference of a RigDefinition.</returns>
+        public BlobAssetReference<RigDefinition> ToRigDefinition(BindingHashDelegate bindingHash = null)
+        {
+            InjectKnownBindings();
+
+            var rigBuilderData = ExtractRigBuilderData(bindingHash);
+            var rigDefinition = RigBuilder.CreateRigDefinition(rigBuilderData);
+            rigBuilderData.Dispose();
+
+            return rigDefinition;
+        }
+
+        /// <summary>
+        /// Fills the lists of the RigBuilderData from the bones and custom channels of the RigComponent.
+        /// </summary>
+        /// <param name="allocator">
+        /// A member of the [Unity.Collections.Allocator](https://docs.unity3d.com/ScriptReference/Unity.Collections.Allocator.html)
+        /// enumeration.
+        /// It is used to allocate all the NativeLists inside the RigBuilderData.
+        /// </param>
+        /// <param name="bindingHash">
+        /// The hash function used to generate the ID of the rig channels.
+        /// </param>
+        /// <returns>
+        /// The RigBuilderData with all its lists filled with the corresponding rig channels.
+        /// </returns>
+        /// <remarks>
+        /// If you have your own rig representation, you just need to create a function like this one that fills
+        /// a <see cref="RigBuilderData"/> and use it with <see cref="RigBuilder.CreateRigDefinition"/>.
+        /// </remarks>
+        public RigBuilderData ExtractRigBuilderData(BindingHashDelegate bindingHash = null)
+        {
+            var skeletonNodesCount = Bones.Length;
+            var translationChannelsCount = TranslationChannels.Length;
+            var rotationChannelsCount = RotationChannels.Length;
+            var scaleChannelsCount = ScaleChannels.Length;
+            var floatChannelsCount = FloatChannels.Length;
+            var intChannelsCount = IntChannels.Length;
+
+            var rigBuilderData = new RigBuilderData(Allocator.Persistent);
+            rigBuilderData.SkeletonNodes.Capacity = skeletonNodesCount;
+            rigBuilderData.TranslationChannels.Capacity = translationChannelsCount;
+            rigBuilderData.RotationChannels.Capacity = rotationChannelsCount;
+            rigBuilderData.ScaleChannels.Capacity = scaleChannelsCount;
+            rigBuilderData.FloatChannels.Capacity = floatChannelsCount;
+            rigBuilderData.IntChannels.Capacity = intChannelsCount;
+
+            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
+
+            for (int i = 0; i < skeletonNodesCount; i++)
+            {
+                var id = hasher(RigGenerator.ComputeRelativePath(Bones[i], transform));
+
+                rigBuilderData.SkeletonNodes.Add(new SkeletonNode
+                {
+                    Id = id,
+                    AxisIndex = -1,
+                    LocalTranslationDefaultValue = Bones[i].localPosition,
+                    LocalRotationDefaultValue = Bones[i].localRotation,
+                    LocalScaleDefaultValue = Bones[i].localScale,
+                    ParentIndex = RigGenerator.FindTransformIndex(Bones[i].parent, Bones)
+                });
+            }
+
+            for (int i = 0; i < TranslationChannels.Length; i++)
+            {
+                rigBuilderData.TranslationChannels.Add(new LocalTranslationChannel
+                {
+                    Id = hasher(TranslationChannels[i].Id),
+                    DefaultValue = TranslationChannels[i].DefaultValue
+                });
+            }
+
+            for (int i = 0; i < RotationChannels.Length; i++)
+            {
+                rigBuilderData.RotationChannels.Add(new LocalRotationChannel
+                {
+                    Id = hasher(RotationChannels[i].Id),
+                    DefaultValue = RotationChannels[i].DefaultValue
+                });
+            }
+
+            for (int i = 0; i < ScaleChannels.Length; i++)
+            {
+                rigBuilderData.ScaleChannels.Add(new LocalScaleChannel
+                {
+                    Id = hasher(ScaleChannels[i].Id),
+                    DefaultValue = ScaleChannels[i].DefaultValue
+                });
+            }
+
+            for (int i = 0; i < FloatChannels.Length; i++)
+            {
+                rigBuilderData.FloatChannels.Add(new Unity.Animation.FloatChannel
+                {
+                    Id = hasher(FloatChannels[i].Id),
+                    DefaultValue = FloatChannels[i].DefaultValue
+                });
+            }
+
+            for (int i = 0; i < IntChannels.Length; i++)
+            {
+                rigBuilderData.IntChannels.Add(new Unity.Animation.IntChannel
+                {
+                    Id = hasher(IntChannels[i].Id),
+                    DefaultValue = IntChannels[i].DefaultValue
+                });
+            }
+
+            return rigBuilderData;
+        }
 
         internal void Reset()
         {
@@ -121,13 +252,18 @@ namespace Unity.Animation.Hybrid
             if (!bone.IsChildOf(root))
                 throw new ArgumentException($"Bone must be a child transform of {root}", nameof(bone));
 
-            var rootParent = (root == null) ? root : root.parent;
-
             // TODO: optimize
-            while (bone && bone != rootParent)
+            if (bone)
             {
-                m_ExcludeBones.Remove(bone);
-                bone = bone.parent;
+                var topBone = transform; // Since the m_ExcludeBones might contain transforms higher up in the hierarchy,
+                                         // we need to remove those above it as well
+                var topParent = (topBone == null) ? topBone : topBone.parent;
+                do
+                {
+                    m_ExcludeBones.Remove(bone);
+                    bone = bone.parent;
+                }
+                while (bone && bone != topParent);
             }
 
             UpdateHierarchyCache();
@@ -167,6 +303,15 @@ namespace Unity.Animation.Hybrid
                 if (m_ExcludeBones.Contains(child))
                     m_ExcludeBones.Remove(child);
             }
+
+            // Since the m_ExcludeBones might contain transforms higher up in the hierarchy,
+            // we need to remove those above it as well
+            bone.GetComponentsInParent(true, s_TransformBuffer);
+            foreach (var child in s_TransformBuffer)
+            {
+                if (m_ExcludeBones.Contains(child))
+                    m_ExcludeBones.Remove(child);
+            }
             s_TransformBuffer.Clear(); // remove dangling references
 
             UpdateHierarchyCache();
@@ -185,7 +330,8 @@ namespace Unity.Animation.Hybrid
             {
                 // Note: s_TransformBuffer is in order of traversal, so this will
                 //       automatically exclude children of an excluded parent
-                if (bone.parent &&
+                if (bone != RootBone &&
+                    bone.parent &&
                     m_ExcludeBones.Contains(bone.parent) &&
                     !m_ExcludeBones.Contains(bone))
                 {

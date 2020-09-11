@@ -3,14 +3,21 @@
 // make sure the XML doc file is present and located next to the scraped dll
 namespace Unity.Animation
 {
+    [Unity.Entities.UpdateInGroup(typeof(Unity.Entities.InitializationSystemGroup))] [UnityEngine.ExecuteAlways] public class BeginFrameAnimationSystem : Unity.Animation.BeginFrameAnimationSystemBase
+    {
+        public BeginFrameAnimationSystem() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
     [Unity.Entities.UpdateAfter(typeof(Unity.Animation.RigComputeMatricesSystem))] [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class ComputeSkinMatrixSystem : Unity.Animation.ComputeDeformationDataSystemBase
     {
         public ComputeSkinMatrixSystem() {}
         protected virtual void OnCreateForCompiler();
     }
 
-    [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PostAnimationGraphSystem : Unity.Animation.AnimationSystemBase<Unity.Animation.PostAnimationGraphSystem.Tag, Unity.Animation.PostAnimationGraphSystem.ReadTransformHandle, Unity.Animation.PostAnimationGraphSystem.WriteTransformHandle>
+    [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PostAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PostAnimationGraphSystem : Unity.Animation.AnimationGraphSystemBase<Unity.Animation.PostAnimationGraphSystem.ReadTransformHandle, Unity.Animation.PostAnimationGraphSystem.WriteTransformHandle>
     {
+        [System.Obsolete(@"PostAnimationGraphSystem.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")] public Unity.Animation.PostAnimationGraphSystem.Tag TagComponent { get; }
         public PostAnimationGraphSystem() {}
         protected virtual void OnCreateForCompiler();
         public struct ReadTransformHandle : Unity.Animation.IReadTransformHandle, Unity.Animation.ITransformHandle, Unity.Entities.IBufferElementData
@@ -18,7 +25,7 @@ namespace Unity.Animation
             public virtual Unity.Entities.Entity Entity { get; set; }
             public virtual int Index { get; set; }
         }
-        public struct Tag : Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData
+        [System.Obsolete(@"PostAnimationGraphSystem.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")] public struct Tag : Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData
         {
         }
         public struct WriteTransformHandle : Unity.Animation.ITransformHandle, Unity.Animation.IWriteTransformHandle, Unity.Entities.IBufferElementData
@@ -34,8 +41,9 @@ namespace Unity.Animation
         protected virtual void OnCreateForCompiler();
     }
 
-    [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PreAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PreAnimationGraphSystem : Unity.Animation.AnimationSystemBase<Unity.Animation.PreAnimationGraphSystem.Tag, Unity.Animation.PreAnimationGraphSystem.ReadTransformHandle, Unity.Animation.PreAnimationGraphSystem.WriteTransformHandle, Unity.Animation.PreAnimationGraphSystem.AnimatedRootMotion>
+    [Unity.Entities.UpdateInGroup(typeof(Unity.Animation.PreAnimationSystemGroup))] [UnityEngine.ExecuteAlways] public class PreAnimationGraphSystem : Unity.Animation.AnimationGraphSystemBase<Unity.Animation.PreAnimationGraphSystem.ReadTransformHandle, Unity.Animation.PreAnimationGraphSystem.WriteTransformHandle, Unity.Animation.PreAnimationGraphSystem.AnimatedRootMotion>
     {
+        [System.Obsolete(@"PreAnimationGraphSystem.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")] public Unity.Animation.PreAnimationGraphSystem.Tag TagComponent { get; }
         public PreAnimationGraphSystem() {}
         protected virtual void OnCreateForCompiler();
         public struct AnimatedRootMotion : Unity.Animation.IAnimatedRootMotion, Unity.Entities.IComponentData
@@ -47,7 +55,7 @@ namespace Unity.Animation
             public virtual Unity.Entities.Entity Entity { get; set; }
             public virtual int Index { get; set; }
         }
-        public struct Tag : Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData
+        [System.Obsolete(@"PreAnimationGraphSystem.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")] public struct Tag : Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData
         {
         }
         public struct WriteTransformHandle : Unity.Animation.ITransformHandle, Unity.Animation.IWriteTransformHandle, Unity.Entities.IBufferElementData

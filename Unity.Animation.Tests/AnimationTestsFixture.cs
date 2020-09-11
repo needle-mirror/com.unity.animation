@@ -130,6 +130,7 @@ namespace Unity.Animation.Tests
         protected PreAnimationGraphSystem m_AnimationGraphSystem;
         protected NodeSet Set => m_AnimationGraphSystem.Set;
 
+        protected BeginFrameAnimationSystem m_BeginFrameAnimationSystem;
         protected PreAnimationGraphSystem m_PreAnimationGraph;
         protected PostAnimationGraphSystem m_PostAnimationGraph;
 
@@ -188,6 +189,8 @@ namespace Unity.Animation.Tests
 
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
+
+            m_BeginFrameAnimationSystem = World.GetOrCreateSystem<BeginFrameAnimationSystem>();
 
             m_AnimationGraphSystem = World.GetOrCreateSystem<PreAnimationGraphSystem>();
             m_AnimationGraphSystem.AddRef();
@@ -329,6 +332,25 @@ namespace Unity.Animation.Tests
                 // rig root transform components
                 m_Manager.AddComponent<DisableRootTransformReadWriteTag>(rigEntity);
             }
+        }
+
+        protected BlobAssetReference<RigDefinition> CreateTestRigDefinition(int skeletonCount, IAnimationChannel[] animationChannels)
+        {
+            if (skeletonCount > 0)
+            {
+                var skeleton = new SkeletonNode[skeletonCount];
+
+                skeleton[0] = new SkeletonNode { Id = "Root", ParentIndex = -1, AxisIndex = -1, LocalTranslationDefaultValue = float3.zero, LocalRotationDefaultValue = quaternion.identity, LocalScaleDefaultValue = new float3(1) };
+                for (int i = 1; i < skeletonCount; i++)
+                {
+                    skeleton[i] = new SkeletonNode { Id = $"Child{i}", ParentIndex = i - 1, AxisIndex = -1, LocalTranslationDefaultValue = float3.zero, LocalRotationDefaultValue = quaternion.identity, LocalScaleDefaultValue = new float3(1) };
+                }
+                ;
+
+                return RigBuilder.CreateRigDefinition(skeleton, null, animationChannels);
+            }
+            else
+                return RigBuilder.CreateRigDefinition(animationChannels);
         }
 
 #if UNITY_EDITOR

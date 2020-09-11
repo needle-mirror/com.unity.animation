@@ -110,8 +110,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -172,8 +170,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -242,8 +238,6 @@ namespace Unity.Animation.Tests
 
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -303,8 +297,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -366,8 +358,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -435,8 +425,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -497,8 +485,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -558,8 +544,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -622,8 +606,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -683,8 +665,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -747,8 +727,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var streamECS = AnimationStream.CreateReadOnly(
@@ -808,8 +786,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -910,7 +886,6 @@ namespace Unity.Animation.Tests
             var dstStream = AnimationStream.Create(destinationRig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
             dstStream.ResetToZero();
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
             m_AnimationGraphSystem.Update();
 
             // Only the destination rig was set on the rig remapper node. The result should then be to only have
@@ -1120,8 +1095,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var stream = AnimationStream.CreateReadOnly(
@@ -1218,8 +1191,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 
@@ -1332,8 +1303,6 @@ namespace Unity.Animation.Tests
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
-
             m_AnimationGraphSystem.Update();
 
             var stream = AnimationStream.CreateReadOnly(
@@ -1388,11 +1357,11 @@ namespace Unity.Animation.Tests
             overrides.AddRotationOffsetOverride("Root/Hips/RightUpLeg", new RigRotationOffset { PreRotation = quaternion.identity, PostRotation = quaternion.identity, Space = RigRemapSpace.LocalToRoot });
             var remapTable = RigRemapUtils.CreateRemapTable(sourceRig, destinationRig, RigRemapUtils.ChannelFilter.All, overrides);
 
-            Assert.AreEqual(remapTable.Value.TranslationMappings.Length, 4);
-            Assert.AreEqual(remapTable.Value.RotationMappings.Length, 4);
-            Assert.AreEqual(remapTable.Value.ScaleMappings.Length, 4);
-            Assert.AreEqual(remapTable.Value.TranslationOffsets.Length - 1, 1); // First offset is mute (since OffsetIndex = 0 is irrelevant)
-            Assert.AreEqual(remapTable.Value.RotationOffsets.Length - 1, 1); // First offset is mute (since OffsetIndex = 0 is irrelevant)
+            Assert.AreEqual(4, remapTable.Value.TranslationMappings.Length);
+            Assert.AreEqual(4, remapTable.Value.RotationMappings.Length);
+            Assert.AreEqual(4, remapTable.Value.ScaleMappings.Length);
+            Assert.AreEqual(1, remapTable.Value.TranslationOffsets.Length - 1); // First offset is mute (since OffsetIndex = 0 is irrelevant)
+            Assert.AreEqual(1, remapTable.Value.RotationOffsets.Length - 1); // First offset is mute (since OffsetIndex = 0 is irrelevant)
 
             var rigEntity = m_Manager.CreateEntity();
             SetupRigEntity(rigEntity, destinationRig, Entity.Null);
@@ -1409,8 +1378,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(rigEntity);
             Set.Connect(rigRemapper, RigRemapperNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(rigEntity);
 
             m_AnimationGraphSystem.Update();
 

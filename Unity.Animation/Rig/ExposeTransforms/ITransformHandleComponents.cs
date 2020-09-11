@@ -15,21 +15,6 @@ namespace Unity.Animation
     public interface IWriteTransformHandle : ITransformHandle {}
 
     /// <summary>
-    /// Prevents the transform systems to write into the LocalToParent and LocalToWorld
-    /// components of an entity.
-    /// </summary>
-    /// <remarks>
-    /// This component won't work because if a query defines LocalToParent as ReadOnly and LocalToWorld as ReadWrite,
-    /// then AnimationTransformOverride will be in the Any field of the query and not the None field,
-    /// so the entity will still be selected.
-    /// </remarks>
-    [Obsolete("AnimationTransformOverride has been deprecated. Use AnimationLocalToParentOverride" +
-        "and AnimationLocalToWorldOverride instead. (RemovedAfter 2020-08-26)")]
-    [WriteGroup(typeof(LocalToParent))]
-    [WriteGroup(typeof(LocalToWorld))]
-    public struct AnimationTransformOverride : IComponentData {}
-
-    /// <summary>
     /// Prevents the transform systems to write into the LocalToParent component of an entity.
     /// </summary>
     /// <remarks>
@@ -55,7 +40,7 @@ namespace Unity.Animation
 
     public struct NotSupportedTransformHandle : IReadTransformHandle, IWriteTransformHandle
     {
-        public Entity Entity { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-        public int Index { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
+        public Entity Entity { get { Core.NotImplementedException(); return Entity.Null; } set => Core.NotImplementedException(); }
+        public int Index { get { Core.NotImplementedException(); return 0; } set => Core.NotImplementedException(); }
     }
 }

@@ -123,6 +123,7 @@ namespace Unity.Animation.Tests
             Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void SettingBlendTreeAssetWithInvalidMotionThrow()
         {
@@ -138,11 +139,12 @@ namespace Unity.Animation.Tests
 
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
 
-            Assert.Throws(Is.TypeOf<System.InvalidOperationException>()
-                .And.Message.EqualTo("Motion in BlendTree2D is not valid"),
+            Assert.Throws(Is.TypeOf<System.NullReferenceException>()
+                .And.Message.EqualTo("Clip is null."),
                 () => Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, blendTreeAsset));
         }
 
+#endif
         [Test]
         public void CanSetBlendTreeAsset()
         {

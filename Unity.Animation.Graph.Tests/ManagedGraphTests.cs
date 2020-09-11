@@ -6,15 +6,13 @@ namespace Unity.Animation.Tests
     public class ManagedGraphTests : AnimationTestsFixture
     {
         [DisableAutoCreation]
-        internal class TestAnimationSystem : AnimationSystemBase<
-            TestAnimationSystem.Tag,
+        internal class TestAnimationSystem : AnimationGraphSystemBase<
             NotSupportedTransformHandle,
             NotSupportedTransformHandle
         >
         {
-            internal struct Tag : IAnimationSystemTag {}
         }
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void InvalidGraphHandlesThrowExceptions()
         {
@@ -30,6 +28,7 @@ namespace Unity.Animation.Tests
             Assert.Throws<System.ArgumentException>(() => m_PreAnimationGraph.Dispose(wrongGraphHandle));
         }
 
+#endif
         [Test]
         public void ManagedNodesAreDisposedAfterExplicitGraphDispose()
         {

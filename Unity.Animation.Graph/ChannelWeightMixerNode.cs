@@ -3,20 +3,15 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "61d4abe4d0d84cae81d9bfde78b9d066", version: 1, category: "Animation Core/Mixers", description: "Blends two animation streams given per channel weight values. Weight masks can be built using the WeightBuilderNode.")]
     public class ChannelWeightMixerNode
         : NodeDefinition<ChannelWeightMixerNode.Data, ChannelWeightMixerNode.SimPorts, ChannelWeightMixerNode.KernelData, ChannelWeightMixerNode.KernelDefs, ChannelWeightMixerNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("Animation.ChannelWeightMixerNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -45,9 +40,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -57,21 +49,15 @@ namespace Unity.Animation
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
-                if (outputStream.IsNull)
-                    throw new System.InvalidOperationException($"ChannelWeightMixerNode output is invalid.");
+                outputStream.ValidateIsNotNull();
 
                 var inputStream0 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input0));
                 var inputStream1 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input1));
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
-
                 var weight = context.Resolve(ports.Weight);
                 var weightMasks = context.Resolve(ports.WeightMasks);
 
-                if (Core.WeightDataSize(outputStream.Rig) != weightMasks.Length)
-                    throw new System.InvalidOperationException($"ChannelWeightMixerNode: WeightMasks size does not match RigDefinition. WeightMasks size is '{weightMasks.Length}' but RigDefinition expects a size of '{Core.WeightDataSize(inputStream0.Rig)}'.");
+                Core.ValidateBufferLengthsAreEqual(Core.WeightDataSize(outputStream.Rig), weightMasks.Length);
 
                 if (inputStream0.IsNull && inputStream1.IsNull)
                     outputStream.ResetToDefaultValues();
@@ -87,21 +73,8 @@ namespace Unity.Animation
                 }
                 else
                     Core.Blend(ref outputStream, ref inputStream0, ref inputStream1, weight, weightMasks);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

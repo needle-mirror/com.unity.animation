@@ -4,7 +4,6 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
@@ -117,10 +116,8 @@ namespace Unity.Animation
             OffsetOverrides offsetOverrides = default
         )
         {
-            if (srcRig == default)
-                throw new System.ArgumentNullException(nameof(srcRig));
-            if (dstRig == default)
-                throw new System.ArgumentNullException(nameof(dstRig));
+            Core.ValidateIsCreated(srcRig);
+            Core.ValidateIsCreated(dstRig);
 
             ref var srcBindings = ref srcRig.Value.Bindings;
             ref var dstBindings = ref dstRig.Value.Bindings;
@@ -258,12 +255,11 @@ namespace Unity.Animation
             int localToRootRotationCount
         )
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(translationMatches.IsCreated);
-            Assert.IsTrue(rotationMatches.IsCreated);
-            Assert.IsTrue(translationOffsets.IsCreated);
-            Assert.IsTrue(rotationOffsets.IsCreated);
-#endif
+            Core.ValidateIsCreated(translationMatches);
+            Core.ValidateIsCreated(rotationMatches);
+            Core.ValidateIsCreated(translationOffsets);
+            Core.ValidateIsCreated(rotationOffsets);
+
             int totalCount = localToRootTranslationCount + localToRootRotationCount;
             if (totalCount == 0)
                 return;

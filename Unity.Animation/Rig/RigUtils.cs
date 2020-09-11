@@ -1,18 +1,26 @@
+using System.Diagnostics;
+
 using Unity.Entities;
 using Unity.Collections;
-using Unity.Mathematics;
-using UnityEngine.Assertions;
 
 namespace Unity.Animation
 {
     public static class RigUtils
     {
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void ValidateRigEntity(Entity rigEntity, EntityManager entityManager)
         {
-            Assert.IsTrue(entityManager.HasComponent<Rig>(rigEntity));
-            Assert.IsTrue(entityManager.HasComponent<RigRootEntity>(rigEntity));
-            Assert.IsTrue(entityManager.HasComponent<AnimatedData>(rigEntity));
-            Assert.IsTrue(entityManager.HasComponent<AnimatedLocalToWorld>(rigEntity));
+            if (!entityManager.HasComponent<Rig>(rigEntity))
+                throw new System.InvalidOperationException($"A component with type:Rig has not been added to the entity.");
+
+            if (!entityManager.HasComponent<RigRootEntity>(rigEntity))
+                throw new System.InvalidOperationException($"A component with type:RigRootEntity has not been added to the entity.");
+
+            if (!entityManager.HasComponent<AnimatedData>(rigEntity))
+                throw new System.InvalidOperationException($"A component with type:AnimatedData has not been added to the entity.");
+
+            if (!entityManager.HasComponent<AnimatedLocalToWorld>(rigEntity))
+                throw new System.InvalidOperationException($"A component with type:AnimatedLocalToWorld has not been added to the entity.");
         }
 
         public static Entity InstantiateDebugRigEntity(Entity rigEntity, EntityManager entityManager, in BoneRendererProperties props, NativeList<StringHash> ids = default)

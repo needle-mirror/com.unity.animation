@@ -76,6 +76,9 @@ namespace Unity.Animation
         }
     }
 
+    /// <summary>
+    /// The representation of a transform in the animation rig.
+    /// </summary>
     public struct SkeletonNode
     {
         public StringHash Id;
@@ -99,8 +102,8 @@ namespace Unity.Animation
 
     public struct Skeleton
     {
-        // The 3 following field are stored as separe array rather than in a SkeletonNode to minimize cache pollution,
-        // most of the time thoses 3 array are not used together
+        // The 3 following field are stored as separate arrays rather than in a SkeletonNode to minimize cache pollution,
+        // most of the time those 3 arrays are not used together
         public BlobArray<StringHash>  Ids;
 
         public BlobArray<int>           ParentIndexes;

@@ -6,9 +6,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"d10f1f8e08af4dc094ec9a0503838b1d", 1, @"Animation Core/Utils", @"Adds two animation streams", false)] public class AddPoseNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.AddPoseNode.Data, Unity.Animation.AddPoseNode.SimPorts, Unity.Animation.AddPoseNode.KernelData, Unity.Animation.AddPoseNode.KernelDefs, Unity.Animation.AddPoseNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public AddPoseNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -18,7 +19,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -42,6 +42,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"e1446b44998a48a4803fd10b9508857f", 1, @"Animation Core/Constraints", @"Aim constraint based on multiple sources", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Source Count", 1, 1, -1, )] public class AimConstraintNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.AimConstraintNode.Data, Unity.Animation.AimConstraintNode.SimPorts, Unity.Animation.AimConstraintNode.KernelData, Unity.Animation.AimConstraintNode.KernelDefs, Unity.Animation.AimConstraintNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.AimConstraintNode.SetupMessage>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public AimConstraintNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.AimConstraintNode.SetupMessage msg);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -58,7 +60,6 @@ namespace Unity.Animation
             public int Index;
             public Unity.Mathematics.float3 LocalAimAxis;
             public Unity.Mathematics.bool3 LocalAxesMask;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -93,24 +94,23 @@ namespace Unity.Animation
         }
     }
 
-    public abstract class AnimationSystemBase<TTag> : Unity.Animation.AnimationSystemBase<TTag, Unity.Animation.NotSupportedTransformHandle, Unity.Animation.NotSupportedTransformHandle, Unity.Animation.NotSupportedRootMotion> where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new()
+    public abstract class AnimationGraphSystemBase : Unity.Animation.AnimationGraphSystemBase<Unity.Animation.NotSupportedTransformHandle, Unity.Animation.NotSupportedTransformHandle, Unity.Animation.NotSupportedRootMotion>
     {
-        protected AnimationSystemBase() {}
+        protected AnimationGraphSystemBase() {}
         protected virtual void OnCreateForCompiler();
     }
 
-    public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle> : Unity.Animation.AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, Unity.Animation.NotSupportedRootMotion> where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new() where TReadTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new() where TWriteTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new()
+    public abstract class AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle> : Unity.Animation.AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle, Unity.Animation.NotSupportedRootMotion> where TReadTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new() where TWriteTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new()
     {
-        protected AnimationSystemBase() {}
+        protected AnimationGraphSystemBase() {}
         protected virtual void OnCreateForCompiler();
     }
 
-    public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion> : Unity.Entities.SystemBase, Unity.Animation.IAnimationSystem, Unity.Animation.IAnimationSystem<TTag> where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new() where TReadTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new() where TWriteTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new() where TAnimatedRootMotion : System.ValueType, Unity.Animation.IAnimatedRootMotion, new()
+    public abstract class AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion> : Unity.Entities.SystemBase, Unity.Animation.IAnimationGraphSystem where TReadTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new() where TWriteTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new() where TAnimatedRootMotion : System.ValueType, Unity.Animation.IAnimatedRootMotion, new()
     {
         public virtual int RefCount { get; }
         public virtual Unity.DataFlowGraph.NodeSet Set { get; }
-        public virtual TTag TagComponent { get; }
-        protected AnimationSystemBase() {}
+        protected AnimationGraphSystemBase() {}
         public virtual void AddRef();
         public virtual Unity.Animation.GraphHandle CreateGraph();
         public virtual Unity.DataFlowGraph.NodeHandle<T> CreateNode<T>(Unity.Animation.GraphHandle handle) where T : Unity.DataFlowGraph.NodeDefinition, new();
@@ -125,6 +125,25 @@ namespace Unity.Animation
         protected Unity.Jobs.JobHandle ScheduleWriteComponentDataJobs(Unity.Jobs.JobHandle inputDeps);
     }
 
+    [System.Obsolete(@"AnimationSystemBase<TTag> has been deprecated, use AnimationGraphSystemBase instead. (RemovedAfter 2020-11-04).", false)] public abstract class AnimationSystemBase<TTag> : Unity.Animation.AnimationSystemBase<TTag, Unity.Animation.NotSupportedTransformHandle, Unity.Animation.NotSupportedTransformHandle, Unity.Animation.NotSupportedRootMotion> where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new()
+    {
+        protected AnimationSystemBase() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [System.Obsolete(@"AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle> has been deprecated, use AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle> instead. (RemovedAfter 2020-11-04).", false)] public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle> : Unity.Animation.AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, Unity.Animation.NotSupportedRootMotion> where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new() where TReadTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new() where TWriteTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new()
+    {
+        protected AnimationSystemBase() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
+    [System.Obsolete(@"AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion> has been deprecated, use AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion> instead. (RemovedAfter 2020-11-04).", false)] public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion> : Unity.Animation.AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion>, Unity.Animation.IAnimationSystemTag, Unity.Entities.IComponentData where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new() where TReadTransformHandle : System.ValueType, Unity.Animation.IReadTransformHandle, new() where TWriteTransformHandle : System.ValueType, Unity.Animation.IWriteTransformHandle, new() where TAnimatedRootMotion : System.ValueType, Unity.Animation.IAnimatedRootMotion, new()
+    {
+        public TTag TagComponent { get; }
+        protected AnimationSystemBase() {}
+        protected virtual void OnCreateForCompiler();
+    }
+
     public enum BlendingMode
     {
         public const Unity.Animation.BlendingMode Additive = 1;
@@ -135,6 +154,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"a88bd40bda0f4f379831b0c7f023ce6e", 1, @"Animation Core/Blend Trees", @"Evaluates a 1D BlendTree based on a blend parameter", false)] public class BlendTree1DNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.BlendTree1DNode.Data, Unity.Animation.BlendTree1DNode.SimPorts, Unity.Animation.BlendTree1DNode.KernelData, Unity.Animation.BlendTree1DNode.KernelDefs, Unity.Animation.BlendTree1DNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree1D>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public BlendTree1DNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -176,6 +197,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"dd965a2ebf994f77ad87f02fce11ce9a", 1, @"Animation Core/Blend Trees", @"Evaluates a 2D BlendTree based on X and Y blend parameters", false)] public class BlendTree2DNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.BlendTree2DNode.Data, Unity.Animation.BlendTree2DNode.SimPorts, Unity.Animation.BlendTree2DNode.KernelData, Unity.Animation.BlendTree2DNode.KernelDefs, Unity.Animation.BlendTree2DNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree2DSimpleDirectional>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public BlendTree2DNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -218,9 +241,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"61d4abe4d0d84cae81d9bfde78b9d066", 1, @"Animation Core/Mixers", @"Blends two animation streams given per channel weight values. Weight masks can be built using the WeightBuilderNode.", false)] public class ChannelWeightMixerNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ChannelWeightMixerNode.Data, Unity.Animation.ChannelWeightMixerNode.SimPorts, Unity.Animation.ChannelWeightMixerNode.KernelData, Unity.Animation.ChannelWeightMixerNode.KernelDefs, Unity.Animation.ChannelWeightMixerNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ChannelWeightMixerNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -230,7 +254,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -274,11 +297,12 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"9b734ccaddd64c97af0b4b5800866db7", 1, @"Animation Core", @"Base clip sampling node", true)] public class ClipNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ClipNode.Data, Unity.Animation.ClipNode.SimPorts, Unity.Animation.ClipNode.KernelData, Unity.Animation.ClipNode.KernelDefs, Unity.Animation.ClipNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<bool>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.Clip>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ClipNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref bool msg);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Entities.BlobAssetReference<Unity.Animation.Clip> clip);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -291,7 +315,6 @@ namespace Unity.Animation
             public int Additive;
             public Unity.Entities.BlobAssetReference<Unity.Animation.Clip> Clip;
             public Unity.Entities.BlobAssetReference<Unity.Animation.ClipInstance> ClipInstance;
-            public Unity.Profiling.ProfilerMarker ProfileSampleClip;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -317,6 +340,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"6e6e48c0c4c84663999acbb0d491ce79", 1, @"Animation Core", @"Evaluates an animation clip given a clip configuration and time value", false)] public class ClipPlayerNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ClipPlayerNode.Data, Unity.Animation.ClipPlayerNode.SimPorts, Unity.Animation.ClipPlayerNode.KernelData, Unity.Animation.ClipPlayerNode.KernelDefs, Unity.Animation.ClipPlayerNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<bool>, Unity.DataFlowGraph.IMsgHandler<float>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.ClipConfiguration>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.Clip>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ClipPlayerNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref bool msg);
@@ -360,9 +385,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"aac0d8d10f594218aa77961604da05e2", 1, @"Animation Core/Blend Trees", @"Computes 1D BlendTree weights based on parameter input", true)] public class ComputeBlendTree1DWeightsNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ComputeBlendTree1DWeightsNode.Data, Unity.Animation.ComputeBlendTree1DWeightsNode.SimPorts, Unity.Animation.ComputeBlendTree1DWeightsNode.KernelData, Unity.Animation.ComputeBlendTree1DWeightsNode.KernelDefs, Unity.Animation.ComputeBlendTree1DWeightsNode.Kernel>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree1D>>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ComputeBlendTree1DWeightsNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree1D> blendTree);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -373,7 +399,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree1D> BlendTree;
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -397,9 +422,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"79412b5295e542daad10167c1b418522", 1, @"Animation Core/Blend Trees", @"Computes 2D BlendTree weights based on parameter input", true)] public class ComputeBlendTree2DWeightsNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ComputeBlendTree2DWeightsNode.Data, Unity.Animation.ComputeBlendTree2DWeightsNode.SimPorts, Unity.Animation.ComputeBlendTree2DWeightsNode.KernelData, Unity.Animation.ComputeBlendTree2DWeightsNode.KernelDefs, Unity.Animation.ComputeBlendTree2DWeightsNode.Kernel>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree2DSimpleDirectional>>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ComputeBlendTree2DWeightsNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree2DSimpleDirectional> blendTree);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -410,7 +436,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public Unity.Entities.BlobAssetReference<Unity.Animation.BlendTree2DSimpleDirectional> BlendTree;
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -435,6 +460,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"792256a71ac546709adf975eed81325f", 1, @"Animation Core", @"Evaluates a clip based on the clip configuration mask", true)] public class ConfigurableClipNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ConfigurableClipNode.Data, Unity.Animation.ConfigurableClipNode.SimPorts, Unity.Animation.ConfigurableClipNode.KernelData, Unity.Animation.ConfigurableClipNode.KernelDefs, Unity.Animation.ConfigurableClipNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<bool>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.ClipConfiguration>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.Clip>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ConfigurableClipNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref bool msg);
@@ -478,6 +505,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"5dfe97a8553f4bfda4b0c34d402bac6f", 1, @"Animation Core/Utils", @"Convert float4x4 to LocalToParent component data", false)] public class ConvertFloat4x4ToLocalToParentComponentNode : Unity.Animation.ConvertToBase<Unity.Animation.ConvertFloat4x4ToLocalToParentComponentNode, Unity.Mathematics.float4x4, Unity.Transforms.LocalToParent, Unity.Animation.ConvertFloat4x4ToLocalToParentComponentNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ConvertFloat4x4ToLocalToParentComponentNode() {}
         [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.ConvertToBase<Unity.Animation.ConvertFloat4x4ToLocalToParentComponentNode, Unity.Mathematics.float4x4, Unity.Transforms.LocalToParent, Unity.Animation.ConvertFloat4x4ToLocalToParentComponentNode.Kernel>, Unity.Animation.ConvertToBase<Unity.Animation.ConvertFloat4x4ToLocalToParentComponentNode, Unity.Mathematics.float4x4, Unity.Transforms.LocalToParent, Unity.Animation.ConvertFloat4x4ToLocalToParentComponentNode.Kernel>>
         {
@@ -488,6 +517,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"480f20d38700437ca3e14d84df2d17ce", 1, @"Animation Core/Utils", @"Convert float4x4 to LocalToWorld component data", false)] public class ConvertFloat4x4ToLocalToWorldComponentNode : Unity.Animation.ConvertToBase<Unity.Animation.ConvertFloat4x4ToLocalToWorldComponentNode, Unity.Mathematics.float4x4, Unity.Transforms.LocalToWorld, Unity.Animation.ConvertFloat4x4ToLocalToWorldComponentNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ConvertFloat4x4ToLocalToWorldComponentNode() {}
         [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.ConvertToBase<Unity.Animation.ConvertFloat4x4ToLocalToWorldComponentNode, Unity.Mathematics.float4x4, Unity.Transforms.LocalToWorld, Unity.Animation.ConvertFloat4x4ToLocalToWorldComponentNode.Kernel>, Unity.Animation.ConvertToBase<Unity.Animation.ConvertFloat4x4ToLocalToWorldComponentNode, Unity.Mathematics.float4x4, Unity.Transforms.LocalToWorld, Unity.Animation.ConvertFloat4x4ToLocalToWorldComponentNode.Kernel>>
         {
@@ -498,6 +529,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"67bf8870034243748508842af9371eac", 1, @"Animation Core/Utils", @"Convert LocalToParent component data to float4x4", false)] public class ConvertLocalToParentComponentToFloat4x4Node : Unity.Animation.ConvertToBase<Unity.Animation.ConvertLocalToParentComponentToFloat4x4Node, Unity.Transforms.LocalToParent, Unity.Mathematics.float4x4, Unity.Animation.ConvertLocalToParentComponentToFloat4x4Node.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ConvertLocalToParentComponentToFloat4x4Node() {}
         [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.ConvertToBase<Unity.Animation.ConvertLocalToParentComponentToFloat4x4Node, Unity.Transforms.LocalToParent, Unity.Mathematics.float4x4, Unity.Animation.ConvertLocalToParentComponentToFloat4x4Node.Kernel>, Unity.Animation.ConvertToBase<Unity.Animation.ConvertLocalToParentComponentToFloat4x4Node, Unity.Transforms.LocalToParent, Unity.Mathematics.float4x4, Unity.Animation.ConvertLocalToParentComponentToFloat4x4Node.Kernel>>
         {
@@ -508,6 +541,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"d63631dce8c8482094f0977358f86628", 1, @"Animation Core/Utils", @"Convert LocalToWorld component data to float4x4", false)] public class ConvertLocalToWorldComponentToFloat4x4Node : Unity.Animation.ConvertToBase<Unity.Animation.ConvertLocalToWorldComponentToFloat4x4Node, Unity.Transforms.LocalToWorld, Unity.Mathematics.float4x4, Unity.Animation.ConvertLocalToWorldComponentToFloat4x4Node.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ConvertLocalToWorldComponentToFloat4x4Node() {}
         [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.ConvertToBase<Unity.Animation.ConvertLocalToWorldComponentToFloat4x4Node, Unity.Transforms.LocalToWorld, Unity.Mathematics.float4x4, Unity.Animation.ConvertLocalToWorldComponentToFloat4x4Node.Kernel>, Unity.Animation.ConvertToBase<Unity.Animation.ConvertLocalToWorldComponentToFloat4x4Node, Unity.Transforms.LocalToWorld, Unity.Mathematics.float4x4, Unity.Animation.ConvertLocalToWorldComponentToFloat4x4Node.Kernel>>
         {
@@ -545,9 +580,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"147518e22e1c492ab58d348c8a60a0ff", 1, @"Animation Core/Root Motion", @"Computes and sets the total root motion offset amount based on the number of cycles for a given clip. This node is internally used by the UberClipNode.", false)] public class CycleRootMotionNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.CycleRootMotionNode.Data, Unity.Animation.CycleRootMotionNode.SimPorts, Unity.Animation.CycleRootMotionNode.KernelData, Unity.Animation.CycleRootMotionNode.KernelDefs, Unity.Animation.CycleRootMotionNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public CycleRootMotionNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -557,7 +593,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -583,9 +618,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"6db594d74f974544a51bbdb5c987f869", 1, @"Animation Core/Utils", @"Outputs the default values of a RigDefinition as an animation stream (i.e. the bind pose)", false)] public class DefaultValuesNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.DefaultValuesNode.Data, Unity.Animation.DefaultValuesNode.SimPorts, Unity.Animation.DefaultValuesNode.KernelData, Unity.Animation.DefaultValuesNode.KernelDefs, Unity.Animation.DefaultValuesNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public DefaultValuesNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -595,7 +631,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -617,6 +652,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"fd66a28a123c416a9860c6e090650266", 1, @"Animation Core/Utils", @"Computes the delta animation stream given two input streams", false)] public class DeltaPoseNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.DeltaPoseNode.Data, Unity.Animation.DeltaPoseNode.SimPorts, Unity.Animation.DeltaPoseNode.KernelData, Unity.Animation.DeltaPoseNode.KernelDefs, Unity.Animation.DeltaPoseNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public DeltaPoseNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -655,9 +692,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"0d7b1e6e91364decbb7284a9014ebbce", 1, @"Animation Core/Root Motion", @"Computes the delta root motion from a previous and current animation stream. This node is internally used by the UberClipNode.", false)] public class DeltaRootMotionNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.DeltaRootMotionNode.Data, Unity.Animation.DeltaRootMotionNode.SimPorts, Unity.Animation.DeltaRootMotionNode.KernelData, Unity.Animation.DeltaRootMotionNode.KernelDefs, Unity.Animation.DeltaRootMotionNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public DeltaRootMotionNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -667,7 +705,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -688,11 +725,12 @@ namespace Unity.Animation
         }
     }
 
-    [Unity.DataFlowGraph.Attributes.NodeDefinition(@"9f614062d66a439f9a7070de6b880b93", 1, @"Animation Core/Time", @"Computes delta time", false)] public class DeltaTimeNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.DeltaTimeNode.Data, Unity.Animation.DeltaTimeNode.SimPorts, Unity.Animation.DeltaTimeNode.KernelData, Unity.Animation.DeltaTimeNode.KernelDefs, Unity.Animation.DeltaTimeNode.Kernel>
+    [System.Obsolete(@"DeltaTimeNode has been deprecated. Set the time data of the nodes with SetData, or use a KernelPassThroughNodeFloat. (RemovedAfter 2020-12-04)", false)] [Unity.DataFlowGraph.Attributes.NodeDefinition(@"9f614062d66a439f9a7070de6b880b93", 1, @"Animation Core/Time", @"Computes delta time", false)] public class DeltaTimeNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.DeltaTimeNode.Data, Unity.Animation.DeltaTimeNode.SimPorts, Unity.Animation.DeltaTimeNode.KernelData, Unity.Animation.DeltaTimeNode.KernelDefs, Unity.Animation.DeltaTimeNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public DeltaTimeNode() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         protected virtual void OnUpdate(Unity.DataFlowGraph.UpdateContext& modreq(System.Runtime.InteropServices.InAttribute) ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
@@ -704,7 +742,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public float DeltaTime;
-            public Unity.Profiling.ProfilerMarker ProfileDeltaTime;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -729,9 +766,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"7e669400e5a54932a5cbfd21ef5ec64a", 1, @"Animation Core", @"Samples an AnimationCurve at a given time", false)] public class EvaluateCurveNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.EvaluateCurveNode.Data, Unity.Animation.EvaluateCurveNode.SimPorts, Unity.Animation.EvaluateCurveNode.KernelData, Unity.Animation.EvaluateCurveNode.KernelDefs, Unity.Animation.EvaluateCurveNode.Kernel>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.AnimationCurve>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public EvaluateCurveNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.AnimationCurve curve);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -742,7 +780,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public Unity.Animation.AnimationCurve AnimationCurve;
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -764,8 +801,9 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"92bf06d2ddbf4b4ba0bd3cf610f1f4e6", 1, @"", @"", true)] public class FloatAddNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.FloatAddNode.Data, Unity.Animation.FloatAddNode.SimPorts, Unity.Animation.FloatAddNode.KernelData, Unity.Animation.FloatAddNode.KernelDefs, Unity.Animation.FloatAddNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public FloatAddNode() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -775,7 +813,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileFloatAdd;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -797,8 +834,9 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"0df2a515c02040f28f0f30fff4653b6e", 1, @"", @"", true)] public class FloatMulNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.FloatMulNode.Data, Unity.Animation.FloatMulNode.SimPorts, Unity.Animation.FloatMulNode.KernelData, Unity.Animation.FloatMulNode.KernelDefs, Unity.Animation.FloatMulNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public FloatMulNode() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -808,7 +846,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileFloatMul;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -830,8 +867,9 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"9663c48edb9446789059aaf3b0d0068c", 1, @"", @"", true)] public class FloatRcpNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.FloatRcpNode.Data, Unity.Animation.FloatRcpNode.SimPorts, Unity.Animation.FloatRcpNode.KernelData, Unity.Animation.FloatRcpNode.KernelDefs, Unity.Animation.FloatRcpNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public FloatRcpNode() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -841,7 +879,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -862,6 +899,7 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"e3250beaaf4e498ea3a0fa0cdecd47f3", 1, @"", @"", true)] public class FloatRcpSimNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.FloatRcpSimNode.Data, Unity.Animation.FloatRcpSimNode.SimPorts>, Unity.DataFlowGraph.IMsgHandler<float>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public FloatRcpSimNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref float msg);
         public struct Data : Unity.DataFlowGraph.INodeData
@@ -880,8 +918,9 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"27c8103da3474303893705dccba909bf", 1, @"", @"", true)] public class FloatSubNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.FloatSubNode.Data, Unity.Animation.FloatSubNode.SimPorts, Unity.Animation.FloatSubNode.KernelData, Unity.Animation.FloatSubNode.KernelDefs, Unity.Animation.FloatSubNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public FloatSubNode() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -891,7 +930,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileFloatSub;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -913,9 +951,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"559f48b3f95f4facb346a1738b028792", 1, @"Animation Core/Utils", @"Gets a float value from the AnimationStream", false)] public class GetAnimationStreamFloatNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.GetAnimationStreamFloatNode.Data, Unity.Animation.GetAnimationStreamFloatNode.SimPorts, Unity.Animation.GetAnimationStreamFloatNode.KernelData, Unity.Animation.GetAnimationStreamFloatNode.KernelDefs, Unity.Animation.GetAnimationStreamFloatNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public GetAnimationStreamFloatNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -925,7 +964,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -949,9 +987,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"ad8ef6033fd64cff8c1bbcb0b2b30291", 1, @"Animation Core/Utils", @"Gets an integer value from the AnimationStream", false)] public class GetAnimationStreamIntNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.GetAnimationStreamIntNode.Data, Unity.Animation.GetAnimationStreamIntNode.SimPorts, Unity.Animation.GetAnimationStreamIntNode.KernelData, Unity.Animation.GetAnimationStreamIntNode.KernelDefs, Unity.Animation.GetAnimationStreamIntNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public GetAnimationStreamIntNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -961,7 +1000,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -985,9 +1023,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"207a2a8e462e4792969396869af3c382", 1, @"Animation Core/Utils", @"Gets the local to parent information of a bone in the AnimationStream", false)] public class GetAnimationStreamLocalToParentNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.GetAnimationStreamLocalToParentNode.Data, Unity.Animation.GetAnimationStreamLocalToParentNode.SimPorts, Unity.Animation.GetAnimationStreamLocalToParentNode.KernelData, Unity.Animation.GetAnimationStreamLocalToParentNode.KernelDefs, Unity.Animation.GetAnimationStreamLocalToParentNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public GetAnimationStreamLocalToParentNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -997,7 +1036,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1024,9 +1062,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"1c0e9a16f02c4635a006534424e0c7b1", 2, @"Animation Core/Utils", @"Gets the local to root information of a bone in the AnimationStream", false)] public class GetAnimationStreamLocalToRootNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.GetAnimationStreamLocalToRootNode.Data, Unity.Animation.GetAnimationStreamLocalToRootNode.SimPorts, Unity.Animation.GetAnimationStreamLocalToRootNode.KernelData, Unity.Animation.GetAnimationStreamLocalToRootNode.KernelDefs, Unity.Animation.GetAnimationStreamLocalToRootNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public GetAnimationStreamLocalToRootNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1036,7 +1075,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1063,8 +1101,9 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"be1a7512286b41479d93a3e4e1db9534", 1, @"Animation Core/Utils", @"Gets a value given an index from a buffer", false)] public class GetBufferElementValueNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.GetBufferElementValueNode.Data, Unity.Animation.GetBufferElementValueNode.SimPorts, Unity.Animation.GetBufferElementValueNode.KernelData, Unity.Animation.GetBufferElementValueNode.KernelDefs, Unity.Animation.GetBufferElementValueNode.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public GetBufferElementValueNode() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1074,7 +1113,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -1102,7 +1140,7 @@ namespace Unity.Animation
         public static bool operator !=(Unity.Animation.GraphHandle lhs, Unity.Animation.GraphHandle rhs);
     }
 
-    public interface IAnimationSystem
+    public interface IAnimationGraphSystem
     {
         public abstract int RefCount { get; }
         public abstract Unity.DataFlowGraph.NodeSet Set { get; }
@@ -1114,7 +1152,19 @@ namespace Unity.Animation
         public abstract void RemoveRef();
     }
 
-    public interface IAnimationSystem<TTag> : Unity.Animation.IAnimationSystem where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new()
+    [System.Obsolete(@"IAnimationSystem has been renamed to IAnimationGraphSystem (RemovedAfter 2020-11-04). (UnityUpgradable) -> IAnimationGraphSystem", false)] public interface IAnimationSystem
+    {
+        public abstract int RefCount { get; }
+        public abstract Unity.DataFlowGraph.NodeSet Set { get; }
+        public abstract void AddRef();
+        public abstract Unity.Animation.GraphHandle CreateGraph();
+        public abstract Unity.DataFlowGraph.NodeHandle<T> CreateNode<T>(Unity.Animation.GraphHandle graph) where T : Unity.DataFlowGraph.NodeDefinition, new();
+        public abstract Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> CreateNode(Unity.Animation.GraphHandle graph, Unity.Entities.Entity entity);
+        public abstract void Dispose(Unity.Animation.GraphHandle graph);
+        public abstract void RemoveRef();
+    }
+
+    [System.Obsolete(@"IAnimationSystemTag has been deprecated and is no longer necessary (RemovedAfter 2020-11-04).", false)] public interface IAnimationSystem<TTag> : Unity.Animation.IAnimationSystem where TTag : System.ValueType, Unity.Animation.IAnimationSystemTag, new()
     {
         public abstract TTag TagComponent { get; }
     }
@@ -1122,10 +1172,11 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"d02f3e16b7044fcd9acd09adf22f2a30", 1, @"Animation Core/Root Motion", @"Extracts motion from a specified transform and projects it's values on the root transform. This node is internally used by the UberClipNode.", false)] public class InPlaceMotionNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.InPlaceMotionNode.Data, Unity.Animation.InPlaceMotionNode.SimPorts, Unity.Animation.InPlaceMotionNode.KernelData, Unity.Animation.InPlaceMotionNode.KernelDefs, Unity.Animation.InPlaceMotionNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.ClipConfiguration>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public InPlaceMotionNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.ClipConfiguration msg);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1136,7 +1187,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public Unity.Animation.ClipConfiguration Configuration;
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
             public int RotationIndex;
             public int TranslationIndex;
@@ -1162,9 +1212,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"e5053e4830af45c6aabd999397d54a3b", 1, @"Animation Core/Utils", @"Computes the inverse animation stream", false)] public class InversePoseNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.InversePoseNode.Data, Unity.Animation.InversePoseNode.SimPorts, Unity.Animation.InversePoseNode.KernelData, Unity.Animation.InversePoseNode.KernelDefs, Unity.Animation.InversePoseNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public InversePoseNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1174,7 +1225,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1220,7 +1270,6 @@ namespace Unity.Animation
         }
         public struct KernelData<TFinalNodeDefinition, T, TKernel> : Unity.DataFlowGraph.IKernelData where TFinalNodeDefinition : Unity.DataFlowGraph.NodeDefinition where T : System.ValueType, new() where TKernel : System.ValueType, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>, Unity.Animation.KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>>, new()
         {
-            public Unity.Profiling.ProfilerMarker ProfilePassThrough;
         }
     }
 
@@ -1248,15 +1297,15 @@ namespace Unity.Animation
         }
         public struct KernelData<TFinalNodeDefinition, T, TKernel> : Unity.DataFlowGraph.IKernelData where TFinalNodeDefinition : Unity.DataFlowGraph.NodeDefinition, Unity.DataFlowGraph.IMsgHandler<int> where T : System.ValueType, new() where TKernel : System.ValueType, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>, Unity.Animation.KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>>, new()
         {
-            public Unity.Profiling.ProfilerMarker ProfilePassThrough;
         }
     }
 
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"d998849d1bc04708acf7e23da56c0a87", 1, @"", @"", true)] public class KernelPassThroughNodeBufferFloat : Unity.Animation.KernelPassThroughNodeBuffer<Unity.Animation.KernelPassThroughNodeBufferFloat, Unity.Animation.AnimatedData, Unity.Animation.KernelPassThroughNodeBufferFloat.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public KernelPassThroughNodeBufferFloat() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.KernelPassThroughNodeBuffer<Unity.Animation.KernelPassThroughNodeBufferFloat, Unity.Animation.AnimatedData, Unity.Animation.KernelPassThroughNodeBufferFloat.Kernel>, Unity.Animation.KernelPassThroughNodeBuffer<Unity.Animation.KernelPassThroughNodeBufferFloat, Unity.Animation.AnimatedData, Unity.Animation.KernelPassThroughNodeBufferFloat.Kernel>>
         {
             public virtual void Execute(Unity.DataFlowGraph.RenderContext context, Unity.Animation.KernelPassThroughNodeBuffer<Unity.Animation.KernelPassThroughNodeBufferFloat, Unity.Animation.AnimatedData, Unity.Animation.KernelPassThroughNodeBufferFloat.Kernel> data, ref Unity.Animation.KernelPassThroughNodeBuffer<Unity.Animation.KernelPassThroughNodeBufferFloat, Unity.Animation.AnimatedData, Unity.Animation.KernelPassThroughNodeBufferFloat.Kernel> ports);
@@ -1266,8 +1315,9 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"3c094ff41dd2403c81c356e60d66d222", 1, @"", @"", true)] public class KernelPassThroughNodeFloat : Unity.Animation.KernelPassThroughNode<Unity.Animation.KernelPassThroughNodeFloat, float, Unity.Animation.KernelPassThroughNodeFloat.Kernel>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public KernelPassThroughNodeFloat() {}
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.KernelPassThroughNode<Unity.Animation.KernelPassThroughNodeFloat, float, Unity.Animation.KernelPassThroughNodeFloat.Kernel>, Unity.Animation.KernelPassThroughNode<Unity.Animation.KernelPassThroughNodeFloat, float, Unity.Animation.KernelPassThroughNodeFloat.Kernel>>
         {
             public virtual void Execute(Unity.DataFlowGraph.RenderContext context, Unity.Animation.KernelPassThroughNode<Unity.Animation.KernelPassThroughNodeFloat, float, Unity.Animation.KernelPassThroughNodeFloat.Kernel> data, ref Unity.Animation.KernelPassThroughNode<Unity.Animation.KernelPassThroughNodeFloat, float, Unity.Animation.KernelPassThroughNodeFloat.Kernel> ports);
@@ -1277,10 +1327,11 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"368c53e919534c6f99c0d1b2577e3e2b", 1, @"Animation Core/Mixers", @"Blends animation streams based on an ordered layer approach. Each layer can blend in either override or additive mode. Weight masks can be built using the WeightBuilderNode.", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Number of layers", 1, 2, -1, @"LayerCount")] public class LayerMixerNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.LayerMixerNode.Data, Unity.Animation.LayerMixerNode.SimPorts, Unity.Animation.LayerMixerNode.KernelData, Unity.Animation.LayerMixerNode.KernelDefs, Unity.Animation.LayerMixerNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<System.UInt16>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public LayerMixerNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref System.UInt16 layerCount);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1291,7 +1342,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public int LayerCount;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1318,6 +1368,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"e995e3e7e5d640e5b6123dfcef20eba7", 1, @"", @"", true)] public class LoopNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.LoopNode.Data, Unity.Animation.LoopNode.SimPorts, Unity.Animation.LoopNode.KernelData, Unity.Animation.LoopNode.KernelDefs, Unity.Animation.LoopNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<int>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public LoopNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref int msg);
@@ -1364,9 +1416,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"fd4af8a57de143148add1ffef327bd73", 1, @"Animation Core/Mixers", @"Blends two animation streams given an input weight value", false)] public class MixerNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.MixerNode.Data, Unity.Animation.MixerNode.SimPorts, Unity.Animation.MixerNode.KernelData, Unity.Animation.MixerNode.KernelDefs, Unity.Animation.MixerNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public MixerNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1376,7 +1429,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMixPose;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1401,9 +1453,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"6d62b890d24a4b769ae7b9481e017743", 1, @"Animation Core/Mixers", @"Blends N animation streams together given weights per stream", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Number of animation streams", 1, 2, -1, )] public class NMixerNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.NMixerNode.Data, Unity.Animation.NMixerNode.SimPorts, Unity.Animation.NMixerNode.KernelData, Unity.Animation.NMixerNode.KernelDefs, Unity.Animation.NMixerNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public NMixerNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1413,7 +1466,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileNMixer;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1437,18 +1489,19 @@ namespace Unity.Animation
 
     [System.Runtime.CompilerServices.Extension] public static class NodeSetExt
     {
-        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TData>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<TType> from, Unity.DataFlowGraph.DataOutput<TType, TData> port, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> to, Unity.DataFlowGraph.NodeSet.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TData : System.ValueType, Unity.Entities.IComponentData, new();
-        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TBuffer>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<TType> from, Unity.DataFlowGraph.DataOutput<TType, Unity.DataFlowGraph.Buffer<TBuffer>> port, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> to, Unity.DataFlowGraph.NodeSet.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TBuffer : System.ValueType, Unity.Entities.IBufferElementData, new();
-        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TData>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> from, Unity.DataFlowGraph.NodeHandle<TType> to, Unity.DataFlowGraph.DataInput<TType, TData> port, Unity.DataFlowGraph.NodeSet.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TData : System.ValueType, Unity.Entities.IComponentData, new();
-        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TBuffer>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> from, Unity.DataFlowGraph.NodeHandle<TType> to, Unity.DataFlowGraph.DataInput<TType, Unity.DataFlowGraph.Buffer<TBuffer>> port, Unity.DataFlowGraph.NodeSet.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TBuffer : System.ValueType, Unity.Entities.IBufferElementData, new();
+        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TData>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<TType> from, Unity.DataFlowGraph.DataOutput<TType, TData> port, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> to, Unity.DataFlowGraph.NodeSetAPI.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TData : System.ValueType, Unity.Entities.IComponentData, new();
+        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TBuffer>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<TType> from, Unity.DataFlowGraph.DataOutput<TType, Unity.DataFlowGraph.Buffer<TBuffer>> port, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> to, Unity.DataFlowGraph.NodeSetAPI.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TBuffer : System.ValueType, Unity.Entities.IBufferElementData, new();
+        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TData>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> from, Unity.DataFlowGraph.NodeHandle<TType> to, Unity.DataFlowGraph.DataInput<TType, TData> port, Unity.DataFlowGraph.NodeSetAPI.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TData : System.ValueType, Unity.Entities.IComponentData, new();
+        [System.Runtime.CompilerServices.Extension] public static void Connect<TType, TBuffer>(Unity.DataFlowGraph.NodeSet set, Unity.DataFlowGraph.NodeHandle<Unity.DataFlowGraph.ComponentNode> from, Unity.DataFlowGraph.NodeHandle<TType> to, Unity.DataFlowGraph.DataInput<TType, Unity.DataFlowGraph.Buffer<TBuffer>> port, Unity.DataFlowGraph.NodeSetAPI.ConnectionType type = 0) where TType : Unity.DataFlowGraph.NodeDefinition where TBuffer : System.ValueType, Unity.Entities.IBufferElementData, new();
     }
 
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"7f966a89b3ed4a6bb24144f7ca8749ba", 1, @"Animation Core/Time", @"Computes normalized time [0, 1] given an input time and duration", false)] public class NormalizedTimeNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.NormalizedTimeNode.Data, Unity.Animation.NormalizedTimeNode.SimPorts, Unity.Animation.NormalizedTimeNode.KernelData, Unity.Animation.NormalizedTimeNode.KernelDefs, Unity.Animation.NormalizedTimeNode.Kernel>, Unity.DataFlowGraph.IMsgHandler<float>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public NormalizedTimeNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref float msg);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1459,7 +1512,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public float Duration;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -1481,6 +1533,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"a9a00f02c612463b8c82e7e64a62dab9", 1, @"Animation Core/Constraints", @"Parent constraint based on multiple sources", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Source Count", 1, 1, -1, )] public class ParentConstraintNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.ParentConstraintNode.Data, Unity.Animation.ParentConstraintNode.SimPorts, Unity.Animation.ParentConstraintNode.KernelData, Unity.Animation.ParentConstraintNode.KernelDefs, Unity.Animation.ParentConstraintNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.ParentConstraintNode.SetupMessage>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public ParentConstraintNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.ParentConstraintNode.SetupMessage msg);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -1497,7 +1551,6 @@ namespace Unity.Animation
             public int Index;
             public Unity.Mathematics.bool3 LocalRotationAxesMask;
             public Unity.Mathematics.bool3 LocalTranslationAxesMask;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1531,6 +1584,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"6bbdb6b762d54ffda9f785a665ec3048", 1, @"Animation Core/Constraints", @"Position constraint based on multiple sources", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Source Count", 1, 1, -1, )] public class PositionConstraintNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.PositionConstraintNode.Data, Unity.Animation.PositionConstraintNode.SimPorts, Unity.Animation.PositionConstraintNode.KernelData, Unity.Animation.PositionConstraintNode.KernelDefs, Unity.Animation.PositionConstraintNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.PositionConstraintNode.SetupMessage>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public PositionConstraintNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.PositionConstraintNode.SetupMessage msg);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -1546,7 +1601,6 @@ namespace Unity.Animation
         {
             public int Index;
             public Unity.Mathematics.bool3 LocalAxesMask;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1585,10 +1639,11 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"8d7926b8dbcf4072b7cf1a10e29de888", 1, @"Animation Core/Utils", @"Remaps one animation stream to another given a known remapping table", false)] public class RigRemapperNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.RigRemapperNode.Data, Unity.Animation.RigRemapperNode.SimPorts, Unity.Animation.RigRemapperNode.KernelData, Unity.Animation.RigRemapperNode.KernelDefs, Unity.Animation.RigRemapperNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.RigRemapTable>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public RigRemapperNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Entities.BlobAssetReference<Unity.Animation.RigRemapTable> remapTable);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1599,7 +1654,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> DestinationRigDefinition;
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigRemapTable> RemapTable;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> SourceRigDefinition;
         }
@@ -1626,10 +1680,11 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"5dfa885842654d86b6b2921233ff4994", 1, @"Animation Core/Root Motion", @"Computes root motion values from a baked clip. Used internally by the UberClipNode.", false)] public class RootMotionFromVelocityNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.RootMotionFromVelocityNode.Data, Unity.Animation.RootMotionFromVelocityNode.SimPorts, Unity.Animation.RootMotionFromVelocityNode.KernelData, Unity.Animation.RootMotionFromVelocityNode.KernelDefs, Unity.Animation.RootMotionFromVelocityNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<float>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public RootMotionFromVelocityNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref float msg);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1639,7 +1694,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
             public float SampleRate;
         }
@@ -1662,47 +1716,11 @@ namespace Unity.Animation
         }
     }
 
-    [System.Obsolete(@"RootMotionNode has been deprecated. Use the IAnimatedRootMotion component instead. (RemovedAfter 2020-08-16)")] [Unity.DataFlowGraph.Attributes.NodeDefinition(@"bcaa66b19c1947a9bd447f543602b7d3", 1, @"Animation Core/Root Motion", @"Extracts root motion values from animation stream so these can be used for different operations (i.e store state values in entity components)", false)] public class RootMotionNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.RootMotionNode.Data, Unity.Animation.RootMotionNode.SimPorts, Unity.Animation.RootMotionNode.KernelData, Unity.Animation.RootMotionNode.KernelDefs, Unity.Animation.RootMotionNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
-    {
-        protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
-        public RootMotionNode() {}
-        public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
-        public struct Data : Unity.DataFlowGraph.INodeData
-        {
-        }
-        [Unity.Burst.BurstCompile] public struct Kernel : Unity.DataFlowGraph.IGraphKernel, Unity.DataFlowGraph.IGraphKernel<Unity.Animation.RootMotionNode.KernelData, Unity.Animation.RootMotionNode.KernelDefs>
-        {
-            public virtual void Execute(Unity.DataFlowGraph.RenderContext context, Unity.Animation.RootMotionNode.KernelData data, ref Unity.Animation.RootMotionNode.KernelDefs ports);
-        }
-        public struct KernelData : Unity.DataFlowGraph.IKernelData
-        {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
-            public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
-        }
-        public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
-        {
-            [Unity.DataFlowGraph.Attributes.PortDefinition(@"74887b6c68d6496283dc64b56286968a", @"Delta Root Motion Transform", @"Current delta root motion", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataOutput<Unity.Animation.RootMotionNode, Unity.Mathematics.float4x4> DeltaRootX;
-            [Unity.DataFlowGraph.Attributes.PortDefinition(@"60d7a34c8716403bbaea02a7cd0d3369", , @"The current animation stream with delta root motion values", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataInput<Unity.Animation.RootMotionNode, Unity.DataFlowGraph.Buffer<Unity.Animation.AnimatedData>> Input;
-            [Unity.DataFlowGraph.Attributes.PortDefinition(@"ce074fc0bc0e422f915527256409c159", , @"Resulting animation stream without root motion", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataOutput<Unity.Animation.RootMotionNode, Unity.DataFlowGraph.Buffer<Unity.Animation.AnimatedData>> Output;
-            [Unity.DataFlowGraph.Attributes.PortDefinition(@"3fa402c9c39e496f961cf7e64f4e4221", @"Previous Root Motion Transform", @"Previous root motion", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataInput<Unity.Animation.RootMotionNode, Unity.Mathematics.float4x4> PrevRootX;
-            [Unity.DataFlowGraph.Attributes.PortDefinition(@"7702d041834c41ae978f353eec0e839a", @"Root Motion Transform", @"Current root motion", false, -1, , 0, false, , )] public Unity.DataFlowGraph.DataOutput<Unity.Animation.RootMotionNode, Unity.Mathematics.float4x4> RootX;
-            public virtual System.UInt16 DFG_CG_GetInputPortCount();
-            public virtual System.UInt16 DFG_CG_GetOutputPortCount();
-            public virtual void DFG_CG_Initialize(System.UInt16 uniqueInputPort, System.UInt16 uniqueOutputPort);
-        }
-        public struct SimPorts : Unity.DataFlowGraph.IPortDefinitionInitializer, Unity.DataFlowGraph.ISimulationPortDefinition
-        {
-            [Unity.DataFlowGraph.Attributes.PortDefinition(@"efbce8bfa97f4514999bf6d60a35a29a", , , true, -1, , 0, false, , )] public Unity.DataFlowGraph.MessageInput<Unity.Animation.RootMotionNode, Unity.Animation.Rig> Rig;
-            public virtual System.UInt16 DFG_CG_GetInputPortCount();
-            public virtual System.UInt16 DFG_CG_GetOutputPortCount();
-            public virtual void DFG_CG_Initialize(System.UInt16 uniqueInputPort, System.UInt16 uniqueOutputPort);
-        }
-    }
-
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"a952e1cf248a46dcae1ee07d836b5a6b", 1, @"Animation Core/Constraints", @"Rotation constraint based on multiple sources", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Source Count", 1, 1, -1, )] public class RotationConstraintNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.RotationConstraintNode.Data, Unity.Animation.RotationConstraintNode.SimPorts, Unity.Animation.RotationConstraintNode.KernelData, Unity.Animation.RotationConstraintNode.KernelDefs, Unity.Animation.RotationConstraintNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.RotationConstraintNode.SetupMessage>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public RotationConstraintNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.RotationConstraintNode.SetupMessage msg);
@@ -1718,7 +1736,6 @@ namespace Unity.Animation
         {
             public int Index;
             public Unity.Mathematics.bool3 LocalAxesMask;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1752,9 +1769,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"75c83d51cb9a4eae8ca36d22068f9943", 1, @"Animation Core/Utils", @"Sets a float value in the AnimationStream", false)] public class SetAnimationStreamFloatNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.SetAnimationStreamFloatNode.Data, Unity.Animation.SetAnimationStreamFloatNode.SimPorts, Unity.Animation.SetAnimationStreamFloatNode.KernelData, Unity.Animation.SetAnimationStreamFloatNode.KernelDefs, Unity.Animation.SetAnimationStreamFloatNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public SetAnimationStreamFloatNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1764,7 +1782,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1789,9 +1806,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"9be251e51f4c4285835e8ec200827c2b", 1, @"Animation Core/Utils", @"Sets an integer value in the AnimationStream", false)] public class SetAnimationStreamIntNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.SetAnimationStreamIntNode.Data, Unity.Animation.SetAnimationStreamIntNode.SimPorts, Unity.Animation.SetAnimationStreamIntNode.KernelData, Unity.Animation.SetAnimationStreamIntNode.KernelDefs, Unity.Animation.SetAnimationStreamIntNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public SetAnimationStreamIntNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1801,7 +1819,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1826,6 +1843,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"fc3d9f8ad36e447096859f24a9566068", 1, @"Animation Core/Utils", @"Sets the local to parent information of a bone in the AnimationStream", false)] public class SetAnimationStreamLocalToParentNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.SetAnimationStreamLocalToParentNode.Data, Unity.Animation.SetAnimationStreamLocalToParentNode.SimPorts, Unity.Animation.SetAnimationStreamLocalToParentNode.KernelData, Unity.Animation.SetAnimationStreamLocalToParentNode.KernelDefs, Unity.Animation.SetAnimationStreamLocalToParentNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public SetAnimationStreamLocalToParentNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
@@ -1838,7 +1857,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1877,6 +1895,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"d169075041a14a55ad2839660df1f826", 2, @"Animation Core/Utils", @"Sets the local to root information of a bone in the AnimationStream", false)] public class SetAnimationStreamLocalToRootNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.SetAnimationStreamLocalToRootNode.Data, Unity.Animation.SetAnimationStreamLocalToRootNode.SimPorts, Unity.Animation.SetAnimationStreamLocalToRootNode.KernelData, Unity.Animation.SetAnimationStreamLocalToRootNode.KernelDefs, Unity.Animation.SetAnimationStreamLocalToRootNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public SetAnimationStreamLocalToRootNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
@@ -1889,7 +1909,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -1928,6 +1947,7 @@ namespace Unity.Animation
     public class SimPassThroughNode<T> : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.SimPassThroughNode<T>, Unity.Animation.SimPassThroughNode<T>>, Unity.DataFlowGraph.IMsgHandler<T> where T : System.ValueType, new()
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public SimPassThroughNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref T msg);
         public struct SimPorts<T> : Unity.DataFlowGraph.IPortDefinitionInitializer, Unity.DataFlowGraph.ISimulationPortDefinition where T : System.ValueType, new()
@@ -1946,9 +1966,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"3fbf9c93754341edaff155b9fa8363b1", 1, @"Animation Core/Time", @"Accumulates and output's current time based on scale and delta time", false)] public class TimeCounterNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.TimeCounterNode.Data, Unity.Animation.TimeCounterNode.SimPorts, Unity.Animation.TimeCounterNode.KernelData, Unity.Animation.TimeCounterNode.KernelDefs, Unity.Animation.TimeCounterNode.Kernel>, Unity.DataFlowGraph.IMsgHandler<float>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public TimeCounterNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref float msg);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         protected virtual void OnUpdate(Unity.DataFlowGraph.UpdateContext& modreq(System.Runtime.InteropServices.InAttribute) ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
@@ -1960,7 +1981,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileTimeCounter;
             public int SetTime;
             public float Time;
         }
@@ -1986,9 +2006,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"87d20894ea0f4dda9561374a1fef063e", 1, @"Animation Core/Time", @"Computes looping time and cycle count given a duration and unbound time", false)] public class TimeLoopNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.TimeLoopNode.Data, Unity.Animation.TimeLoopNode.SimPorts, Unity.Animation.TimeLoopNode.KernelData, Unity.Animation.TimeLoopNode.KernelDefs, Unity.Animation.TimeLoopNode.Kernel>, Unity.DataFlowGraph.IMsgHandler<float>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public TimeLoopNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref float msg);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -1999,7 +2020,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public float Duration;
-            public Unity.Profiling.ProfilerMarker ProfileTimeLoop;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
         {
@@ -2023,6 +2043,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"6f515a98326e46108f9f2f9c251c3afb", 1, @"Animation Core/Constraints", @"Twist correction is mainly used to redistribute a percentage of the source rotation over a leaf bone in order to correct mesh deformation artifacts.", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Twist Bone Count", 1, 1, -1, )] public class TwistCorrectionNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.TwistCorrectionNode.Data, Unity.Animation.TwistCorrectionNode.SimPorts, Unity.Animation.TwistCorrectionNode.KernelData, Unity.Animation.TwistCorrectionNode.KernelDefs, Unity.Animation.TwistCorrectionNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public TwistCorrectionNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
@@ -2035,7 +2057,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -2071,6 +2092,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"bf4c5a78bcd94ce7a5ad2d0efd5fa50b", 1, @"Animation Core/Constraints", @"Two bone IK solver", false)] public class TwoBoneIKNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.TwoBoneIKNode.Data, Unity.Animation.TwoBoneIKNode.SimPorts, Unity.Animation.TwoBoneIKNode.KernelData, Unity.Animation.TwoBoneIKNode.KernelDefs, Unity.Animation.TwoBoneIKNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.TwoBoneIKNode.SetupMessage>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public TwoBoneIKNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.TwoBoneIKNode.SetupMessage msg);
@@ -2085,7 +2108,6 @@ namespace Unity.Animation
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
             public int MidIndex;
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
             public int RootIndex;
             public Unity.Mathematics.RigidTransform TargetOffset;
@@ -2125,6 +2147,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"859141ab001b4967b5ea5798db0e5879", 1, @"Animation Core", @"Clip node that can perform different actions based on clip configuration data and supports root motion", true)] public class UberClipNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.UberClipNode.Data, Unity.Animation.UberClipNode.SimPorts, Unity.Animation.UberClipNode.KernelData, Unity.Animation.UberClipNode.KernelDefs, Unity.Animation.UberClipNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<bool>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.ClipConfiguration>, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.IMsgHandler<Unity.Entities.BlobAssetReference<Unity.Animation.Clip>>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public UberClipNode() {}
         public static Unity.Entities.BlobAssetReference<Unity.Animation.Clip> Bake(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Entities.BlobAssetReference<Unity.Animation.Clip> sourceClip, Unity.Animation.ClipConfiguration clipConfiguration, float sampleRate = 60);
         public static Unity.Entities.BlobAssetReference<Unity.Animation.Clip> Bake(Unity.DataFlowGraph.NodeSet set, Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Entities.BlobAssetReference<Unity.Animation.Clip> sourceClip, Unity.Animation.ClipConfiguration clipConfiguration, float sampleRate = 60);
@@ -2171,6 +2195,8 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"7921f59316444412ae7120293a3cfe74", 1, @"Animation Core/Utils", @"Creates weight masks based on passed channel indices and weights", false)] [Unity.DataFlowGraph.Attributes.PortGroupDefinition(@"Number of channels", 1, 1, -1, )] public class WeightBuilderNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.WeightBuilderNode.Data, Unity.Animation.WeightBuilderNode.SimPorts, Unity.Animation.WeightBuilderNode.KernelData, Unity.Animation.WeightBuilderNode.KernelDefs, Unity.Animation.WeightBuilderNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public WeightBuilderNode() {}
         protected virtual void Destroy(Unity.DataFlowGraph.DestroyContext ctx);
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
@@ -2207,9 +2233,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"6daa5f5c6f7e4944ae29a32f6e60219d", 1, @"Animation Core/Utils", @"Applies a set of weights to an animation stream", false)] public class WeightPoseNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.WeightPoseNode.Data, Unity.Animation.WeightPoseNode.SimPorts, Unity.Animation.WeightPoseNode.KernelData, Unity.Animation.WeightPoseNode.KernelDefs, Unity.Animation.WeightPoseNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public WeightPoseNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -2219,7 +2246,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfileMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer
@@ -2243,9 +2269,10 @@ namespace Unity.Animation
     [Unity.DataFlowGraph.Attributes.NodeDefinition(@"5241b718a3ba437f9264f23ac7d3f744", 1, @"Animation Core/Utils", @"Remaps a transform from world space to root space.", false)] public class WorldToRootNode : Unity.DataFlowGraph.NodeDefinition<Unity.Animation.WorldToRootNode.Data, Unity.Animation.WorldToRootNode.SimPorts, Unity.Animation.WorldToRootNode.KernelData, Unity.Animation.WorldToRootNode.KernelDefs, Unity.Animation.WorldToRootNode.Kernel>, Unity.Animation.IRigContextHandler, Unity.DataFlowGraph.IMsgHandler<Unity.Animation.Rig>, Unity.DataFlowGraph.ITaskPort<Unity.Animation.IRigContextHandler>, Unity.DataFlowGraph.ITaskPortMsgHandler<Unity.Animation.IRigContextHandler, Unity.Animation.Rig>
     {
         protected virtual Unity.DataFlowGraph.NodeTraitsBase BaseTraits { get; }
+        protected virtual Unity.DataFlowGraph.KernelStorageDefinition KernelStorageTraits { get; }
+        protected virtual Unity.DataFlowGraph.SimulationStorageDefinition SimulationStorageTraits { get; }
         public WorldToRootNode() {}
         public void HandleMessage(ref Unity.DataFlowGraph.MessageContext ctx, ref Unity.Animation.Rig rig);
-        protected virtual void Init(Unity.DataFlowGraph.InitContext ctx);
         public struct Data : Unity.DataFlowGraph.INodeData
         {
         }
@@ -2255,7 +2282,6 @@ namespace Unity.Animation
         }
         public struct KernelData : Unity.DataFlowGraph.IKernelData
         {
-            public Unity.Profiling.ProfilerMarker ProfilerMarker;
             public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RigDefinition;
         }
         public struct KernelDefs : Unity.DataFlowGraph.IKernelPortDefinition, Unity.DataFlowGraph.IPortDefinitionInitializer

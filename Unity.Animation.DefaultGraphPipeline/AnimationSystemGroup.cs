@@ -6,6 +6,12 @@ using UnityEngine;
 namespace Unity.Animation
 {
     [ExecuteAlways]
+    [UpdateInGroup(typeof(InitializationSystemGroup))]
+    public class BeginFrameAnimationSystem : BeginFrameAnimationSystemBase
+    {
+    }
+
+    [ExecuteAlways]
     [UpdateBefore(typeof(TransformSystemGroup))]
     public class PreAnimationSystemGroup : ComponentSystemGroup
     {
@@ -19,14 +25,17 @@ namespace Unity.Animation
 
     [ExecuteAlways]
     [UpdateInGroup(typeof(PreAnimationSystemGroup))]
-    public class PreAnimationGraphSystem : AnimationSystemBase<
-        PreAnimationGraphSystem.Tag,
+    public class PreAnimationGraphSystem : AnimationGraphSystemBase<
         PreAnimationGraphSystem.ReadTransformHandle,
         PreAnimationGraphSystem.WriteTransformHandle,
         PreAnimationGraphSystem.AnimatedRootMotion
     >
     {
+        [System.Obsolete("PreAnimationGraphSystem.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
         public struct Tag : IAnimationSystemTag {}
+
+        [System.Obsolete("PreAnimationGraphSystem.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
+        public Tag TagComponent { get => new Tag(); }
 
         public struct ReadTransformHandle : IReadTransformHandle
         {
@@ -54,13 +63,16 @@ namespace Unity.Animation
 
     [ExecuteAlways]
     [UpdateInGroup(typeof(PostAnimationSystemGroup))]
-    public class PostAnimationGraphSystem : AnimationSystemBase<
-        PostAnimationGraphSystem.Tag,
+    public class PostAnimationGraphSystem : AnimationGraphSystemBase<
         PostAnimationGraphSystem.ReadTransformHandle,
         PostAnimationGraphSystem.WriteTransformHandle
     >
     {
+        [System.Obsolete("PostAnimationGraphSystem.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
         public struct Tag : IAnimationSystemTag {}
+
+        [System.Obsolete("PostAnimationGraphSystem.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
+        public Tag TagComponent { get => new Tag(); }
 
         public struct ReadTransformHandle : IReadTransformHandle
         {

@@ -3,21 +3,15 @@ using Unity.Entities;
 using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "fd4af8a57de143148add1ffef327bd73", version: 1, category: "Animation Core/Mixers", description: "Blends two animation streams given an input weight value")]
     public class MixerNode
         : NodeDefinition<MixerNode.Data, MixerNode.SimPorts, MixerNode.KernelData, MixerNode.KernelDefs, MixerNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMixPose = new ProfilerMarker("Animation.MixPose");
-#endif
-
+#pragma warning restore 0618
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "f77388cf9f22485d924e530a5906cad1", isHidden: true)]
@@ -43,9 +37,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMixPose;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -55,18 +46,14 @@ namespace Unity.Animation
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
-                if (outputStream.IsNull)
-                    throw new System.InvalidOperationException($"MixerNode Output is invalid.");
+                outputStream.ValidateIsNotNull();
 
                 var inputStream1 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input0));
                 var inputStream2 = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input1));
 
                 var weight = context.Resolve(in ports.Weight);
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMixPose.Begin();
-#endif
-                outputStream.ClearChannelMasks();
+                outputStream.ClearMasks();
 
                 if (inputStream1.IsNull && inputStream2.IsNull)
                     outputStream.ResetToDefaultValues();
@@ -82,21 +69,8 @@ namespace Unity.Animation
                 }
                 else
                     Core.Blend(ref outputStream, ref inputStream1, ref inputStream2, weight);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMixPose.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMixPose = k_ProfileMixPose;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

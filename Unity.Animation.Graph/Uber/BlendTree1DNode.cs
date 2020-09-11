@@ -7,12 +7,15 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "a88bd40bda0f4f379831b0c7f023ce6e", version: 1, category: "Animation Core/Blend Trees", description: "Evaluates a 1D BlendTree based on a blend parameter")]
     public class BlendTree1DNode
         : NodeDefinition<BlendTree1DNode.Data, BlendTree1DNode.SimPorts, BlendTree1DNode.KernelData, BlendTree1DNode.KernelDefs, BlendTree1DNode.Kernel>
         , IMsgHandler<BlobAssetReference<BlendTree1D>>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "390da22df44642a9b5ad2adaaf83c1a6", description: "BlendTree data")]
@@ -108,7 +111,9 @@ namespace Unity.Animation
 
             nodeData.BlendTree = blendTree;
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SendMessage(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.SimulationPorts.BlendTree, blendTree);
+#pragma warning restore 0618
 
             for (int i = 0; i < nodeData.Motions.Count; i++)
                 Set.Destroy(nodeData.Motions[i]);
@@ -128,12 +133,13 @@ namespace Unity.Animation
             for (int i = 0; i < length; i++)
             {
                 var clip = nodeData.BlendTree.Value.Motions[i].Clip;
-                if (!clip.IsCreated)
-                    throw new InvalidOperationException("Motion in BlendTree1D is not valid");
+                Core.ValidateIsCreated(clip);
 
                 var motionNode = Set.Create<UberClipNode>();
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
                 Set.SendMessage(motionNode, UberClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.NormalizedTime });
                 Set.SendMessage(motionNode, UberClipNode.SimulationPorts.Clip, clip);
+#pragma warning restore 0618
 
                 var bufferElementToPortNode = Set.Create<GetBufferElementValueNode>();
 
@@ -143,11 +149,15 @@ namespace Unity.Animation
                 Set.Connect(thisHandle, SimulationPorts.RigOut, motionNode, UberClipNode.SimulationPorts.Rig);
                 Set.Connect(nodeData.NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, motionNode, UberClipNode.KernelPorts.Time);
                 Set.Connect(motionNode, UberClipNode.KernelPorts.Output, nodeData.NMixerNode, NMixerNode.KernelPorts.Inputs, i);
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
                 Set.SetData(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.MotionDurations, i, clip.Value.Duration);
+#pragma warning restore 0618
 
                 Set.Connect(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.Weights, bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Input);
                 Set.Connect(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Output, nodeData.NMixerNode, NMixerNode.KernelPorts.Weights, i);
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
                 Set.SetData(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Index, i);
+#pragma warning restore 0618
             }
 
             // Forward rig definition to all children.

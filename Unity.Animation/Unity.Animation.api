@@ -51,28 +51,32 @@ namespace Unity.Animation
     {
         public static readonly Unity.Animation.AnimationStream Null;
         public Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> Rig;
-        public int DataChunkCount { get; }
+        [System.Obsolete(@"DataChunkCount has been renamed to InterpolatedDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> InterpolatedDataChunkCount", false)] public int DataChunkCount { get; }
+        public int DiscreteDataChunkCount { get; }
         public int FloatCount { get; }
+        public Unity.Animation.ChannelMask FrameMask { get; set; }
         public int IntCount { get; }
+        public int InterpolatedDataChunkCount { get; }
         public bool IsNull { get; }
-        public int RotationChunkCount { get; }
+        public Unity.Animation.ChannelMask PassMask { get; set; }
+        [System.Obsolete(@"RotationChunkCount has been renamed to RotationDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> RotationDataChunkCount", false)] public int RotationChunkCount { get; }
         public int RotationCount { get; }
+        public int RotationDataChunkCount { get; }
         public int ScaleCount { get; }
         public int TranslationCount { get; }
-        public void AndChannelMasks(ref Unity.Animation.AnimationStream other);
-        public void AndChannelMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
-        public void ClearChannelMasks();
-        public void CopyChannelMasksFrom(ref Unity.Animation.AnimationStream src);
+        public void AndMasks(ref Unity.Animation.AnimationStream other);
+        public void AndMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
+        public void ClearMasks();
         public void CopyFrom(ref Unity.Animation.AnimationStream other);
+        public void CopyMasksFrom(ref Unity.Animation.AnimationStream src);
         public static Unity.Animation.AnimationStream Create(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Collections.NativeArray<Unity.Animation.AnimatedData> buffer);
         public static Unity.Animation.AnimationStream CreateReadOnly(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, Unity.Collections.NativeArray<Unity.Animation.AnimatedData> buffer);
         public static Unity.Animation.AnimationStream FromDefaultValues(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig);
-        public int GetChannelMaskBitCount();
-        public Unity.Mathematics.float4* GetDataChunkUnsafePtr();
+        [System.Obsolete(@"GetDataChunkUnsafePtr has been renamed to GetInterpolatedDataChunkUnsafePtr (RemovedAfter 2020-11-04).", false)] public Unity.Mathematics.float4* GetDataChunkUnsafePtr();
+        public Unity.Mathematics.int4* GetDiscreteDataChunkUnsafePtr();
         public float GetFloat(int index);
-        public bool GetFloatChannelMask(int index);
         public int GetInt(int index);
-        public bool GetIntChannelMask(int index);
+        public Unity.Mathematics.float4* GetInterpolatedDataChunkUnsafePtr();
         public Unity.Animation.AffineTransform GetLocalToParentInverseMatrix(int index);
         public Unity.Animation.AffineTransform GetLocalToParentMatrix(int index);
         public Unity.Mathematics.quaternion GetLocalToParentRotation(int index);
@@ -87,19 +91,13 @@ namespace Unity.Animation
         public void GetLocalToRootTR(int index, out Unity.Mathematics.float3 translation, out Unity.Mathematics.quaternion rotation);
         public Unity.Mathematics.float3 GetLocalToRootTranslation(int index);
         public void GetLocalToRootTRS(int index, out Unity.Mathematics.float3 translation, out Unity.Mathematics.quaternion rotation, out Unity.Mathematics.float3 scale);
-        public bool GetRotationChannelMask(int index);
-        public Unity.Animation.quaternion4* GetRotationChunkUnsafePtr();
-        public bool GetScaleChannelMask(int index);
-        public bool GetTranslationChannelMask(int index);
+        [System.Obsolete(@"GetRotationChunkUnsafePtr has been renamed to GetRotationDataChunkUnsafePtr (RemovedAfter 2020-11-04).", false)] public Unity.Animation.quaternion4* GetRotationChunkUnsafePtr();
+        public Unity.Animation.quaternion4* GetRotationDataChunkUnsafePtr();
         public void* GetUnsafePtr();
-        public bool HasAllChannelMasks();
-        public bool HasAnyChannelMasks();
-        public bool HasNoChannelMasks();
-        public void OrChannelMasks(ref Unity.Animation.AnimationStream other);
-        public void OrChannelMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
+        public void OrMasks(ref Unity.Animation.AnimationStream other);
+        public void OrMasks(ref Unity.Animation.AnimationStream lhs, ref Unity.Animation.AnimationStream rhs);
         public void ResetToDefaultValues();
         public void ResetToZero();
-        public void SetChannelMasks(bool value);
         public void SetFloat(int index, ref float value);
         public void SetInt(int index, ref int value);
         public void SetLocalToParentRotation(int index, ref Unity.Mathematics.quaternion rotation);
@@ -112,6 +110,7 @@ namespace Unity.Animation
         public void SetLocalToRootTR(int index, ref Unity.Mathematics.float3 translation, ref Unity.Mathematics.quaternion rotation);
         public void SetLocalToRootTranslation(int index, ref Unity.Mathematics.float3 translation);
         public void SetLocalToRootTRS(int index, ref Unity.Mathematics.float3 translation, ref Unity.Mathematics.quaternion rotation, ref Unity.Mathematics.float3 scale);
+        public void SetMasks(bool value);
     }
 
     public static class AnimationStreamUtils
@@ -119,10 +118,6 @@ namespace Unity.Animation
         [System.Obsolete(@"Use AnimationStream.ResetToZero() instead. (RemovedAfter 2020-09-30).")] public static void MemClear(ref Unity.Animation.AnimationStream stream);
         [System.Obsolete(@"Use AnimationStream.CopyFrom(ref AnimationStream other) instead. (RemovedAfter 2020-09-30).")] public static void MemCpy(ref Unity.Animation.AnimationStream dst, ref Unity.Animation.AnimationStream src);
         [System.Obsolete(@"Use AnimationStream.ResetToDefaultValues() instead. (RemovedAfter 2020-09-30).")] public static void SetDefaultValues(ref Unity.Animation.AnimationStream stream);
-    }
-
-    [System.Obsolete(@"AnimationTransformOverride has been deprecated. Use AnimationLocalToParentOverrideand AnimationLocalToWorldOverride instead. (RemovedAfter 2020-08-26)")] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToParent))] [Unity.Entities.WriteGroup(typeof(Unity.Transforms.LocalToWorld))] public struct AnimationTransformOverride : Unity.Entities.IComponentData
-    {
     }
 
     public struct Axis
@@ -133,6 +128,14 @@ namespace Unity.Animation
         public Unity.Mathematics.float3 RotationPivot;
         public Unity.Mathematics.float3 ScalingOffset;
         public Unity.Mathematics.float3 ScalingPivot;
+    }
+
+    public abstract class BeginFrameAnimationSystemBase : Unity.Entities.SystemBase
+    {
+        protected BeginFrameAnimationSystemBase() {}
+        protected virtual void OnCreate();
+        protected virtual void OnCreateForCompiler();
+        protected virtual void OnUpdate();
     }
 
     public struct BindingSet
@@ -151,16 +154,19 @@ namespace Unity.Animation
         public int ChannelMaskOffset { get; }
         public int ChannelSize { get; }
         public int CurveCount { get; }
-        public int DataChunkCount { get; }
+        [System.Obsolete(@"DataChunkCount has been renamed to InterpolatedDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> InterpolatedDataChunkCount", false)] public int DataChunkCount { get; }
+        public int DiscreteDataChunkCount { get; }
         public int FloatBindingIndex { get; }
         public int FloatCurveCount { get; }
         public int FloatSamplesOffset { get; }
         public int IntBindingIndex { get; }
         public int IntCurveCount { get; }
+        public int InterpolatedDataChunkCount { get; }
         public int IntSamplesOffset { get; }
         public int RotationBindingIndex { get; }
-        public int RotationChunkCount { get; }
+        [System.Obsolete(@"RotationChunkCount has been renamed to RotationDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> RotationDataChunkCount", false)] public int RotationChunkCount { get; }
         public int RotationCurveCount { get; }
+        public int RotationDataChunkCount { get; }
         public int RotationSamplesOffset { get; }
         public int ScaleBindingIndex { get; }
         public int ScaleCurveCount { get; }
@@ -300,6 +306,33 @@ namespace Unity.Animation
         public Unity.Animation.StringHash SourceId;
     }
 
+    [System.Obsolete(@"Types with embedded references are not supported in this version of your compiler.", true)] public struct ChannelMask
+    {
+        public int FloatCount { get; }
+        public int IntCount { get; }
+        public int RotationCount { get; }
+        public int ScaleCount { get; }
+        public int TranslationCount { get; }
+        public void And(ref Unity.Animation.ChannelMask other);
+        public void And(ref Unity.Animation.ChannelMask lhs, ref Unity.Animation.ChannelMask rhs);
+        public void Clear();
+        public void CopyFrom(ref Unity.Animation.ChannelMask src);
+        public int CountChannels();
+        public bool HasAll();
+        public bool HasAny();
+        public bool HasNone();
+        public void Invert();
+        public bool IsFloatSet(int index);
+        public bool IsIntSet(int index);
+        public bool IsRotationSet(int index);
+        public bool IsScaleSet(int index);
+        public bool IsSet(int pos);
+        public bool IsTranslationSet(int index);
+        public void Or(ref Unity.Animation.ChannelMask other);
+        public void Or(ref Unity.Animation.ChannelMask lhs, ref Unity.Animation.ChannelMask rhs);
+        public void Set(bool value);
+    }
+
     public struct ChannelWeightMap
     {
         public Unity.Animation.StringHash Id;
@@ -345,7 +378,6 @@ namespace Unity.Animation
         public Unity.Entities.BlobArray<int> RotationBindingMap;
         public Unity.Entities.BlobArray<int> ScaleBindingMap;
         public Unity.Entities.BlobArray<int> TranslationBindingMap;
-        [System.Obsolete(@"ClipInstance.Create has been deprecated. Use ClipInstanceBuilder.Create instead. (RemovedAfter 2020-07-15)")] public static Unity.Entities.BlobAssetReference<Unity.Animation.ClipInstance> Create(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rigDefinition, Unity.Entities.BlobAssetReference<Unity.Animation.Clip> sourceClip);
     }
 
     public static class ClipInstanceBuilder
@@ -376,13 +408,6 @@ namespace Unity.Animation
         protected virtual void OnUpdate();
     }
 
-    [System.Obsolete(@"ComputeSkinMatrixSystemBase is deprecated use ComputeDeformationDataSystemBase instead. (RemovedAfter 2020-08-19). ComputeDeformationDataSystemBase (UnityUpgradable)", false)] public abstract class ComputeSkinMatrixSystemBase : Unity.Entities.SystemBase
-    {
-        protected ComputeSkinMatrixSystemBase() {}
-        protected virtual void OnCreateForCompiler();
-        protected virtual void OnUpdate();
-    }
-
     public static class Core
     {
         public static void AddPose(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream inputA, ref Unity.Animation.AnimationStream inputB);
@@ -399,11 +424,8 @@ namespace Unity.Animation
         public static void ComputeInertialBlendingCoefficients(ref Unity.Animation.AnimationStream currentInput, ref Unity.Animation.AnimationStream lastOutput, ref Unity.Animation.AnimationStream secondLastOutput, float deltaTime, float duration, Unity.Collections.NativeArray<Unity.Animation.InertialBlendingCoefficients> outCoefficients, Unity.Collections.NativeArray<Unity.Mathematics.float3> outDirections);
         public static void ComputeLocalToParentAngularVelocities(ref Unity.Animation.AnimationStream input, ref Unity.Animation.AnimationStream previousInput, float deltaTime, Unity.Collections.NativeArray<Unity.Mathematics.float3> outAngularVelocities);
         public static void ComputeLocalToParentLinearVelocities(ref Unity.Animation.AnimationStream input, ref Unity.Animation.AnimationStream previousInput, float deltaTime, Unity.Collections.NativeArray<Unity.Mathematics.float3> outVelocities);
-        [System.Obsolete(@"This overload of Core.ComputeLocalToRoot is deprecated, use other Core.ComputeLocalToRoot with identity offset. (RemovedAfter 2020-08-29)", false)] public static void ComputeLocalToRoot(ref Unity.Animation.AnimationStream stream, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outLocalToRoots);
         public static void ComputeLocalToRoot(ref Unity.Animation.AnimationStream stream, Unity.Mathematics.float4x4 offset, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outMatrices);
         public static void ComputeLocalToRoot(ref Unity.Animation.AnimationStream stream, Unity.Mathematics.float4x4 offset1, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outMatrices1, Unity.Mathematics.float4x4 offset2, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outMatrices2);
-        [System.Obsolete(@"Core.ComputeLocalToWorld is deprecated use Core.ComputeLocalToRoot instead with localToWorld offset. (RemovedAfter 2020-08-29)", false)] public static void ComputeLocalToWorld(Unity.Mathematics.float4x4 localToWorld, ref Unity.Animation.AnimationStream stream, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outLocalToWorlds);
-        [System.Obsolete(@"Core.ComputeLocalToWorldAndRoot is deprecated use other Core.ComputeLocalToRoot with localToParent and localToWorld offsets. (RemovedAfter 2020-08-29)", false)] public static void ComputeLocalToWorldAndRoot(Unity.Mathematics.float4x4 localToWorld, ref Unity.Animation.AnimationStream stream, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outLocalToWorlds, Unity.Collections.NativeArray<Unity.Mathematics.float4x4> outLocalToRoots);
         public static void ComputeLocalToWorldAngularVelocities(Unity.Mathematics.float4x4 localToWorld, Unity.Mathematics.float4x4 previousLocalToWorld, ref Unity.Animation.AnimationStream input, ref Unity.Animation.AnimationStream previousInput, float deltaTime, Unity.Collections.NativeArray<Unity.Mathematics.float3> outAngularVelocities);
         public static void ComputeLocalToWorldLinearVelocities(Unity.Mathematics.float4x4 localToWorld, Unity.Mathematics.float4x4 previousLocalToWorld, ref Unity.Animation.AnimationStream input, ref Unity.Animation.AnimationStream previousInput, float deltaTime, Unity.Collections.NativeArray<Unity.Mathematics.float3> outVelocities);
         public static void ComputeWeightDataFromChannelIndices(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, float defaultWeight, Unity.Collections.NativeArray<int> channelIndices, Unity.Collections.NativeArray<float> channelWeights, Unity.Collections.NativeArray<Unity.Animation.WeightData> weightData);
@@ -411,9 +433,9 @@ namespace Unity.Animation
         public static int FindBindingIndex(ref Unity.Entities.BlobArray<Unity.Animation.StringHash> bindings, Unity.Animation.StringHash searchedBinding);
         public static void InertialBlend(ref Unity.Animation.AnimationStream currentInput, ref Unity.Animation.AnimationStream outputPose, Unity.Collections.NativeArray<Unity.Animation.InertialBlendingCoefficients> interpolationFactors, Unity.Collections.NativeArray<Unity.Mathematics.float3> interpolationDirections, float duration, float remainingTime);
         public static void InversePose(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream input);
-        public static float MixerAdd(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream add, float weight, float sumWeight);
-        public static void MixerBegin(ref Unity.Animation.AnimationStream output);
-        public static void MixerEnd(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream defaultPoseInput, float sumWeight);
+        public static Unity.Animation.Core.MixerState MixerAdd(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream add, float weight, Unity.Animation.Core.MixerState state);
+        public static Unity.Animation.Core.MixerState MixerBegin(ref Unity.Animation.AnimationStream output);
+        public static void MixerEnd(ref Unity.Animation.AnimationStream output, ref Unity.Animation.AnimationStream defaultPoseInput, Unity.Animation.Core.MixerState state);
         public static void RigRemapper(Unity.Entities.BlobAssetReference<Unity.Animation.RigRemapTable> remapTable, ref Unity.Animation.AnimationStream destinationStream, ref Unity.Animation.AnimationStream sourceStream);
         public static void SetWeightValueFromChannelIndex(Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> rig, float weight, int channelIndex, Unity.Collections.NativeArray<Unity.Animation.WeightData> weightData);
         public static void SolveAimConstraint(ref Unity.Animation.AnimationStream stream, ref Unity.Animation.Core.AimConstraintData data, float weight);
@@ -443,6 +465,11 @@ namespace Unity.Animation
             public int Right;
             public float Weight;
             public static Unity.Animation.Core.ClipKeyframe Create(ref Unity.Animation.Clip clip, float time);
+        }
+        public struct MixerState
+        {
+            public float WeightMax;
+            public float WeightSum;
         }
         public struct ParentConstraintData
         {
@@ -531,7 +558,7 @@ namespace Unity.Animation
         public abstract T DefaultValue { get; set; }
     }
 
-    public interface IAnimationSystemTag : Unity.Entities.IComponentData
+    [System.Obsolete(@"IAnimationSystemTag has been deprecated and is no longer necessary (RemovedAfter 2020-11-04).", false)] public interface IAnimationSystemTag : Unity.Entities.IComponentData
     {
     }
 
@@ -686,8 +713,24 @@ namespace Unity.Animation
     public static class RigBuilder
     {
         public static Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> CreateRigDefinition(Unity.Animation.IAnimationChannel[] animationChannels);
+        public static Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> CreateRigDefinition(Unity.Animation.RigBuilderData rigBuilderData);
         public static Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> CreateRigDefinition(Unity.Animation.SkeletonNode[] skeletonNodes, Unity.Animation.Axis[] axis = default(Unity.Animation.Axis[]));
         public static Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> CreateRigDefinition(Unity.Animation.SkeletonNode[] skeletonNodes, Unity.Animation.Axis[] axes, Unity.Animation.IAnimationChannel[] animationChannels);
+        [Unity.Burst.BurstCompile] public static Unity.Entities.BlobAssetReference<Unity.Animation.RigDefinition> RunCreateRigDefinitionJob(Unity.Animation.RigBuilderData rigBuilderData);
+    }
+
+    public struct RigBuilderData : System.IDisposable
+    {
+        public Unity.Collections.NativeList<Unity.Animation.Axis> Axes;
+        public Unity.Collections.NativeList<Unity.Animation.FloatChannel> FloatChannels;
+        public Unity.Collections.NativeList<Unity.Animation.IntChannel> IntChannels;
+        public Unity.Collections.NativeList<Unity.Animation.LocalRotationChannel> RotationChannels;
+        public Unity.Collections.NativeList<Unity.Animation.LocalScaleChannel> ScaleChannels;
+        public Unity.Collections.NativeList<Unity.Animation.SkeletonNode> SkeletonNodes;
+        public Unity.Collections.NativeList<Unity.Animation.LocalTranslationChannel> TranslationChannels;
+        public bool IsCreated { get; }
+        public RigBuilderData(Unity.Collections.Allocator allocator) {}
+        public virtual void Dispose();
     }
 
     public static class RigBuilderUtility
@@ -865,16 +908,6 @@ namespace Unity.Animation
         public int ParentIndex;
     }
 
-    [System.Obsolete(@"SkinMatrix is deprecated use Unity.Deformations.SkinMatrix instead. (RemovedAfter 2020-08-19)", false)] public struct SkinMatrix : Unity.Entities.IBufferElementData
-    {
-        public Unity.Mathematics.float3x4 Value;
-    }
-
-    [System.Obsolete(@"SkinnedMeshRigEntity is deprecated use RigEntity instead. (RemovedAfter 2020-08-19). (UnityUpgradable) -> RigEntity", false)] public struct SkinnedMeshRigEntity : Unity.Entities.IComponentData
-    {
-        public Unity.Entities.Entity Value;
-    }
-
     public struct SkinnedMeshToRigIndexMapping : Unity.Entities.IBufferElementData
     {
         public int RigIndex;
@@ -939,11 +972,6 @@ namespace Unity.Animation.BoneRenderer
     public struct BoneWorldMatrix : Unity.Entities.IBufferElementData
     {
         public Unity.Mathematics.float4x4 Value;
-    }
-
-    [System.Obsolete(@"Unity.Animation.BoneRenderer.RigEntity is deprecated use Unity.Animation.RigEntity instead. (RemovedAfter 2020-08-19).", false)] public struct RigEntity : Unity.Entities.IComponentData
-    {
-        public Unity.Entities.Entity Value;
     }
 
     public struct RigIndex : Unity.Entities.IBufferElementData

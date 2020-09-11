@@ -94,8 +94,6 @@ namespace Unity.Animation.Tests
 
             Set.Connect(inPlaceNode, InPlaceMotionNode.KernelPorts.Output, entityNode);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
-
             m_AnimationGraphSystem.Update();
 
             var translation = m_StopTranslation;
@@ -136,8 +134,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(entity);
             Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -184,8 +180,6 @@ namespace Unity.Animation.Tests
 
             var entityNode = CreateComponentNode(entity);
             Set.Connect(clipNode, ConfigurableClipNode.KernelPorts.Output, entityNode);
-
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             m_AnimationGraphSystem.Update();
 
@@ -242,7 +236,6 @@ namespace Unity.Animation.Tests
             SetupRigEntity(entity, m_Rig, entity);
 
             m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
-            m_Manager.AddComponent<PreAnimationGraphSystem.Tag>(entity);
 
             var entityTx = new RigidTransform(quaternion.AxisAngle(math.float3(0f, 1f, 0f), math.radians(40f)), math.float3(2f, 0f, 5f));
             m_Manager.AddComponentData(entity, new Translation { Value = entityTx.pos });

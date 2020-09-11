@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace Unity.Animation
 {
     /// <summary>
@@ -41,16 +43,18 @@ namespace Unity.Animation
 
         internal bool IsValid(ushort systemID)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
+            ValidateIdCompatibility(systemID);
+
+            return GraphID != 0 && SystemID == systemID;
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        internal void ValidateIdCompatibility(ushort systemID)
+        {
             if (GraphID == 0)
                 throw new System.ArgumentException("GraphHandle is invalid, use AnimationSystemBase.CreateManagedGraph() to create a valid handle");
             if (SystemID != systemID)
                 throw new System.ArgumentException($"GraphHandle [SystemId: {SystemID}] is incompatible with this system [Id: {systemID}]");
-
-            return true;
-#else
-            return GraphID != 0 && SystemID == systemID;
-#endif
         }
     }
 }

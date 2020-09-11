@@ -4,13 +4,12 @@ using Unity.Transforms;
 using Unity.DataFlowGraph;
 using Unity.Collections;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
-    public interface IAnimationSystem
+    /// <summary>
+    /// Base interface of an AnimationGraphSystem which gives access to the DataFlowGraph NodeSet.
+    /// </summary>
+    public interface IAnimationGraphSystem
     {
         NodeSet Set { get; }
         int RefCount { get; }
@@ -23,12 +22,6 @@ namespace Unity.Animation
         void Dispose(GraphHandle graph);
     }
 
-    public interface IAnimationSystem<TTag> : IAnimationSystem
-        where TTag : struct, IAnimationSystemTag
-    {
-        TTag TagComponent { get; }
-    }
-
     internal static class AnimationSystemID
     {
         static ushort s_AnimationSystemCounter = 0;
@@ -36,36 +29,34 @@ namespace Unity.Animation
         internal static ushort Generate() => ++ s_AnimationSystemCounter;
     };
 
-    public abstract class AnimationSystemBase<TTag>
-        : AnimationSystemBase<TTag, NotSupportedTransformHandle, NotSupportedTransformHandle, NotSupportedRootMotion>
-        where TTag : struct, IAnimationSystemTag
+    public abstract class AnimationGraphSystemBase
+        : AnimationGraphSystemBase<NotSupportedTransformHandle, NotSupportedTransformHandle, NotSupportedRootMotion>
     {
     }
 
-    public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle>
-        : AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, NotSupportedRootMotion>
-        where TTag : struct, IAnimationSystemTag
+    public abstract class AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle>
+        : AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle, NotSupportedRootMotion>
         where TReadTransformHandle : struct, IReadTransformHandle
         where TWriteTransformHandle : struct, IWriteTransformHandle
     {
     }
 
-    public abstract class AnimationSystemBase<TTag, TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion>
-        : SystemBase, IAnimationSystem<TTag>
-        where TTag : struct, IAnimationSystemTag
-        where TReadTransformHandle : struct, IReadTransformHandle
+    /// <summary>
+    /// This is the base animation graph system which can used to create an animation pass in your system pipeline.
+    /// This system uses a DataFlowGraph NodeSet to evaluate an animation graph and should be populated with animation nodes.
+    /// </summary>
+    public abstract class AnimationGraphSystemBase<TReadTransformHandle, TWriteTransformHandle, TAnimatedRootMotion>
+        : SystemBase, IAnimationGraphSystem
+        where TReadTransformHandle  : struct, IReadTransformHandle
         where TWriteTransformHandle : struct, IWriteTransformHandle
-        where TAnimatedRootMotion : struct, IAnimatedRootMotion
+        where TAnimatedRootMotion   : struct, IAnimatedRootMotion
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("AnimationSystemBase");
-#endif
-
         EntityQuery m_EvaluateGraphQuery;
         EntityQuery m_ReadRootTransformQuery;
         EntityQuery m_SortReadComponentDataQuery;
         EntityQuery m_ReadComponentDataQuery;
         EntityQuery m_UpdateRootRemapJobDataQuery;
+        EntityQuery m_ClearPassMaskQuery;
         EntityQuery m_WriteComponentDataQuery;
         EntityQuery m_WriteRootTransformQuery;
         EntityQuery m_AccumulateRootTransformQuery;
@@ -75,7 +66,7 @@ namespace Unity.Animation
 
         NativeMultiHashMap<GraphHandle, NodeHandle> m_ManagedNodes;
 
-        protected AnimationSystemBase()
+        protected AnimationGraphSystemBase()
         {
             m_SystemID = AnimationSystemID.Generate();
         }
@@ -83,11 +74,12 @@ namespace Unity.Animation
         protected override void OnCreate()
         {
             base.OnCreate();
-            m_EvaluateGraphQuery           = GetEntityQuery(ComponentType.ReadOnly<TTag>(), ComponentType.ReadOnly<Rig>());
+            m_EvaluateGraphQuery           = GetEntityQuery(ComponentType.ReadOnly<Rig>(), ComponentType.ReadOnly<AnimatedData>());
             m_ReadRootTransformQuery       = GetEntityQuery(ReadRootTransformJob<TAnimatedRootMotion>.QueryDesc);
             m_SortReadComponentDataQuery   = GetEntityQuery(SortReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
             m_ReadComponentDataQuery       = GetEntityQuery(ReadTransformComponentJob<TReadTransformHandle>.QueryDesc);
             m_UpdateRootRemapJobDataQuery  = GetEntityQuery(UpdateRootRemapMatrixJob<TAnimatedRootMotion>.QueryDesc);
+            m_ClearPassMaskQuery           = GetEntityQuery(ComponentType.ReadOnly<Rig>(), ComponentType.ReadWrite<AnimatedData>());
             m_WriteComponentDataQuery      = GetEntityQuery(WriteTransformComponentJob<TWriteTransformHandle>.QueryDesc);
             m_WriteRootTransformQuery      = GetEntityQuery(WriteRootTransformJob<TAnimatedRootMotion>.QueryDesc);
             m_AccumulateRootTransformQuery = GetEntityQuery(AccumulateRootTransformJob<TAnimatedRootMotion>.QueryDesc);
@@ -95,16 +87,9 @@ namespace Unity.Animation
 
         protected override void OnUpdate()
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            k_ProfilerMarker.Begin();
-#endif
             Dependency = ScheduleReadComponentDataJobs(Dependency);
             Dependency = ScheduleGraphEvaluationJobs(Dependency);
             Dependency = ScheduleWriteComponentDataJobs(Dependency);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            k_ProfilerMarker.End();
-#endif
         }
 
         public NodeSet Set { get; private set; }
@@ -202,8 +187,6 @@ namespace Unity.Animation
             m_ManagedNodes.Remove(handle);
         }
 
-        public TTag TagComponent { get; } = new TTag();
-
         protected JobHandle ScheduleReadComponentDataJobs(JobHandle inputDeps)
         {
             var sortJob = new SortReadTransformComponentJob<TReadTransformHandle>
@@ -232,6 +215,12 @@ namespace Unity.Animation
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
             }.ScheduleParallel(m_ReadRootTransformQuery, readJob);
 
+            var clearPassMaskJob = new ClearPassMaskJob
+            {
+                RigType = GetComponentTypeHandle<Rig>(true),
+                AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
+            }.ScheduleParallel(m_ClearPassMaskQuery, readRootJob);
+
             var updateRigRemapJob = new UpdateRootRemapMatrixJob<TAnimatedRootMotion>
             {
                 EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
@@ -241,7 +230,7 @@ namespace Unity.Animation
                 RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(),
             }.ScheduleParallel(m_UpdateRootRemapJobDataQuery, readRootJob);
 
-            return updateRigRemapJob;
+            return JobHandle.CombineDependencies(updateRigRemapJob, clearPassMaskJob);
         }
 
         protected JobHandle ScheduleWriteComponentDataJobs(JobHandle inputDeps)

@@ -3,20 +3,15 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Mathematics;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "3fbf9c93754341edaff155b9fa8363b1", version: 1, category: "Animation Core/Time", description: "Accumulates and output's current time based on scale and delta time")]
     public class TimeCounterNode
         : NodeDefinition<TimeCounterNode.Data, TimeCounterNode.SimPorts, TimeCounterNode.KernelData, TimeCounterNode.KernelDefs, TimeCounterNode.Kernel>
         , IMsgHandler<float>
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileTimeCounter = new ProfilerMarker("Animation.TimeCounter");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -44,10 +39,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileTimeCounter;
-#endif
-
             public int SetTime;
             public float Time;
         }
@@ -58,30 +49,13 @@ namespace Unity.Animation
             float m_Time;
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileTimeCounter.Begin();
-#endif
-
                 var deltaTime = context.Resolve(ports.DeltaTime) * context.Resolve(ports.Speed);
                 m_Time = math.select(m_Time + deltaTime, data.Time, data.SetTime != 0);
 
                 context.Resolve(ref ports.Time) =  m_Time;
                 context.Resolve(ref ports.OutputDeltaTime) = deltaTime;
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileTimeCounter.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileTimeCounter = k_ProfileTimeCounter;
-        }
-
-#endif
 
         protected override void OnUpdate(in UpdateContext ctx)
         {

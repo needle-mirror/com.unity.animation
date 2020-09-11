@@ -4,11 +4,14 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "fd66a28a123c416a9860c6e090650266", version: 1, category: "Animation Core/Utils", description: "Computes the delta animation stream given two input streams")]
     public class DeltaPoseNode
         : NodeDefinition<DeltaPoseNode.Data, DeltaPoseNode.SimPorts, DeltaPoseNode.KernelData, DeltaPoseNode.KernelDefs, DeltaPoseNode.Kernel>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "7e89282e80fa40619ea8e2e3426ab9b7", isHidden: true)]
@@ -76,7 +79,9 @@ namespace Unity.Animation
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SendMessage(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Input, rig);
+#pragma warning restore 0618
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Collections;
@@ -39,6 +41,7 @@ namespace Unity.Animation
             typeof(BoneRenderer.BoneRendererEntity),
         };
 
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void ValidateTransformIndices(NativeList<int> transformIndices, int max)
         {
             if (!transformIndices.IsCreated || transformIndices.Length == 0)
@@ -89,9 +92,7 @@ namespace Unity.Animation
             NativeList<int> transformIndices
         )
         {
-            if (rigDefinition == default)
-                throw new System.ArgumentNullException("rigDefinition", "rigDefinition is null.");
-
+            Core.ValidateIsCreated(rigDefinition);
             ValidateTransformIndices(transformIndices, rigDefinition.Value.Skeleton.BoneCount);
 
             entityManager.AddComponents(boneDataEntity, new ComponentTypes(s_BoneMatrixComponentTypes));
@@ -140,8 +141,7 @@ namespace Unity.Animation
             NativeList<StringHash> transformIds = default
         )
         {
-            if (rigDefinition == default)
-                throw new System.ArgumentNullException("rigDefinition", "rigDefinition is null.");
+            Core.ValidateIsCreated(rigDefinition);
 
             NativeList<int> transformIndices;
 

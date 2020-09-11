@@ -5,11 +5,12 @@ using Unity.Mathematics;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.PerformanceTesting;
+using Unity.Animation.Tests;
 
-namespace Unity.Animation.Tests
+namespace Unity.Animation.PerformanceTests
 {
     [BurstCompile]
-    struct BurstedCore
+    struct BurstedAnimationStream
     {
         public delegate void EvaluateAnimationStreamGetLocalToRootTranslationDelegate(ref AnimationStream stream, int index);
         public static EvaluateAnimationStreamGetLocalToRootTranslationDelegate EvaluateAnimationStreamGetLocalToRootTranslation;
@@ -142,6 +143,7 @@ namespace Unity.Animation.Tests
         }
     }
 
+    [Category("Performance")]
     public class AnimationStreamPerformanceTests : AnimationTestsFixture
     {
         BlobAssetReference<RigDefinition> BuildRigDefinitionBoneChain(int bones)
@@ -168,7 +170,7 @@ namespace Unity.Animation.Tests
         {
             base.OneTimeSetUp();
 
-            BurstedCore.Initialize();
+            BurstedAnimationStream.Initialize();
         }
 
         [Test, Performance]
@@ -183,7 +185,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootTranslation(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootTranslation(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -204,7 +206,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootRotation(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootRotation(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -225,7 +227,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootScale(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootScale(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -246,7 +248,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootTR(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootTR(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -267,7 +269,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootTRS(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootTRS(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -288,7 +290,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootMatrix(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootMatrix(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -309,7 +311,7 @@ namespace Unity.Animation.Tests
 
             Measure.Method(() =>
             {
-                BurstedCore.EvaluateAnimationStreamGetLocalToRootInverseMatrix(ref stream, boneCount - 1);
+                BurstedAnimationStream.EvaluateAnimationStreamGetLocalToRootInverseMatrix(ref stream, boneCount - 1);
             })
                 .WarmupCount(50)
                 .MeasurementCount(100)
@@ -333,7 +335,7 @@ namespace Unity.Animation.Tests
 
                 Measure.Method(() =>
                 {
-                    BurstedCore.EvaluateAnimationStreamSetLocalToRootTranslation(ref stream, boneCount - 1);
+                    BurstedAnimationStream.EvaluateAnimationStreamSetLocalToRootTranslation(ref stream, boneCount - 1);
                 })
                     .WarmupCount(50)
                     .MeasurementCount(100)
@@ -358,7 +360,7 @@ namespace Unity.Animation.Tests
 
                 Measure.Method(() =>
                 {
-                    BurstedCore.EvaluateAnimationStreamSetLocalToRootRotation(ref stream, boneCount - 1);
+                    BurstedAnimationStream.EvaluateAnimationStreamSetLocalToRootRotation(ref stream, boneCount - 1);
                 })
                     .WarmupCount(50)
                     .MeasurementCount(100)
@@ -383,7 +385,7 @@ namespace Unity.Animation.Tests
 
                 Measure.Method(() =>
                 {
-                    BurstedCore.EvaluateAnimationStreamSetLocalToRootScale(ref stream, boneCount - 1);
+                    BurstedAnimationStream.EvaluateAnimationStreamSetLocalToRootScale(ref stream, boneCount - 1);
                 })
                     .WarmupCount(50)
                     .MeasurementCount(100)
@@ -408,7 +410,7 @@ namespace Unity.Animation.Tests
 
                 Measure.Method(() =>
                 {
-                    BurstedCore.EvaluateAnimationStreamSetLocalToRootTR(ref stream, boneCount - 1);
+                    BurstedAnimationStream.EvaluateAnimationStreamSetLocalToRootTR(ref stream, boneCount - 1);
                 })
                     .WarmupCount(50)
                     .MeasurementCount(100)
@@ -433,7 +435,7 @@ namespace Unity.Animation.Tests
 
                 Measure.Method(() =>
                 {
-                    BurstedCore.EvaluateAnimationStreamSetLocalToRootTRS(ref stream, boneCount - 1);
+                    BurstedAnimationStream.EvaluateAnimationStreamSetLocalToRootTRS(ref stream, boneCount - 1);
                 })
                     .WarmupCount(50)
                     .MeasurementCount(100)

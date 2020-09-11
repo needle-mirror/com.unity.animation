@@ -1,5 +1,6 @@
 using System;
-using Unity.Assertions;
+using System.Diagnostics;
+
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -76,9 +77,7 @@ namespace Unity.Animation
         /// <param name="channelsList">A list that contains allChannels + typedChannels.</param>
         unsafe static void GetChannelsMap(ChannelMap[] allChannels, ChannelMap[] typedChannels, NativeList<ChannelMap> channelsList)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(channelsList.IsCreated);
-#endif
+            Core.ValidateIsCreated(channelsList);
 
             int totalSize = allChannels.Length + typedChannels.Length;
             if (channelsList.Capacity < totalSize)
@@ -105,6 +104,7 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="channels">The list of ChannelMap to validate.</param>
         /// <exception cref="InvalidOperationException">RigRemapQuery cannot have more than one channel mapping that target the same destination.</exception>
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void ValidateNoDuplicatedDestinationChannel(NativeList<ChannelMap> channels)
         {
             for (int i = 0; i != channels.Length; i++)
@@ -126,6 +126,7 @@ namespace Unity.Animation
         /// <param name="channels">Mappings between a source rig and destination rig.</param>
         /// <param name="offsetCount"> The number of offsets (translation or rotation).</param>
         /// <exception cref="InvalidOperationException">RigRemapQuery cannot have a channel offset index out of bounds.</exception>
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void ValidateOffsetIndex(NativeList<ChannelMap> channels, int offsetCount)
         {
             for (int channelIter = 0; channelIter != channels.Length; channelIter++)
@@ -179,11 +180,8 @@ namespace Unity.Animation
         /// <exception cref="ArgumentNullException">Both source and destination rigs must be defined.</exception>
         public BlobAssetReference<RigRemapTable> ToRigRemapTable(BlobAssetReference<RigDefinition> sourceRigDefinition, BlobAssetReference<RigDefinition> destinationRigDefinition)
         {
-            if (sourceRigDefinition == default)
-                throw new ArgumentNullException(nameof(sourceRigDefinition));
-
-            if (destinationRigDefinition == default)
-                throw new ArgumentNullException(nameof(destinationRigDefinition));
+            Core.ValidateIsCreated(sourceRigDefinition);
+            Core.ValidateIsCreated(destinationRigDefinition);
 
             var translations = new NativeList<ChannelMap>(AllChannels.Length + TranslationChannels.Length, Allocator.Temp);
             var rotations = new NativeList<ChannelMap>(AllChannels.Length + RotationChannels.Length, Allocator.Temp);

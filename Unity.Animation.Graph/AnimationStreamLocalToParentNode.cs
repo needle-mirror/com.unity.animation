@@ -4,20 +4,15 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Mathematics;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "207a2a8e462e4792969396869af3c382", version: 1, category: "Animation Core/Utils", description: "Gets the local to parent information of a bone in the AnimationStream")]
     public class GetAnimationStreamLocalToParentNode
         : NodeDefinition<GetAnimationStreamLocalToParentNode.Data, GetAnimationStreamLocalToParentNode.SimPorts, GetAnimationStreamLocalToParentNode.KernelData, GetAnimationStreamLocalToParentNode.KernelDefs, GetAnimationStreamLocalToParentNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.GetAnimationStreamLocalToParentNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -48,9 +43,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -60,33 +52,15 @@ namespace Unity.Animation
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
                 var stream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input));
-                if (stream.IsNull)
-                    throw new System.InvalidOperationException($"GetAnimationStreamLocalToParentNode input is invalid.");
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
+                stream.ValidateIsNotNull();
 
                 stream.GetLocalToParentTRS(context.Resolve(ports.Index), out float3 translation, out quaternion rotation, out float3 scale);
                 context.Resolve(ref ports.Translation) = translation;
                 context.Resolve(ref ports.Rotation) = rotation;
                 context.Resolve(ref ports.Scale) = scale;
                 context.Resolve(ref ports.Transform) = float4x4.TRS(translation, rotation, scale);
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfilerMarker = k_ProfilerMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -97,14 +71,13 @@ namespace Unity.Animation
             (InputPortID)SimulationPorts.Rig;
     }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "fc3d9f8ad36e447096859f24a9566068", version: 1, category: "Animation Core/Utils", description: "Sets the local to parent information of a bone in the AnimationStream")]
     public class SetAnimationStreamLocalToParentNode
         : NodeDefinition<SetAnimationStreamLocalToParentNode.Data, SetAnimationStreamLocalToParentNode.SimPorts, SetAnimationStreamLocalToParentNode.KernelData, SetAnimationStreamLocalToParentNode.KernelDefs, SetAnimationStreamLocalToParentNode.Kernel>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.SetAnimationStreamLocalToParentNode");
-#endif
+#pragma warning restore 0618
 
         public enum SetFromMode : uint
         {
@@ -149,9 +122,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -162,17 +132,11 @@ namespace Unity.Animation
             {
                 var input = context.Resolve(ports.Input);
                 var output = context.Resolve(ref ports.Output);
-                if (input.Length != output.Length)
-                    throw new System.InvalidOperationException($"SetAnimationStreamLocalToParentNode: Input Length '{input.Length}' does not match Output Length '{output.Length}'");
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
+                Core.ValidateBufferLengthsAreEqual(output.Length, input.Length);
 
                 output.CopyFrom(input);
                 var stream = AnimationStream.Create(data.RigDefinition, output);
-                if (stream.IsNull)
-                    throw new System.InvalidOperationException($"SetAnimationStreamLocalToParentNode output is invalid.");
+                stream.ValidateIsNotNull();
 
                 var mode = context.Resolve(ports.Mode);
                 var index = context.Resolve(ports.Index);
@@ -190,23 +154,18 @@ namespace Unity.Animation
                     if ((mode & SetFromMode.Scale) != 0)
                         stream.SetLocalToParentScale(index, context.Resolve(ports.Scale));
                 }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
         }
 
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            kData.ProfilerMarker = k_ProfilerMarker;
-#endif
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Rotation, quaternion.identity);
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Scale, mathex.one());
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Mode, SetFromMode.TranslationRotationScale);
+#pragma warning restore 0618
         }
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)

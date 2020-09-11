@@ -39,11 +39,5 @@ namespace Unity.Animation
         {
             public int Value;
         }
-
-        [System.Obsolete("Unity.Animation.BoneRenderer.RigEntity is deprecated use Unity.Animation.RigEntity instead. (RemovedAfter 2020-08-19).", false)]
-        public struct RigEntity : IComponentData
-        {
-            public Entity Value;
-        }
     }
 }

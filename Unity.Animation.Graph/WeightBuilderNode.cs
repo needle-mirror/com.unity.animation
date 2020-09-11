@@ -4,18 +4,17 @@ using Unity.DataFlowGraph.Attributes;
 using Unity.Entities;
 using Unity.Collections;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "7921f59316444412ae7120293a3cfe74", version: 1, category: "Animation Core/Utils", description: "Creates weight masks based on passed channel indices and weights")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of channels", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class WeightBuilderNode
         : NodeDefinition<WeightBuilderNode.Data, WeightBuilderNode.SimPorts, WeightBuilderNode.KernelData, WeightBuilderNode.KernelDefs, WeightBuilderNode.Kernel>
         , IRigContextHandler
     {
+#pragma warning restore 0618
+
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "197cf10d665a4f4981fad39738643998", isHidden: true)]
@@ -77,21 +76,23 @@ namespace Unity.Animation
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
             ref var nodeData = ref GetNodeData(ctx.Handle);
+
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SendMessage(nodeData.ConvertNode, ConvertChannelIndicesNode.SimulationPorts.Rig, rig);
             Set.SendMessage(nodeData.ComputeWeightDataNode, ComputeWeightDataNode.SimulationPorts.Rig, rig);
+#pragma warning restore 0618
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;
     }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     internal class ConvertChannelIndicesNode
         : NodeDefinition<ConvertChannelIndicesNode.Data, ConvertChannelIndicesNode.SimPorts, ConvertChannelIndicesNode.KernelData, ConvertChannelIndicesNode.KernelDefs, ConvertChannelIndicesNode.Kernel>
         , IMsgHandler<Rig>
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("WeightBuilderNode.ConvertChannelIndicesNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -110,9 +111,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -124,10 +122,6 @@ namespace Unity.Animation
                 var channelIndexPorts = context.Resolve(ports.ChannelIndices);
                 var outOffsets = context.Resolve(ref ports.WeightDataOffsets);
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
-
                 context.Resolve(ref ports.WeightCount) = channelIndexPorts.Length;
                 for (int i = 0; i < channelIndexPorts.Length; ++i)
                 {
@@ -136,21 +130,8 @@ namespace Unity.Animation
                         channelIndexPorts[i]
                     );
                 }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {
@@ -163,13 +144,12 @@ namespace Unity.Animation
         }
     }
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     internal class ComputeWeightDataNode
         : NodeDefinition<ComputeWeightDataNode.Data, ComputeWeightDataNode.SimPorts, ComputeWeightDataNode.KernelData, ComputeWeightDataNode.KernelDefs, ComputeWeightDataNode.Kernel>
         , IMsgHandler<Rig>
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfileMarker = new ProfilerMarker("WeightBuilderNode.ComputeWeightDataNode");
-#endif
+#pragma warning restore 0618
 
         public struct SimPorts : ISimulationPortDefinition
         {
@@ -190,9 +170,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfileMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
@@ -204,12 +181,7 @@ namespace Unity.Animation
                 var channelWeightPorts = context.Resolve(ports.ChannelWeights);
                 var maskOffsets = context.Resolve(ports.WeightDataOffsets);
 
-                if (channelWeightPorts.Length != context.Resolve(ports.WeightCount))
-                    throw new System.InvalidOperationException("WeightBuilderNode: ChannelIndices and ChannelWeights port array length mismatch.");
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.Begin();
-#endif
+                Core.ValidateBufferLengthsAreEqual(context.Resolve(ports.WeightCount), channelWeightPorts.Length);
 
                 var channelWeights = new NativeArray<float>(channelWeightPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 channelWeightPorts.CopyTo(channelWeights);
@@ -221,21 +193,8 @@ namespace Unity.Animation
                     channelWeights,
                     context.Resolve(ref ports.Output)
                 );
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfileMarker.End();
-#endif
             }
         }
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.ProfileMarker = k_ProfileMarker;
-        }
-
-#endif
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)
         {

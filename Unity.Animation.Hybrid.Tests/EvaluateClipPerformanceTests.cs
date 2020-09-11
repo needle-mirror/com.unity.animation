@@ -12,7 +12,7 @@ using Unity.PerformanceTesting;
 namespace Unity.Animation.PerformanceTests
 {
     [BurstCompile]
-    public struct BurstedCore
+    struct BurstedCore
     {
         public delegate void EvaluateClipDelegate(ref BlobAssetReference<ClipInstance> clipInstance, float time, ref AnimationStream stream, int additive);
         public static EvaluateClipDelegate EvaluateClip;
@@ -32,7 +32,7 @@ namespace Unity.Animation.PerformanceTests
         }
     }
 
-    [Category("performance"), Category("animation")]
+    [Category("Performance"), Category("Animation")]
     public class EvaluateClipPerformanceTests : AnimationTestsFixture
     {
         [Flags]

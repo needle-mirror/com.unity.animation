@@ -57,6 +57,7 @@ namespace Unity.Animation.Tests
             m_DestinationRig.Dispose();
         }
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void CannotCreateRemapTableWhenSourceRigIsInvalid()
         {
@@ -74,42 +75,6 @@ namespace Unity.Animation.Tests
         }
 
         [Test]
-        public void CanCreateEmptyRemapTableFromEmptyQuery()
-        {
-            var rigRemapQuery = new RigRemapQuery {};
-
-            var remapTable = rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig);
-
-            Assert.That(remapTable.Value.TranslationMappings.Length, Is.EqualTo(0));
-            Assert.That(remapTable.Value.RotationMappings.Length, Is.EqualTo(0));
-            Assert.That(remapTable.Value.ScaleMappings.Length, Is.EqualTo(0));
-            Assert.That(remapTable.Value.FloatMappings.Length, Is.EqualTo(0));
-            Assert.That(remapTable.Value.IntMappings.Length, Is.EqualTo(0));
-        }
-
-        [Test]
-        public void CanCreateRemapTableWithTranslationOffsets()
-        {
-            var rigRemapQuery = new RigRemapQuery
-            {
-                TranslationChannels = new[]
-                {
-                    new ChannelMap { SourceId = "Hips", DestinationId = "AnotherHips", OffsetIndex = 1 },
-                },
-
-                TranslationOffsets = new[]
-                {
-                    new RigTranslationOffset(),
-                    new RigTranslationOffset()
-                }
-            };
-
-            var remapTable = rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig);
-
-            Assert.That(remapTable.Value.TranslationOffsets.Length, Is.EqualTo(2));
-        }
-
-        [Test]
         public void CannotCreateRemapTableWithOutOfBoundsTranslationOffsetIndex()
         {
             var rigRemapQuery = new RigRemapQuery
@@ -121,28 +86,6 @@ namespace Unity.Animation.Tests
             };
 
             Assert.Throws<InvalidOperationException>(() => rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig));
-        }
-
-        [Test]
-        public void CanCreateRemapTableWithRotationOffsets()
-        {
-            var rigRemapQuery = new RigRemapQuery
-            {
-                RotationChannels = new[]
-                {
-                    new ChannelMap { SourceId = "Hips", DestinationId = "AnotherHips", OffsetIndex = 1 },
-                },
-
-                RotationOffsets = new[]
-                {
-                    new RigRotationOffset(),
-                    new RigRotationOffset()
-                }
-            };
-
-            var remapTable = rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig);
-
-            Assert.That(remapTable.Value.RotationOffsets.Length, Is.EqualTo(2));
         }
 
         [Test]
@@ -319,6 +262,66 @@ namespace Unity.Animation.Tests
             };
 
             Assert.Throws<InvalidOperationException>(() => rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig));
+        }
+
+#endif
+
+        [Test]
+        public void CanCreateEmptyRemapTableFromEmptyQuery()
+        {
+            var rigRemapQuery = new RigRemapQuery {};
+
+            var remapTable = rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig);
+
+            Assert.That(remapTable.Value.TranslationMappings.Length, Is.EqualTo(0));
+            Assert.That(remapTable.Value.RotationMappings.Length, Is.EqualTo(0));
+            Assert.That(remapTable.Value.ScaleMappings.Length, Is.EqualTo(0));
+            Assert.That(remapTable.Value.FloatMappings.Length, Is.EqualTo(0));
+            Assert.That(remapTable.Value.IntMappings.Length, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void CanCreateRemapTableWithTranslationOffsets()
+        {
+            var rigRemapQuery = new RigRemapQuery
+            {
+                TranslationChannels = new[]
+                {
+                    new ChannelMap { SourceId = "Hips", DestinationId = "AnotherHips", OffsetIndex = 1 },
+                },
+
+                TranslationOffsets = new[]
+                {
+                    new RigTranslationOffset(),
+                    new RigTranslationOffset()
+                }
+            };
+
+            var remapTable = rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig);
+
+            Assert.That(remapTable.Value.TranslationOffsets.Length, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CanCreateRemapTableWithRotationOffsets()
+        {
+            var rigRemapQuery = new RigRemapQuery
+            {
+                RotationChannels = new[]
+                {
+                    new ChannelMap { SourceId = "Hips", DestinationId = "AnotherHips", OffsetIndex = 1 },
+                },
+
+                RotationOffsets = new[]
+                {
+                    new RigRotationOffset(),
+                    new RigRotationOffset()
+                }
+            };
+
+            var remapTable = rigRemapQuery.ToRigRemapTable(m_SourceRig, m_DestinationRig);
+
+            Assert.That(remapTable.Value.RotationOffsets.Length, Is.EqualTo(2));
         }
 
         [Test]

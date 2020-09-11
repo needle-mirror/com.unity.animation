@@ -5,14 +5,11 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Collections;
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-using Unity.Profiling;
-#endif
-
 using System;
 
 namespace Unity.Animation
 {
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6bbdb6b762d54ffda9f785a665ec3048", version: 1, category: "Animation Core/Constraints", description: "Position constraint based on multiple sources")]
     [PortGroupDefinition(portGroupSizeDescription: "Source Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class PositionConstraintNode
@@ -20,9 +17,7 @@ namespace Unity.Animation
         , IMsgHandler<PositionConstraintNode.SetupMessage>
         , IRigContextHandler
     {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-        static readonly ProfilerMarker k_ProfilerMarker = new ProfilerMarker("Animation.PositionConstraintNode");
-#endif
+#pragma warning restore 0618
 
         [Serializable]
         public struct SetupMessage
@@ -63,9 +58,6 @@ namespace Unity.Animation
 
         public struct KernelData : IKernelData
         {
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            public ProfilerMarker ProfilerMarker;
-#endif
             public BlobAssetReference<RigDefinition> RigDefinition;
 
             public int Index;
@@ -79,23 +71,19 @@ namespace Unity.Animation
             {
                 var input = ctx.Resolve(ports.Input);
                 var output = ctx.Resolve(ref ports.Output);
-                if (input.Length != output.Length)
-                    throw new InvalidOperationException($"PositionConstrainNode: Input Length '{input.Length}' doesn't match Output Length '{output.Length}'");
 
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.Begin();
-#endif
-
+                Core.ValidateBufferLengthsAreEqual(output.Length, input.Length);
                 output.CopyFrom(input);
+
                 var stream = AnimationStream.Create(data.RigDefinition, output);
-                if (stream.IsNull)
-                    throw new ArgumentNullException("PositionConstrainNode: Invalid output stream");
+                stream.ValidateIsNotNull();
 
                 var srcPositionPorts = ctx.Resolve(ports.SourcePositions);
                 var srcOffsetPorts = ctx.Resolve(ports.SourceOffsets);
                 var srcWeightPorts = ctx.Resolve(ports.SourceWeights);
-                if (srcPositionPorts.Length != srcOffsetPorts.Length || srcOffsetPorts.Length != srcWeightPorts.Length)
-                    throw new ArgumentException("PositionConstrainNode: SourcePositions, SourceOffsets and SourceWeights sizes must be the same");
+
+                Core.ValidateBufferLengthsAreEqual(srcOffsetPorts.Length, srcPositionPorts.Length);
+                Core.ValidateBufferLengthsAreEqual(srcOffsetPorts.Length, srcWeightPorts.Length);
 
                 var srcPositionArray = new NativeArray<float3>(srcPositionPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 var srcOffsetArray   = new NativeArray<float3>(srcOffsetPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
@@ -114,23 +102,19 @@ namespace Unity.Animation
                     SourceWeights = srcWeightArray
                 };
                 Core.SolvePositionConstraint(ref stream, constraintData, ctx.Resolve(ports.Weight));
-
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-                data.ProfilerMarker.End();
-#endif
             }
         }
 
         protected override void Init(InitContext ctx)
         {
             ref var kData = ref GetKernelData(ctx.Handle);
-#if !UNITY_DISABLE_ANIMATION_PROFILING
-            kData.ProfilerMarker = k_ProfilerMarker;
-#endif
+
             kData.Index = -1;
             kData.LocalAxesMask = new bool3(true);
 
+#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
             Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
+#pragma warning restore 0618
         }
 
         public void HandleMessage(in MessageContext ctx, in Rig rig)

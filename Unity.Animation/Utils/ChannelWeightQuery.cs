@@ -1,6 +1,5 @@
 using System;
-using System.Collections.Generic;
-using Unity.Assertions;
+using System.Diagnostics;
 using Unity.Collections;
 using Unity.Entities;
 
@@ -21,6 +20,7 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="channels">The list to validate.</param>
         /// <exception cref="InvalidOperationException">A ChannelWeightQuery cannot have more than one weight for the same channel.</exception>
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         void ValidateNoDuplicatedBlendChannel(NativeList<ChannelWeightMap> channels)
         {
             for (int i = 0; i != channels.Length; i++)
@@ -46,10 +46,8 @@ namespace Unity.Animation
         void AddMatchingChannelWeightsToEntries(NativeList<ChannelWeightMap> channels, ref BlobArray<StringHash> sourceBindings, int offset,
             NativeList<WeightEntry> entries)
         {
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            Assert.IsTrue(channels.IsCreated);
-            Assert.IsTrue(entries.IsCreated);
-#endif
+            Core.ValidateIsCreated(channels);
+            Core.ValidateIsCreated(entries);
 
             for (int i = 0; i != channels.Length; i++)
             {
@@ -69,8 +67,7 @@ namespace Unity.Animation
         /// <exception cref="ArgumentNullException">The rig should be defined.</exception>
         public BlobAssetReference<ChannelWeightTable> ToChannelWeightTable(BlobAssetReference<RigDefinition> rigDef)
         {
-            if (rigDef == default)
-                throw new ArgumentNullException(nameof(rigDef));
+            Core.ValidateIsCreated(rigDef);
 
             var channels = new NativeList<ChannelWeightMap>(Allocator.Temp);
             channels.CopyFrom(Channels);

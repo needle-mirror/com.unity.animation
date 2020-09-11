@@ -4,7 +4,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using Unity.Mathematics;
-using UnityEngine.Assertions;
 
 
 namespace Unity.Animation
@@ -225,13 +224,10 @@ namespace Unity.Animation
             var destPtr = (float*)samples.GetUnsafePtr();
             var srcPtr = (float*)source.Value.Samples.GetUnsafePtr();
 
-#if !UNITY_DISABLE_ANIMATION_CHECKS
-            // will trigger if the data layout order changes.
-            Assert.IsTrue(source.Value.Bindings.TranslationSamplesOffset <= source.Value.Bindings.ScaleSamplesOffset &&
-                source.Value.Bindings.ScaleSamplesOffset <= source.Value.Bindings.FloatSamplesOffset &&
-                source.Value.Bindings.FloatSamplesOffset <= source.Value.Bindings.IntSamplesOffset &&
-                source.Value.Bindings.IntSamplesOffset <= source.Value.Bindings.RotationSamplesOffset, "Clip Data Layout has changed.");
-#endif
+            Core.ValidateLessOrEqual(source.Value.Bindings.TranslationSamplesOffset, source.Value.Bindings.ScaleSamplesOffset);
+            Core.ValidateLessOrEqual(source.Value.Bindings.ScaleSamplesOffset, source.Value.Bindings.FloatSamplesOffset);
+            Core.ValidateLessOrEqual(source.Value.Bindings.FloatSamplesOffset, source.Value.Bindings.IntSamplesOffset);
+            Core.ValidateLessOrEqual(source.Value.Bindings.IntSamplesOffset, source.Value.Bindings.RotationSamplesOffset);
 
             InterleavedBlit(ref rotBindings, ref source.Value.Bindings.RotationBindings, destPtr + clip.Bindings.RotationSamplesOffset, srcPtr + source.Value.Bindings.RotationSamplesOffset, BindingSet.RotationKeyFloatCount, destStride, sourceStride, numSamples);
 
