@@ -58,7 +58,7 @@ namespace Unity.Animation
         Ptr<quaternion4> m_LocalRotationData;
 
         /// <summary>
-        /// Channel Pass masks keep track of which channels have been modified in a pass (PreAnimationGraphSystem vs PostAnimationGraphSystem).
+        /// Channel Pass masks keep track of which channels have been modified in a pass (ProcessDefaultAnimationGraph vs ProcessLateAnimationGraph).
         /// </summary>
         internal UnsafeBitArray   m_ChannelPassMasks;
 
@@ -637,7 +637,7 @@ namespace Unity.Animation
         }
 
         /// <summary>
-        /// Pass channel masks, always cleared at the beginning of the frame in <see cref="BeginFrameAnimationSystem"/> an in <see cref="AnimationGraphSystemBase"/> update( <see cref="PreAnimationGraphSystem"/> and <see cref="PostAnimationGraphSystem"/>).
+        /// Pass channel masks, always cleared at the beginning of the frame in <see cref="InitializeAnimation"/> an in <see cref="AnimationGraphSystemBase"/> update( <see cref="ProcessDefaultAnimationGraph"/> and <see cref="ProcessLateAnimationGraph"/>).
         /// </summary>
         public ChannelMask PassMask
         {
@@ -649,7 +649,7 @@ namespace Unity.Animation
         }
 
         /// <summary>
-        /// Frame channel masks, always cleared at the beginning of the frame in <see cref="BeginFrameAnimationSystem"/>.
+        /// Frame channel masks, always cleared at the beginning of the frame in <see cref="InitializeAnimation"/>.
         /// </summary>
         public ChannelMask FrameMask
         {
@@ -798,41 +798,6 @@ namespace Unity.Animation
             ValidateIsWritable();
             ref var rig = ref Rig.Value;
             UnsafeUtility.MemCpy(GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * rig.Bindings.ChannelSize);
-        }
-    }
-
-    public static class AnimationStreamUtils
-    {
-        [Obsolete("Use AnimationStream.CopyFrom(ref AnimationStream other) instead. (RemovedAfter 2020-09-30).")]
-        unsafe public static void MemCpy(ref AnimationStream dst, ref AnimationStream src)
-        {
-            dst.ValidateIsNotNull();
-            src.ValidateIsNotNull();
-
-            Core.ValidateBufferLengthsAreEqual(dst.TranslationCount, src.TranslationCount);
-            Core.ValidateBufferLengthsAreEqual(dst.RotationCount, src.RotationCount);
-            Core.ValidateBufferLengthsAreEqual(dst.ScaleCount, src.ScaleCount);
-            Core.ValidateBufferLengthsAreEqual(dst.FloatCount, src.FloatCount);
-            Core.ValidateBufferLengthsAreEqual(dst.IntCount, src.IntCount);
-
-            UnsafeUtility.MemCpy(dst.GetUnsafePtr(), src.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * src.Rig.Value.Bindings.StreamSize);
-        }
-
-        [Obsolete("Use AnimationStream.ResetToDefaultValues() instead. (RemovedAfter 2020-09-30).")]
-        unsafe public static void SetDefaultValues(ref AnimationStream stream)
-        {
-            stream.ValidateIsNotNull();
-
-            ref var rig = ref stream.Rig.Value;
-            UnsafeUtility.MemCpy(stream.GetUnsafePtr(), rig.DefaultValues.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * rig.Bindings.ChannelSize);
-        }
-
-        [Obsolete("Use AnimationStream.ResetToZero() instead. (RemovedAfter 2020-09-30).")]
-        unsafe public static void MemClear(ref AnimationStream stream)
-        {
-            stream.ValidateIsNotNull();
-
-            UnsafeUtility.MemClear(stream.GetUnsafePtr(), UnsafeUtility.SizeOf<AnimatedData>() * stream.Rig.Value.Bindings.StreamSize);
         }
     }
 

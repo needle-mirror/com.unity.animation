@@ -31,12 +31,12 @@ namespace Unity.Animation.Tests
             var rig = new Rig { Value = RigBuilder.CreateRigDefinition(channels) };
 
             var rigRemapper = CreateNode<RigRemapperNode>();
-
             Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, rig);
 
-            var otherRig = Set.GetDefinition(rigRemapper).ExposeKernelData(rigRemapper).SourceRigDefinition;
-
-            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
+            Set.SendTest(rigRemapper, (RigRemapperNode.Data data) =>
+            {
+                Assert.That(data.m_KernelData.SourceRigDefinition.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
+            });
         }
 
         [Test]
@@ -52,12 +52,12 @@ namespace Unity.Animation.Tests
             var rig = new Rig { Value = RigBuilder.CreateRigDefinition(channels) };
 
             var rigRemapper = CreateNode<RigRemapperNode>();
-
             Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, rig);
 
-            var otherRig = Set.GetDefinition(rigRemapper).ExposeKernelData(rigRemapper).DestinationRigDefinition;
-
-            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
+            Set.SendTest(rigRemapper, (RigRemapperNode.Data data) =>
+            {
+                Assert.That(data.m_KernelData.DestinationRigDefinition.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
+            });
         }
 
         [Test]

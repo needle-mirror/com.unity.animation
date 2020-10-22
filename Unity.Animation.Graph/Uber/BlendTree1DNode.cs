@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Entities;
@@ -7,15 +6,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "a88bd40bda0f4f379831b0c7f023ce6e", version: 1, category: "Animation Core/Blend Trees", description: "Evaluates a 1D BlendTree based on a blend parameter")]
     public class BlendTree1DNode
-        : NodeDefinition<BlendTree1DNode.Data, BlendTree1DNode.SimPorts, BlendTree1DNode.KernelData, BlendTree1DNode.KernelDefs, BlendTree1DNode.Kernel>
-        , IMsgHandler<BlobAssetReference<BlendTree1D>>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<BlendTree1DNode.SimPorts, BlendTree1DNode.KernelDefs>
+        , IRigContextHandler<BlendTree1DNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "390da22df44642a9b5ad2adaaf83c1a6", description: "BlendTree data")]
@@ -25,22 +20,130 @@ namespace Unity.Animation
 
             [PortDefinition(guid: "9c16a594bbf44b8cb0d4757a37037bb5", isHidden: true)]
             public MessageOutput<BlendTree1DNode, Rig> RigOut;
+
+            // For internal messages in node data.
+            internal MessageOutput<BlendTree1DNode, BlobAssetReference<BlendTree1D>> m_OutBlendTree;
+            internal PortArray<MessageOutput<BlendTree1DNode, ClipConfiguration>> m_OutClipConfigs;
+            internal PortArray<MessageOutput<BlendTree1DNode, BlobAssetReference<Clip>>> m_OutClips;
+            internal PortArray<MessageOutput<BlendTree1DNode, float>> m_OutMotionDurations;
+            internal PortArray<MessageOutput<BlendTree1DNode, int>> m_OutIndices;
         }
 
         [Managed]
-        public struct Data : INodeData
+        internal struct Data : INodeData, IInit, IDestroy
+            , IMsgHandler<Rig>, IMsgHandler<BlobAssetReference<BlendTree1D>>
         {
             // Assets.
-            public BlobAssetReference<RigDefinition>           RigDefinition;
-            public BlobAssetReference<BlendTree1D>             BlendTree;
+            internal BlobAssetReference<RigDefinition>  m_RigDefinition;
+            BlobAssetReference<BlendTree1D>             m_BlendTree;
 
-            internal NodeHandle<ComputeBlendTree1DWeightsNode> ComputeBlendTree1DWeightsNode;
-            internal NodeHandle<BlendTree1DNode>               BlendTree1DNode;
-            internal NodeHandle<KernelPassThroughNodeFloat>    NormalizedTimeNode;
-            internal NodeHandle<NMixerNode>                    NMixerNode;
+            NodeHandle<ComputeBlendTree1DWeightsNode> m_ComputeBlendTree1DWeightsNode;
+            NodeHandle<KernelPassThroughNodeFloat>    m_NormalizedTimeNode;
+            NodeHandle<NMixerNode>                    m_NMixerNode;
 
-            internal List<NodeHandle<UberClipNode>>              Motions;
-            internal List<NodeHandle<GetBufferElementValueNode>> MotionDurationNodes;
+            internal List<NodeHandle<UberClipNode>>     m_Motions;
+            List<NodeHandle<GetBufferElementValueNode>> m_MotionDurationNodes;
+
+
+            public void Init(InitContext ctx)
+            {
+                var thisHandle = ctx.Set.CastHandle<BlendTree1DNode>(ctx.Handle);
+
+                m_NormalizedTimeNode = ctx.Set.Create<KernelPassThroughNodeFloat>();
+                m_NMixerNode = ctx.Set.Create<NMixerNode>();
+                m_ComputeBlendTree1DWeightsNode = ctx.Set.Create<ComputeBlendTree1DWeightsNode>();
+
+                ctx.Set.Connect(thisHandle, SimulationPorts.RigOut, m_NMixerNode, NMixerNode.SimulationPorts.Rig);
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutBlendTree, m_ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.SimulationPorts.BlendTree);
+
+                ctx.ForwardInput(KernelPorts.NormalizedTime, m_NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
+                ctx.ForwardInput(KernelPorts.BlendParameter, m_ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.BlendParameter);
+                ctx.ForwardOutput(KernelPorts.Output, m_NMixerNode, NMixerNode.KernelPorts.Output);
+                ctx.ForwardOutput(KernelPorts.Duration, m_ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.Duration);
+
+                m_Motions = new List<NodeHandle<UberClipNode>>();
+                m_MotionDurationNodes = new List<NodeHandle<GetBufferElementValueNode>>();
+            }
+
+            public void Destroy(DestroyContext ctx)
+            {
+                ctx.Set.Destroy(m_NormalizedTimeNode);
+                ctx.Set.Destroy(m_NMixerNode);
+                ctx.Set.Destroy(m_ComputeBlendTree1DWeightsNode);
+
+                for (int i = 0; i < m_Motions.Count; i++)
+                    ctx.Set.Destroy(m_Motions[i]);
+
+                for (int i = 0; i < m_MotionDurationNodes.Count; i++)
+                    ctx.Set.Destroy(m_MotionDurationNodes[i]);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
+            {
+                var thisHandle = ctx.Set.CastHandle<BlendTree1DNode>(ctx.Handle);
+
+                m_BlendTree = blendTree;
+
+                ctx.EmitMessage(SimulationPorts.m_OutBlendTree, blendTree);
+
+                for (int i = 0; i < m_Motions.Count; i++)
+                    ctx.Set.Destroy(m_Motions[i]);
+
+                for (int i = 0; i < m_MotionDurationNodes.Count; i++)
+                    ctx.Set.Destroy(m_MotionDurationNodes[i]);
+
+                m_Motions.Clear();
+                m_MotionDurationNodes.Clear();
+
+                var length = m_BlendTree.Value.Motions.Length;
+
+                ctx.Set.SetPortArraySize(m_NMixerNode, NMixerNode.KernelPorts.Inputs, (ushort)length);
+                ctx.Set.SetPortArraySize(m_NMixerNode, NMixerNode.KernelPorts.Weights, (ushort)length);
+                ctx.Set.SetPortArraySize(m_ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.MotionDurations, (ushort)length);
+
+                ctx.Set.SetPortArraySize(thisHandle, SimulationPorts.m_OutClipConfigs, (ushort)length);
+                ctx.Set.SetPortArraySize(thisHandle, SimulationPorts.m_OutClips, (ushort)length);
+                ctx.Set.SetPortArraySize(thisHandle, SimulationPorts.m_OutMotionDurations, (ushort)length);
+                ctx.Set.SetPortArraySize(thisHandle, SimulationPorts.m_OutIndices, (ushort)length);
+
+                for (int i = 0; i < length; i++)
+                {
+                    var clip = m_BlendTree.Value.Motions[i].Clip;
+                    Core.ValidateIsCreated(clip);
+
+                    var motionNode = ctx.Set.Create<UberClipNode>();
+
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutClipConfigs, i, motionNode, UberClipNode.SimulationPorts.Configuration);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutClips, i, motionNode, UberClipNode.SimulationPorts.Clip);
+                    ctx.EmitMessage(SimulationPorts.m_OutClipConfigs, i, new ClipConfiguration { Mask = ClipConfigurationMask.NormalizedTime });
+                    ctx.EmitMessage(SimulationPorts.m_OutClips, i, clip);
+
+                    var bufferElementToPortNode = ctx.Set.Create<GetBufferElementValueNode>();
+
+                    m_Motions.Add(motionNode);
+                    m_MotionDurationNodes.Add(bufferElementToPortNode);
+
+                    ctx.Set.Connect(thisHandle, SimulationPorts.RigOut, motionNode, UberClipNode.SimulationPorts.Rig);
+                    ctx.Set.Connect(m_NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, motionNode, UberClipNode.KernelPorts.Time);
+                    ctx.Set.Connect(motionNode, UberClipNode.KernelPorts.Output, m_NMixerNode, NMixerNode.KernelPorts.Inputs, i);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutMotionDurations, i, m_ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.MotionDurations, i);
+                    ctx.EmitMessage(SimulationPorts.m_OutMotionDurations,  i, clip.Value.Duration);
+
+                    ctx.Set.Connect(m_ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.Weights, bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Input);
+                    ctx.Set.Connect(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Output, m_NMixerNode, NMixerNode.KernelPorts.Weights, i);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutIndices, i, bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Index);
+                    ctx.EmitMessage(SimulationPorts.m_OutIndices,  i, i);
+                }
+
+                // Forward rig definition to all children.
+                ctx.EmitMessage(SimulationPorts.RigOut, new Rig { Value = m_RigDefinition });
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_RigDefinition = rig;
+                ctx.EmitMessage(SimulationPorts.RigOut, rig);
+            }
         }
 
         public struct KernelDefs : IKernelPortDefinition
@@ -56,126 +159,16 @@ namespace Unity.Animation
             public DataOutput<BlendTree1DNode, float> Duration;
         }
 
-        public struct KernelData : IKernelData
-        {
-        }
+        struct KernelData : IKernelData {}
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
             }
         }
 
-        protected override void Init(InitContext ctx)
-        {
-            ref var data = ref GetNodeData(ctx.Handle);
-            data.BlendTree1DNode = Set.CastHandle<BlendTree1DNode>(ctx.Handle);
-
-            data.NormalizedTimeNode = Set.Create<KernelPassThroughNodeFloat>();
-            data.NMixerNode = Set.Create<NMixerNode>();
-            data.ComputeBlendTree1DWeightsNode = Set.Create<ComputeBlendTree1DWeightsNode>();
-
-            Set.Connect(data.BlendTree1DNode, SimulationPorts.RigOut, data.NMixerNode, NMixerNode.SimulationPorts.Rig);
-
-            ctx.ForwardInput(KernelPorts.NormalizedTime, data.NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
-            ctx.ForwardInput(KernelPorts.BlendParameter, data.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.BlendParameter);
-            ctx.ForwardOutput(KernelPorts.Output, data.NMixerNode, NMixerNode.KernelPorts.Output);
-            ctx.ForwardOutput(KernelPorts.Duration, data.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.Duration);
-
-            data.Motions = new List<NodeHandle<UberClipNode>>();
-            data.MotionDurationNodes = new List<NodeHandle<GetBufferElementValueNode>>();
-        }
-
-        protected override void Destroy(DestroyContext ctx)
-        {
-            var data = GetNodeData(ctx.Handle);
-
-            Set.Destroy(data.NormalizedTimeNode);
-            Set.Destroy(data.NMixerNode);
-            Set.Destroy(data.ComputeBlendTree1DWeightsNode);
-
-            for (int i = 0; i < data.Motions.Count; i++)
-                Set.Destroy(data.Motions[i]);
-
-            for (int i = 0; i < data.MotionDurationNodes.Count; i++)
-                Set.Destroy(data.MotionDurationNodes[i]);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-
-            var thisHandle = Set.CastHandle<BlendTree1DNode>(ctx.Handle);
-
-            nodeData.BlendTree = blendTree;
-
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SendMessage(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.SimulationPorts.BlendTree, blendTree);
-#pragma warning restore 0618
-
-            for (int i = 0; i < nodeData.Motions.Count; i++)
-                Set.Destroy(nodeData.Motions[i]);
-
-            for (int i = 0; i < nodeData.MotionDurationNodes.Count; i++)
-                Set.Destroy(nodeData.MotionDurationNodes[i]);
-
-            nodeData.Motions.Clear();
-            nodeData.MotionDurationNodes.Clear();
-
-            var length = nodeData.BlendTree.Value.Motions.Length;
-
-            Set.SetPortArraySize(nodeData.NMixerNode, NMixerNode.KernelPorts.Inputs, (ushort)length);
-            Set.SetPortArraySize(nodeData.NMixerNode, NMixerNode.KernelPorts.Weights, (ushort)length);
-            Set.SetPortArraySize(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.MotionDurations, (ushort)length);
-
-            for (int i = 0; i < length; i++)
-            {
-                var clip = nodeData.BlendTree.Value.Motions[i].Clip;
-                Core.ValidateIsCreated(clip);
-
-                var motionNode = Set.Create<UberClipNode>();
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-                Set.SendMessage(motionNode, UberClipNode.SimulationPorts.Configuration, new ClipConfiguration { Mask = ClipConfigurationMask.NormalizedTime });
-                Set.SendMessage(motionNode, UberClipNode.SimulationPorts.Clip, clip);
-#pragma warning restore 0618
-
-                var bufferElementToPortNode = Set.Create<GetBufferElementValueNode>();
-
-                nodeData.Motions.Add(motionNode);
-                nodeData.MotionDurationNodes.Add(bufferElementToPortNode);
-
-                Set.Connect(thisHandle, SimulationPorts.RigOut, motionNode, UberClipNode.SimulationPorts.Rig);
-                Set.Connect(nodeData.NormalizedTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, motionNode, UberClipNode.KernelPorts.Time);
-                Set.Connect(motionNode, UberClipNode.KernelPorts.Output, nodeData.NMixerNode, NMixerNode.KernelPorts.Inputs, i);
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-                Set.SetData(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.MotionDurations, i, clip.Value.Duration);
-#pragma warning restore 0618
-
-                Set.Connect(nodeData.ComputeBlendTree1DWeightsNode, ComputeBlendTree1DWeightsNode.KernelPorts.Weights, bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Input);
-                Set.Connect(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Output, nodeData.NMixerNode, NMixerNode.KernelPorts.Weights, i);
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-                Set.SetData(bufferElementToPortNode, GetBufferElementValueNode.KernelPorts.Index, i);
-#pragma warning restore 0618
-            }
-
-            // Forward rig definition to all children.
-            ctx.EmitMessage(SimulationPorts.RigOut, new Rig { Value = nodeData.RigDefinition });
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-            nodeData.RigDefinition = rig;
-            // Forward rig definition to all children
-            ctx.EmitMessage(SimulationPorts.RigOut, rig);
-        }
-
-        // Needed for test purpose to inspect internal node
-        internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
-
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }

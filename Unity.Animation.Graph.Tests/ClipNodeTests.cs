@@ -734,5 +734,15 @@ namespace Unity.Animation.Tests
 
             set.Destroy(clipLoopPlayerNode);
         }
+
+        [Test]
+        public void ConsecutiveCallsToSetTimeDoesNotThrow()
+        {
+            var data = CreateClipPlayerNodeGraph(0.2f, 1.0f, m_Rig, m_LinearHierarchyClip, new ClipConfiguration { Mask = ClipConfigurationMask.LoopTime });
+
+            Assert.DoesNotThrow(() => { Set.SendMessage(data.ClipPlayerNode, ClipPlayerNode.SimulationPorts.Time, 0.5f); });
+            Assert.DoesNotThrow(() => { Set.SendMessage(data.ClipPlayerNode, ClipPlayerNode.SimulationPorts.Time, 0.2f); });
+            Assert.DoesNotThrow(() => { m_AnimationGraphSystem.Update(); });
+        }
     }
 }

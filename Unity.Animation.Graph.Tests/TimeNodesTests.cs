@@ -95,21 +95,23 @@ namespace Unity.Animation.Tests
             var output = CreateGraphValue(timeCounterNode, TimeCounterNode.KernelPorts.Time);
 
             var expectedTime = 0.0f;
+            var currentTime = 0.0f;
 
             var handle = Set.Update(default);
             expectedTime += deltaTime * speed;
+            currentTime = Set.GetValueBlocking(output);
+            Assert.That(currentTime, Is.EqualTo(expectedTime));
 
             handle = Set.Update(handle);
             expectedTime += deltaTime * speed;
+            currentTime = Set.GetValueBlocking(output);
+            Assert.That(currentTime, Is.EqualTo(expectedTime));
 
             Set.SendMessage(timeCounterNode, TimeCounterNode.SimulationPorts.Time, time);
             expectedTime = time;
-
             Set.Update(handle);
-
-            float value = Set.GetValueBlocking(output);
-
-            Assert.That(value, Is.EqualTo(expectedTime));
+            currentTime = Set.GetValueBlocking(output);
+            Assert.That(currentTime, Is.EqualTo(expectedTime));
         }
     }
 }

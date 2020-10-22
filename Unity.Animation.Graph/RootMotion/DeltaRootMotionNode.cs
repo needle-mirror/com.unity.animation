@@ -6,14 +6,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "0d7b1e6e91364decbb7284a9014ebbce", version: 1, category: "Animation Core/Root Motion", description: "Computes the delta root motion from a previous and current animation stream. This node is internally used by the UberClipNode.")]
-    public class DeltaRootMotionNode
-        : NodeDefinition<DeltaRootMotionNode.Data, DeltaRootMotionNode.SimPorts, DeltaRootMotionNode.KernelData, DeltaRootMotionNode.KernelDefs, DeltaRootMotionNode.Kernel>
-        , IRigContextHandler
+    public class DeltaRootMotionNode :
+        SimulationKernelNodeDefinition<DeltaRootMotionNode.SimPorts, DeltaRootMotionNode.KernelDefs>
+        , IRigContextHandler<DeltaRootMotionNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "e9eb8fd87a844058a675a311bd9b641a", isHidden: true)]
@@ -31,17 +28,30 @@ namespace Unity.Animation
             public DataOutput<DeltaRootMotionNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -65,20 +75,6 @@ namespace Unity.Animation
                 outputStream.SetLocalToParentRotation(0, deltaX.rot);
             }
         }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-        }
-
-        internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;

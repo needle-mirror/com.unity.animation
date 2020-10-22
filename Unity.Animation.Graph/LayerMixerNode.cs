@@ -11,16 +11,12 @@ namespace Unity.Animation
         Additive,
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "368c53e919534c6f99c0d1b2577e3e2b", version: 1, category: "Animation Core/Mixers", description: "Blends animation streams based on an ordered layer approach. Each layer can blend in either override or additive mode. Weight masks can be built using the WeightBuilderNode.")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of layers", groupIndex: 1, minInstance: 2, maxInstance: -1, simulationPortToDrive: "LayerCount")]
     public class LayerMixerNode
-        : NodeDefinition<LayerMixerNode.Data, LayerMixerNode.SimPorts, LayerMixerNode.KernelData, LayerMixerNode.KernelDefs, LayerMixerNode.Kernel>
-        , IMsgHandler<ushort>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<LayerMixerNode.SimPorts, LayerMixerNode.KernelDefs>
+        , IRigContextHandler<LayerMixerNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "78359c86e5bf400cb82958f6e40d2318", isHidden: true)]
@@ -44,19 +40,46 @@ namespace Unity.Animation
             public DataOutput<LayerMixerNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        internal struct Data : INodeData, IMsgHandler<Rig>, IMsgHandler<ushort>
         {
+            internal KernelData m_KernelData;
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_KernelData.RigDefinition = rig;
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in ushort layerCount)
+            {
+                if (layerCount != m_KernelData.LayerCount)
+                {
+                    m_KernelData.LayerCount = layerCount;
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.Inputs, layerCount);
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.Weights, layerCount);
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.WeightMasks, layerCount);
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.BlendingModes, layerCount);
+
+                    ctx.UpdateKernelData(m_KernelData);
+                }
+            }
         }
 
-        public unsafe struct KernelData : IKernelData
+        internal struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition>    RigDefinition;
-
             public int                                  LayerCount;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public unsafe void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -99,36 +122,6 @@ namespace Unity.Animation
                 }
             }
         }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.RigDefinition = rig;
-
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-        }
-
-        public unsafe void HandleMessage(in MessageContext ctx, in ushort layerCount)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            ref var data = ref GetNodeData(ctx.Handle);
-
-            if (layerCount != kData.LayerCount)
-            {
-                kData.LayerCount = layerCount;
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.Inputs, layerCount);
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.Weights, layerCount);
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.WeightMasks, layerCount);
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)LayerMixerNode.KernelPorts.BlendingModes, layerCount);
-            }
-        }
-
-        internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;

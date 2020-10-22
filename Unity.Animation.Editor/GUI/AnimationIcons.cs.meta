@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: 9182c627397e2e04996ee9b01d39ee2b
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - Bone_Icon: {fileID: 2800000, guid: 16d3340d8b9c2084797342a2274dedd9, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

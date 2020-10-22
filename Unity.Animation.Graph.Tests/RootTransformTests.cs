@@ -360,7 +360,7 @@ namespace Unity.Animation.Tests
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
 
             // Add animated root motion component
-            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            m_Manager.AddComponent<ProcessDefaultAnimationGraph.AnimatedRootMotion>(entity);
 
             Assert.That(m_Manager.GetComponentData<Translation>(entity).Value, Is.EqualTo(float3.zero).Using(TranslationComparer));
             Assert.That(m_Manager.GetComponentData<Rotation>(entity).Value, Is.EqualTo(quaternion.identity).Using(RotationComparer));
@@ -450,7 +450,7 @@ namespace Unity.Animation.Tests
             var clipNode = CreateGraph(entity, m_Rig, PreSet, m_MaskTestClip_TChannels);
 
             // Add animated root motion component
-            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            m_Manager.AddComponent<ProcessDefaultAnimationGraph.AnimatedRootMotion>(entity);
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -494,7 +494,7 @@ namespace Unity.Animation.Tests
 
             // Add animated root motion and offset components
             var rmOffset = new RigidTransform(quaternion.AxisAngle(math.float3(1f, 0f, 0f), math.radians(30f)), math.float3(2f, 3f, 4f));
-            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            m_Manager.AddComponent<ProcessDefaultAnimationGraph.AnimatedRootMotion>(entity);
             m_Manager.AddComponentData(entity, new RootMotionOffset { Value = rmOffset });
 
             Assert.That(m_Manager.GetComponentData<Translation>(entity).Value, Is.EqualTo(float3.zero).Using(TranslationComparer));
@@ -542,7 +542,7 @@ namespace Unity.Animation.Tests
             CreateGraph(entity, m_Rig, PostSet, m_PostGraphClip);
 
             // Add animated root motion and teleport
-            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            m_Manager.AddComponent<ProcessDefaultAnimationGraph.AnimatedRootMotion>(entity);
 
             var teleport1Tx = new RigidTransform(quaternion.AxisAngle(math.float3(0f, 1f, 0f), math.radians(15f)), math.float3(4f, 1f, 2f));
             m_Manager.SetComponentData(entity, new Translation { Value = teleport1Tx.pos });
@@ -624,7 +624,7 @@ namespace Unity.Animation.Tests
             m_PreAnimationGraph.Update();
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-            World.GetOrCreateSystem<RigComputeMatricesSystem>().Update();
+            World.GetOrCreateSystem<ComputeRigMatrices>().Update();
             m_Manager.CompleteAllJobs();
 
             var stream = AnimationStream.CreateReadOnly(
@@ -672,7 +672,7 @@ namespace Unity.Animation.Tests
             m_PreAnimationGraph.Update();
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-            World.GetOrCreateSystem<RigComputeMatricesSystem>().Update();
+            World.GetOrCreateSystem<ComputeRigMatrices>().Update();
             m_Manager.CompleteAllJobs();
 
             // Validate that root bone LocalToWorld has been updated

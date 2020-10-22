@@ -95,7 +95,7 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.Create(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.PassMask.HasNone(), "Mask should be set to false for all channels after PreAnimationGraph.");
+            Assert.IsTrue(stream.PassMask.HasNone(), "Mask should be set to false for all channels after ProcessDefaultAnimationGraph.");
 
             stream.SetMasks(true);
             Assert.IsTrue(stream.PassMask.HasAll(), "Mask should be set to true for all channels after explicit set.");
@@ -104,7 +104,7 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.CreateReadOnly(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.PassMask.HasNone(), "Mask should be set to false for all channels after PostAnimationGraph.");
+            Assert.IsTrue(stream.PassMask.HasNone(), "Mask should be set to false for all channels after ProcessLateAnimationGraph.");
         }
 
         [Test]
@@ -123,7 +123,7 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.Create(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after PreAnimationGraph.");
+            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after ProcessDefaultAnimationGraph.");
 
             stream.FrameMask.Set(true);
             Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after explicit set.");
@@ -132,7 +132,7 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.CreateReadOnly(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after PostAnimationGraph.");
+            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after ProcessLateAnimationGraph.");
         }
 
         [Test]
@@ -151,10 +151,10 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.Create(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.That(stream.PassMask.CountChannels(), Is.EqualTo(3), "Mask should be set to false for all channels after PreAnimationGraph except for the root.");
-            Assert.That(stream.PassMask.IsTranslationSet(0), Is.True, "Mask should be set to true for root after PreAnimationGraph.");
-            Assert.That(stream.PassMask.IsRotationSet(0), Is.True, "Mask should be set to true for root after PreAnimationGraph.");
-            Assert.That(stream.PassMask.IsScaleSet(0), Is.True, "Mask should be set to true for root after PreAnimationGraph.");
+            Assert.That(stream.PassMask.CountChannels(), Is.EqualTo(3), "Mask should be set to false for all channels after ProcessDefaultAnimationGraph except for the root.");
+            Assert.That(stream.PassMask.IsTranslationSet(0), Is.True, "Mask should be set to true for root after ProcessDefaultAnimationGraph.");
+            Assert.That(stream.PassMask.IsRotationSet(0), Is.True, "Mask should be set to true for root after ProcessDefaultAnimationGraph.");
+            Assert.That(stream.PassMask.IsScaleSet(0), Is.True, "Mask should be set to true for root after ProcessDefaultAnimationGraph.");
 
             stream.PassMask.Set(true);
             Assert.IsTrue(stream.PassMask.HasAll(), "Mask should be set to true for all channels after explicit set.");
@@ -163,10 +163,10 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.CreateReadOnly(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.That(stream.PassMask.CountChannels(), Is.EqualTo(3), "Mask should be set to false for all channels after PostAnimationGraph except for the root.");
-            Assert.That(stream.PassMask.IsTranslationSet(0), Is.True, "Mask should be set to true for root after PostAnimationGraph.");
-            Assert.That(stream.PassMask.IsRotationSet(0), Is.True, "Mask should be set to true for root after PostAnimationGraph.");
-            Assert.That(stream.PassMask.IsScaleSet(0), Is.True, "Mask should be set to true for root after PostAnimationGraph.");
+            Assert.That(stream.PassMask.CountChannels(), Is.EqualTo(3), "Mask should be set to false for all channels after ProcessLateAnimationGraph except for the root.");
+            Assert.That(stream.PassMask.IsTranslationSet(0), Is.True, "Mask should be set to true for root after ProcessLateAnimationGraph.");
+            Assert.That(stream.PassMask.IsRotationSet(0), Is.True, "Mask should be set to true for root after ProcessLateAnimationGraph.");
+            Assert.That(stream.PassMask.IsScaleSet(0), Is.True, "Mask should be set to true for root after ProcessLateAnimationGraph.");
         }
 
         [Test]
@@ -183,12 +183,12 @@ namespace Unity.Animation.Tests
             Assert.IsTrue(stream.FrameMask.HasAll(), "Frame Mask should be set to true for all channels after explicit set.");
             Assert.IsTrue(stream.PassMask.HasAll(), "Pass Mask should be set to true for all channels after explicit set.");
 
-            m_BeginFrameAnimationSystem.Update();
+            m_InitializeAnimation.Update();
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.Create(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.FrameMask.HasNone(), "Frame Mask should be set to false for all channels after BeginFrameAnimationSystem.");
-            Assert.IsTrue(stream.PassMask.HasNone(), "Pass Mask should be set to false for all channels after BeginFrameAnimationSystem.");
+            Assert.IsTrue(stream.FrameMask.HasNone(), "Frame Mask should be set to false for all channels after InitializeAnimation.");
+            Assert.IsTrue(stream.PassMask.HasNone(), "Pass Mask should be set to false for all channels after InitializeAnimation.");
 
             stream.FrameMask.Set(true);
             Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after explicit set.");
@@ -197,13 +197,13 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.CreateReadOnly(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after PreAnimationGraph.");
+            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after ProcessDefaultAnimationGraph.");
 
             m_PostAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
             stream = AnimationStream.CreateReadOnly(m_Rig, m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray());
-            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after PostAnimationGraph.");
+            Assert.IsTrue(stream.FrameMask.HasAll(), "Mask should be set to true for all channels after ProcessLateAnimationGraph.");
         }
     }
 }

@@ -1,14 +1,14 @@
 using Unity.Animation;
 using Unity.Entities;
 
-[assembly: RegisterGenericJobType(typeof(SortReadTransformComponentJob<PreAnimationGraphSystem.ReadTransformHandle>))]
-[assembly: RegisterGenericJobType(typeof(ReadTransformComponentJob<PreAnimationGraphSystem.ReadTransformHandle>))]
-[assembly: RegisterGenericJobType(typeof(ReadRootTransformJob<PreAnimationGraphSystem.AnimatedRootMotion>))]
-[assembly: RegisterGenericJobType(typeof(UpdateRootRemapMatrixJob<PreAnimationGraphSystem.AnimatedRootMotion>))]
-[assembly: RegisterGenericJobType(typeof(WriteRootTransformJob<PreAnimationGraphSystem.AnimatedRootMotion>))]
-[assembly: RegisterGenericJobType(typeof(AccumulateRootTransformJob<PreAnimationGraphSystem.AnimatedRootMotion>))]
-[assembly: RegisterGenericJobType(typeof(WriteTransformComponentJob<PreAnimationGraphSystem.WriteTransformHandle>))]
+[assembly: RegisterGenericJobType(typeof(SortReadTransformComponentJob<ProcessDefaultAnimationGraph.ReadTransformHandle>))]
+[assembly: RegisterGenericJobType(typeof(ReadTransformComponentJob<ProcessDefaultAnimationGraph.ReadTransformHandle>))]
+[assembly: RegisterGenericJobType(typeof(ReadRootTransformJob<ProcessDefaultAnimationGraph.AnimatedRootMotion>))]
+[assembly: RegisterGenericJobType(typeof(UpdateRootRemapMatrixJob<ProcessDefaultAnimationGraph.AnimatedRootMotion>))]
+[assembly: RegisterGenericJobType(typeof(WriteRootTransformJob<ProcessDefaultAnimationGraph.AnimatedRootMotion>))]
+[assembly: RegisterGenericJobType(typeof(AccumulateRootTransformJob<ProcessDefaultAnimationGraph.AnimatedRootMotion>))]
+[assembly: RegisterGenericJobType(typeof(WriteTransformComponentJob<ProcessDefaultAnimationGraph.WriteTransformHandle>))]
 
-[assembly: RegisterGenericJobType(typeof(SortReadTransformComponentJob<PostAnimationGraphSystem.ReadTransformHandle>))]
-[assembly: RegisterGenericJobType(typeof(ReadTransformComponentJob<PostAnimationGraphSystem.ReadTransformHandle>))]
-[assembly: RegisterGenericJobType(typeof(WriteTransformComponentJob<PostAnimationGraphSystem.WriteTransformHandle>))]
+[assembly: RegisterGenericJobType(typeof(SortReadTransformComponentJob<ProcessLateAnimationGraph.ReadTransformHandle>))]
+[assembly: RegisterGenericJobType(typeof(ReadTransformComponentJob<ProcessLateAnimationGraph.ReadTransformHandle>))]
+[assembly: RegisterGenericJobType(typeof(WriteTransformComponentJob<ProcessLateAnimationGraph.WriteTransformHandle>))]

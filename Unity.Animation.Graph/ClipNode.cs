@@ -5,16 +5,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "9b734ccaddd64c97af0b4b5800866db7", version: 1, category: "Animation Core", description: "Base clip sampling node", isHidden: true)]
     public class ClipNode
-        : NodeDefinition<ClipNode.Data, ClipNode.SimPorts, ClipNode.KernelData, ClipNode.KernelDefs, ClipNode.Kernel>
-        , IMsgHandler<BlobAssetReference<Clip>>
-        , IMsgHandler<bool>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<ClipNode.SimPorts, ClipNode.KernelDefs>
+        , IRigContextHandler<ClipNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "ae9c16733c7c4aa1af6f153da7416e77", isHidden: true)]
@@ -36,11 +31,48 @@ namespace Unity.Animation
             public DataOutput<ClipNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        internal struct Data : INodeData, IMsgHandler<Rig>, IMsgHandler<BlobAssetReference<Clip>> , IMsgHandler<bool>
         {
+            internal KernelData m_KernelData;
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_KernelData.RigDefinition = rig;
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+                if (rig.Value.IsCreated & m_KernelData.Clip.IsCreated)
+                {
+                    m_KernelData.ClipInstance = ClipManager.Instance.GetClipFor(m_KernelData.RigDefinition, m_KernelData.Clip);
+                }
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+            {
+                m_KernelData.Clip = clip;
+                ctx.EmitMessage(SimulationPorts.Duration, clip.Value.Duration);
+
+                if (m_KernelData.RigDefinition.IsCreated)
+                {
+                    m_KernelData.ClipInstance = ClipManager.Instance.GetClipFor(m_KernelData.RigDefinition, m_KernelData.Clip);
+                }
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in bool msg)
+            {
+                m_KernelData.Additive = msg ? 1 : 0;
+                ctx.UpdateKernelData(m_KernelData);
+            }
         }
 
-        public struct KernelData : IKernelData
+        internal struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
             public BlobAssetReference<Clip>          Clip;
@@ -49,7 +81,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -63,45 +95,6 @@ namespace Unity.Animation
                 Core.EvaluateClip(data.ClipInstance, context.Resolve(ports.Time), ref outputStream, data.Additive);
             }
         }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-
-            if (rig.Value.IsCreated & kData.Clip.IsCreated)
-            {
-                kData.ClipInstance = ClipManager.Instance.GetClipFor(kData.RigDefinition, kData.Clip);
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
-        {
-            ref var data = ref GetNodeData(ctx.Handle);
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.Clip = clip;
-            ctx.EmitMessage(SimulationPorts.Duration, clip.Value.Duration);
-
-            if (kData.RigDefinition.IsCreated)
-            {
-                kData.ClipInstance = ClipManager.Instance.GetClipFor(kData.RigDefinition, kData.Clip);
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in bool msg)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.Additive = msg ? 1 : 0;
-        }
-
-        internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
-        internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;

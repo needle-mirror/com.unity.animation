@@ -72,7 +72,7 @@ namespace Unity.Animation.Tests
             m_PreAnimationGraph.Update();
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-            World.GetOrCreateSystem<RigComputeMatricesSystem>().Update();
+            World.GetOrCreateSystem<ComputeRigMatrices>().Update();
             m_Manager.CompleteAllJobs();
         }
 

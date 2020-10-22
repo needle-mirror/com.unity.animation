@@ -5,14 +5,10 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "87d20894ea0f4dda9561374a1fef063e", version: 1, category: "Animation Core/Time", description: "Computes looping time and cycle count given a duration and unbound time")]
     public class TimeLoopNode
-        : NodeDefinition<TimeLoopNode.Data, TimeLoopNode.SimPorts, TimeLoopNode.KernelData, TimeLoopNode.KernelDefs, TimeLoopNode.Kernel>
-        , IMsgHandler<float>
+        : SimulationKernelNodeDefinition<TimeLoopNode.SimPorts, TimeLoopNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "967a157223c2426e8ba2a0cbdfc801a1", description: "Duration")]
@@ -31,17 +27,24 @@ namespace Unity.Animation
             public DataOutput<TimeLoopNode, float> NormalizedTime;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<float>
         {
+            public void HandleMessage(in MessageContext ctx, in float msg)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    Duration = msg
+                });
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public float Duration;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -56,11 +59,6 @@ namespace Unity.Animation
                 context.Resolve(ref ports.NormalizedTime) = normalizedTime;
                 context.Resolve(ref ports.OutputTime) = normalizedTime * data.Duration;
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in float msg)
-        {
-            GetKernelData(ctx.Handle).Duration = msg;
         }
     }
 }

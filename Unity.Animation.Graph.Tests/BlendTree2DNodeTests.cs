@@ -111,18 +111,6 @@ namespace Unity.Animation.Tests
             m_BlendTree = BlendTreeBuilder.CreateBlendTree2DSimpleDirectional(motionData);
         }
 
-        [Test]
-        public void CanSetRigDefinition()
-        {
-            var blendTree = CreateNode<BlendTree2DNode>();
-
-            Set.SendMessage(blendTree, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
-
-            var otherRig = Set.GetDefinition(blendTree).ExposeNodeData(blendTree).RigDefinition;
-
-            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
-        }
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void SettingBlendTreeAssetWithInvalidMotionThrow()
@@ -145,24 +133,18 @@ namespace Unity.Animation.Tests
         }
 
 #endif
+
         [Test]
-        public void CanSetBlendTreeAsset()
+        public void CanSetRigDefinition()
         {
-            var blendTreeNode = CreateNode<BlendTree2DNode>();
+            var blendTree = CreateNode<BlendTree2DNode>();
 
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
-            Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_BlendTree);
+            Set.SendMessage(blendTree, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
 
-            var nodeData = Set.GetDefinition(blendTreeNode).ExposeNodeData(blendTreeNode);
-
-            Assert.That(nodeData.Motions.Count, Is.EqualTo(4));
-            Assert.That(nodeData.Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
-            for (int i = 0; i < nodeData.Motions.Count; i++)
+            Set.SendTest(blendTree, (BlendTree2DNode.Data nodeData) =>
             {
-                var strongHandle = Set.CastHandle<UberClipNode>(nodeData.Motions[i]);
-                var data = Set.GetDefinition(strongHandle).ExposeNodeData(nodeData.Motions[i]);
-                Assert.That(data.Clip, Is.Not.Null);
-            }
+                Assert.That(nodeData.m_RigDefinition.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
+            });
         }
 
         [Test]
@@ -173,16 +155,20 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_BlendTree);
 
-            var nodeData = Set.GetDefinition(blendTreeNode).ExposeNodeData(blendTreeNode);
-
-            Assert.That(nodeData.Motions.Count, Is.EqualTo(4));
-            Assert.That(nodeData.Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
-            for (int i = 0; i < nodeData.Motions.Count; i++)
+            Set.SendTest(blendTreeNode, (BlendTree2DNode.Data nodeData) =>
             {
-                var strongHandle = Set.CastHandle<UberClipNode>(nodeData.Motions[i]);
-                var data = Set.GetDefinition(strongHandle).ExposeNodeData(nodeData.Motions[i]);
-                Assert.That(data.Clip, Is.Not.Null);
-            }
+                Assert.That(nodeData.m_Motions.Count, Is.EqualTo(4));
+                Assert.That(nodeData.m_Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
+
+                for (int i = 0; i < nodeData.m_Motions.Count; i++)
+                {
+                    var strongHandle = Set.CastHandle<UberClipNode>(nodeData.m_Motions[i]);
+                    Set.SendTest(strongHandle, (UberClipNode.Data data) =>
+                    {
+                        Assert.That(data.m_Clip, Is.Not.Null);
+                    });
+                }
+            });
         }
 
         [Test]
@@ -193,16 +179,20 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.BlendTree, m_BlendTree);
             Set.SendMessage(blendTreeNode, BlendTree2DNode.SimulationPorts.Rig, m_Rig);
 
-            var nodeData = Set.GetDefinition(blendTreeNode).ExposeNodeData(blendTreeNode);
-
-            Assert.That(nodeData.Motions.Count, Is.EqualTo(4));
-            Assert.That(nodeData.Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
-            for (int i = 0; i < nodeData.Motions.Count; i++)
+            Set.SendTest(blendTreeNode, (BlendTree2DNode.Data nodeData) =>
             {
-                var strongHandle = Set.CastHandle<UberClipNode>(nodeData.Motions[i]);
-                var data = Set.GetDefinition(strongHandle).ExposeNodeData(nodeData.Motions[i]);
-                Assert.That(data.Clip, Is.Not.Null);
-            }
+                Assert.That(nodeData.m_Motions.Count, Is.EqualTo(4));
+                Assert.That(nodeData.m_Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
+
+                for (int i = 0; i < nodeData.m_Motions.Count; i++)
+                {
+                    var strongHandle = Set.CastHandle<UberClipNode>(nodeData.m_Motions[i]);
+                    Set.SendTest(strongHandle, (UberClipNode.Data data) =>
+                    {
+                        Assert.That(data.m_Clip, Is.Not.Null);
+                    });
+                }
+            });
         }
     }
 }

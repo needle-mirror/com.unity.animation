@@ -5,14 +5,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "d10f1f8e08af4dc094ec9a0503838b1d", version: 1, category: "Animation Core/Utils", description: "Adds two animation streams")]
     public class AddPoseNode
-        : NodeDefinition<AddPoseNode.Data, AddPoseNode.SimPorts, AddPoseNode.KernelData, AddPoseNode.KernelDefs, AddPoseNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<AddPoseNode.SimPorts, AddPoseNode.KernelDefs>
+        , IRigContextHandler<AddPoseNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "a46b4937ad0241eb9039b0af7b22962a", isHidden: true)]
@@ -30,15 +27,30 @@ namespace Unity.Animation
             public DataOutput<AddPoseNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData {}
+        struct Data : INodeData, IMsgHandler<Rig>
+        {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
 
-        public struct KernelData : IKernelData
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
+        }
+
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -54,19 +66,6 @@ namespace Unity.Animation
             }
         }
 
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kernelData = ref GetKernelData(ctx.Handle);
-
-            kernelData.RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-        }
-
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }

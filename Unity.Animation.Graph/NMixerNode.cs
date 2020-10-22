@@ -5,15 +5,12 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6d62b890d24a4b769ae7b9481e017743", version: 1, category: "Animation Core/Mixers", description: "Blends N animation streams together given weights per stream")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of animation streams", groupIndex: 1, minInstance: 2, maxInstance: -1)]
     public class NMixerNode
-        : NodeDefinition<NMixerNode.Data, NMixerNode.SimPorts, NMixerNode.KernelData, NMixerNode.KernelDefs, NMixerNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<NMixerNode.SimPorts, NMixerNode.KernelDefs>
+        , IRigContextHandler<NMixerNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "a4a8fea063a9494a9b6f5a63f5625060", isHidden: true)]
@@ -33,17 +30,30 @@ namespace Unity.Animation
             public DataOutput<NMixerNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -69,16 +79,6 @@ namespace Unity.Animation
                 var defaultPoseInputStream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.DefaultPoseInput));
                 Core.MixerEnd(ref outputStream, ref defaultPoseInputStream, state);
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

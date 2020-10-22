@@ -6,14 +6,11 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "207a2a8e462e4792969396869af3c382", version: 1, category: "Animation Core/Utils", description: "Gets the local to parent information of a bone in the AnimationStream")]
     public class GetAnimationStreamLocalToParentNode
-        : NodeDefinition<GetAnimationStreamLocalToParentNode.Data, GetAnimationStreamLocalToParentNode.SimPorts, GetAnimationStreamLocalToParentNode.KernelData, GetAnimationStreamLocalToParentNode.KernelDefs, GetAnimationStreamLocalToParentNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<GetAnimationStreamLocalToParentNode.SimPorts, GetAnimationStreamLocalToParentNode.KernelDefs>
+        , IRigContextHandler<GetAnimationStreamLocalToParentNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "1490ecf735fd471a8dbda4daa4d8f41b", isHidden: true)]
@@ -37,17 +34,24 @@ namespace Unity.Animation
             public DataOutput<GetAnimationStreamLocalToParentNode, float4x4> Transform;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -62,23 +66,15 @@ namespace Unity.Animation
             }
         }
 
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-        }
-
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "fc3d9f8ad36e447096859f24a9566068", version: 1, category: "Animation Core/Utils", description: "Sets the local to parent information of a bone in the AnimationStream")]
     public class SetAnimationStreamLocalToParentNode
-        : NodeDefinition<SetAnimationStreamLocalToParentNode.Data, SetAnimationStreamLocalToParentNode.SimPorts, SetAnimationStreamLocalToParentNode.KernelData, SetAnimationStreamLocalToParentNode.KernelDefs, SetAnimationStreamLocalToParentNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<SetAnimationStreamLocalToParentNode.SimPorts, SetAnimationStreamLocalToParentNode.KernelDefs>
+        , IRigContextHandler<SetAnimationStreamLocalToParentNode.Data>
     {
-#pragma warning restore 0618
-
         public enum SetFromMode : uint
         {
             Translation              = 1 << 0,
@@ -116,17 +112,37 @@ namespace Unity.Animation
             public DataOutput<SetAnimationStreamLocalToParentNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IInit, IMsgHandler<Rig>
         {
+            public void Init(InitContext ctx)
+            {
+                ctx.SetInitialPortValue(KernelPorts.Rotation, quaternion.identity);
+                ctx.SetInitialPortValue(KernelPorts.Scale, mathex.one());
+                ctx.SetInitialPortValue(KernelPorts.Mode, SetFromMode.TranslationRotationScale);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -155,27 +171,6 @@ namespace Unity.Animation
                         stream.SetLocalToParentScale(index, context.Resolve(ports.Scale));
                 }
             }
-        }
-
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Rotation, quaternion.identity);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Scale, mathex.one());
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Mode, SetFromMode.TranslationRotationScale);
-#pragma warning restore 0618
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

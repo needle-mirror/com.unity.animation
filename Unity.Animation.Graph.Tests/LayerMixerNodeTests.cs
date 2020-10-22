@@ -124,9 +124,10 @@ namespace Unity.Animation.Tests
 
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.Rig, m_Rig);
 
-            var otherRig = set.GetDefinition(layerMixer).ExposeKernelData(layerMixer).RigDefinition;
-
-            Assert.That(otherRig.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
+            set.SendTest(layerMixer, (LayerMixerNode.Data data) =>
+            {
+                Assert.That(data.m_KernelData.RigDefinition.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
+            });
         }
 
         [Test]
@@ -137,9 +138,10 @@ namespace Unity.Animation.Tests
 
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.LayerCount, (ushort)5);
 
-            var layerCount = set.GetDefinition(layerMixer).ExposeKernelData(layerMixer).LayerCount;
-
-            Assert.That(layerCount, Is.EqualTo(5));
+            set.SendTest(layerMixer, (LayerMixerNode.Data data) =>
+            {
+                Assert.That(data.m_KernelData.LayerCount, Is.EqualTo(5));
+            });
         }
 
         [Test]

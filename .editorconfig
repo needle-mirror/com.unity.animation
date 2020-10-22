@@ -20,13 +20,13 @@ insert_final_newline = true
 formatters = generic, uncrustify
 
 [*.asmdef]
-scrape_api = true
-
-[**/Tests/**.asmdef]
 scrape_api = false
 
-[*.Tests.asmdef]
-scrape_api = false
+; [**/Tests/**.asmdef]
+; scrape_api = false
+
+; [*.Tests.asmdef]
+; scrape_api = false
 
 [*.md]
 indent_size = 2

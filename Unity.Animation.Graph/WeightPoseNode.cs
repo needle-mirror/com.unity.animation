@@ -5,14 +5,11 @@ using Unity.Burst;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6daa5f5c6f7e4944ae29a32f6e60219d", version: 1, category: "Animation Core/Utils", description: "Applies a set of weights to an animation stream")]
     public class WeightPoseNode
-        : NodeDefinition<WeightPoseNode.Data, WeightPoseNode.SimPorts, WeightPoseNode.KernelData, WeightPoseNode.KernelDefs, WeightPoseNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<WeightPoseNode.SimPorts, WeightPoseNode.KernelDefs>
+        , IRigContextHandler<WeightPoseNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "b1ad5e24921d46c6a5c42f3ac54a4bfc", isHidden: true)]
@@ -30,17 +27,30 @@ namespace Unity.Animation
             public DataOutput<WeightPoseNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -51,18 +61,6 @@ namespace Unity.Animation
                 var outputStream = AnimationStream.Create(data.RigDefinition, context.Resolve(ref ports.Output));
                 Core.WeightPose(ref outputStream, ref inputStream, context.Resolve(ports.WeightMasks));
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kernelData = ref GetKernelData(ctx.Handle);
-
-            kernelData.RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

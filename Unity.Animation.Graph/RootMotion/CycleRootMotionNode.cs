@@ -6,14 +6,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "147518e22e1c492ab58d348c8a60a0ff", version: 1, category: "Animation Core/Root Motion", description: "Computes and sets the total root motion offset amount based on the number of cycles for a given clip. This node is internally used by the UberClipNode.")]
     public class CycleRootMotionNode
-        : NodeDefinition<CycleRootMotionNode.Data, CycleRootMotionNode.SimPorts, CycleRootMotionNode.KernelData, CycleRootMotionNode.KernelDefs, CycleRootMotionNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<CycleRootMotionNode.SimPorts, CycleRootMotionNode.KernelDefs>
+        , IRigContextHandler<CycleRootMotionNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "98d02bd676584f3ba67f8d116d66260e", isHidden: true)]
@@ -35,17 +32,30 @@ namespace Unity.Animation
             public DataOutput<CycleRootMotionNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -68,18 +78,6 @@ namespace Unity.Animation
                 outputStream.SetLocalToParentRotation(0, cycleX.rot);
                 outputStream.SetLocalToParentTranslation(0, cycleX.pos);
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.RigDefinition = rig;
-
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
         }
 
         static RigidTransform GetCycleX(RigidTransform x, RigidTransform startX, RigidTransform stopX, int cycle)

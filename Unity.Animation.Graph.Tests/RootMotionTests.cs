@@ -235,7 +235,7 @@ namespace Unity.Animation.Tests
             var entity = m_Manager.CreateEntity();
             SetupRigEntity(entity, m_Rig, entity);
 
-            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            m_Manager.AddComponent<ProcessDefaultAnimationGraph.AnimatedRootMotion>(entity);
 
             var entityTx = new RigidTransform(quaternion.AxisAngle(math.float3(0f, 1f, 0f), math.radians(40f)), math.float3(2f, 0f, 5f));
             m_Manager.AddComponentData(entity, new Translation { Value = entityTx.pos });
@@ -286,7 +286,7 @@ namespace Unity.Animation.Tests
             Assert.That(m_Manager.GetComponentData<Rotation>(entity).Value, Is.EqualTo(newEntityTx.rot).Using(RotationComparer));
 
             // Validate that the values in AnimationRootMotion component have been updated
-            var animatedRM = m_Manager.GetComponentData<PreAnimationGraphSystem.AnimatedRootMotion>(entity);
+            var animatedRM = m_Manager.GetComponentData<ProcessDefaultAnimationGraph.AnimatedRootMotion>(entity);
             Assert.That(animatedRM.Delta.pos, Is.EqualTo(x.pos).Using(TranslationComparer));
             Assert.That(animatedRM.Delta.rot, Is.EqualTo(x.rot).Using(RotationComparer));
 

@@ -9,39 +9,6 @@ namespace Unity.Animation.Hybrid
     {
         static readonly string k_BlendShapeBindingPrefix = "blendShape.";
 
-        internal static FloatChannel[] GetBlendShapeChannels(
-            this SkinnedMeshRenderer skinnedMeshRenderer,
-            Transform root
-        )
-        {
-            if (skinnedMeshRenderer == null)
-                throw new ArgumentNullException("Invalid SkinnedMeshRenderer.");
-            if (root == null)
-                throw new ArgumentNullException($"Invalid root transform {nameof(root)}");
-
-            var sharedMesh = skinnedMeshRenderer.sharedMesh;
-            if (sharedMesh == null)
-                throw new ArgumentNullException("SkinnedMeshRenderer contains a null SharedMesh.");
-
-            int count = sharedMesh.blendShapeCount;
-            if (count == 0)
-                return Array.Empty<FloatChannel>();
-
-            var relativePath = RigGenerator.ComputeRelativePath(skinnedMeshRenderer.transform, root);
-
-            FloatChannel[] channels = new FloatChannel[count];
-            for (int i = 0; i < count; ++i)
-            {
-                channels[i] = new FloatChannel
-                {
-                    Id = BindingHashUtils.BuildPath(relativePath, k_BlendShapeBindingPrefix + sharedMesh.GetBlendShapeName(i)),
-                    DefaultValue = skinnedMeshRenderer.GetBlendShapeWeight(i)
-                };
-            }
-
-            return channels;
-        }
-
         internal static int ExtractMatchingBoneBindings(
             this SkinnedMeshRenderer skinnedMeshRenderer,
             Transform[] skeletonBones,

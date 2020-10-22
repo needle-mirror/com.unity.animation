@@ -5,6 +5,69 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-preview.3] - 2020-10-22
+
+### Added
+- Added PropertyDrawers for TransformBindingID and SkeletonBoneReference (which is now made public). Both make it possible to set bones from the Skeleton Asset using drag and drop or using the object picker. TransformBindingID is a path to a bone, and SkeletonBoneReference contains a reference to a Skeleton and a TransformBindingID, which represents a bone in the given Skeleton.
+- Added SkeletonReferenceAttribute which can be used on TransformBindingID to associate it with a property returning, or a field containing a Skeleton. 
+- Added ShowFullPathAttribute which can be used on TransformBindingID and SkeletonBoneReference to show bone names as full paths instead of just the name of the bone itself.
+- Added a debugger view for `Rig` IComponentData. This view will display the `BlobAssetReference<RigDefinition>` internal data in the debugger. For more advanced debugging you can also add the DEBUG_STRINGHASH to your project scripting symbols which can be added under `Project Settings/Player`. This optionnal symbol will keep the original string for all hashes, and use this information when the debugger need to display a StringHash. There are currently a few limitations with this system:
+  - Since it stores this information into a static class, every domain reload clears the dictionnary.
+  - It currently only works in editor mode.
+
+### Changed
+- Upgraded com.unity.dataflowgraph to 0.18.0-preview.3
+- Upgraded com.unity.entities to 0.16.0-preview.21
+- Upgraded com.unity.collections to 0.14.0-preview.16
+- Upgraded com.unity.jobs to 0.7.0-preview.17
+- Upgraded com.unity.burst to 1.3.7
+
+## [0.8.0-preview.2] - 2020-10-05
+
+### Changed
+- Added SkeletonAuthoring asset that isolates the animation bindings declaration and authoring from the rig instance in scene. This is the first version of SkeletonAuthoring and this asset will continue to evolve as more workflows are developed around it.
+- Added RigAuthoring that uses a SkeletonAuthoring instance to generate a RigDefinition.
+- Upgraded com.unity.entities to 0.16.0-preview.18
+- Upgraded com.unity.collections to 0.14.0-preview.14
+- Upgraded com.unity.jobs to 0.7.0-preview.15
+- Upgraded com.unity.dataflowgraph to 0.17.1-preview.1
+- Deprecated the property RigComponent in BoneRendererComponent. A reference to the RigComponent is not necessary anymore.
+
+### Fixed
+- Fixed bug when reading input port twist weights in the `TwistCorrectionNode`.
+
+## [0.8.0-preview.1] - 2020-09-28
+
+### Added
+- Added `IDeclareCustomRigChannels` interface and `RigChannelCollector` helper to append custom rig channels at conversion time to a `RigDefinition`. In other words, any custom `GameObject` components implementing the `IDeclareCustomRigChannels` in a `RigComponent` hierarchy will be called during conversion to append custom channels.
+
+### Changed
+- Upgraded com.unity.burst to 1.3.6
+- In 0.7.1-preview.1 we updated the DataFlowGraph package, but only disabled the warnings. We now have update our nodes with the new API:
+    - `NodeDefinition` has been converted to `SimulationKernelNodeDefinition`, `SimulationNodeDefinition` or `KernelNodeDefinition` depending on the node;
+    - Node Data and Kernel Data have been made private (previously public);
+    - Kernel function is private (previously public);
+    - The node itself does not handle the message to update the rig anymore (`void HandleMessage(in MessageContext ctx, in Rig rig)` has been removed);
+    - `IRigContextHandler` has been updated : handling the message rig is now done in the node data, and the TaskPort is defined in the node.
+- Renamed the following types:
+    - `AnimationGraphSystemBase` -> `ProcessAnimationGraphBase`
+    - `BeginFrameAnimationSystem` -> `InitializeAnimation`
+    - `BeginFrameAnimationSystemBase` -> `InitializeAnimationBase`
+    - `BoneRendererMatrixSystemBase` -> `ComputeBoneRenderingMatricesBase`
+    - `BoneRendererRenderingSystemBase` -> `RenderBonesBase`
+    - `ComputeDeformationDataSystemBase` -> `ComputeDeformationDataBase`
+    - `ComputeSkinMatrixSystem` -> `ComputeDeformationData`
+    - `PostAnimationGraphReadTransformHandle` -> `LateAnimationGraphReadTransformHandle`
+    - `PostAnimationGraphWriteTransformHandle` -> `LateAnimationGraphWriteTransformHandle`
+    - `PostAnimationGraphSystem` -> `ProcessLateAnimationGraph`
+    - `PostAnimationSystemGroup` -> `LateAnimationSystemGroup`
+    - `PreAnimationGraphReadTransformHandle` -> `DefaultAnimationGraphReadTransformHandle`
+    - `PreAnimationGraphWriteTransformHandle` -> `DefaultAnimationGraphWriteTransformHandle`
+    - `PreAnimationGraphSystem` -> `ProcessDefaultAnimationGraph`
+    - `PreAnimationSystemGroup` -> `DefaultAnimationSystemGroup`
+    - `RigComputeMatricesSystem` -> `ComputeRigMatrices`
+    - `RigComputeMatricesSystemBase` -> `ComputeRigMatricesBase`
+
 ## [0.7.1-preview.2] - 2020-09-11
 
 ### Changed
@@ -220,7 +283,7 @@ See documentation [here](Documentation~/root_transform_management.md) for more d
 - `ComputeSkinMatrixSystemBase` has been deprecated use `ComputeDeformationDataSystemBase` instead.
 - `SkinnedMeshRigEntity` has been deprecated use `Unity.Animation.RigEntity` IComponentData instead.
 - `Unity.Animation.BoneRenderer.RigEntity` has been deprecated use `Unity.Animation.RigEntity` IComponentData instead.
-- `Unity.Animation.SkinMatrix` has been deprecated use `Unity.Deformations.SkinMatrix` instead.
+- `Unity.Animation.SkinMatrix` has been deprecated use `Unity.Deformations.SkinMatrix` found in com.unity.entities instead.
 - Upgraded com.unity.entities to 0.11.1-preview.4
 - Upgraded com.unity.burst to 1.3.0
 - Upgraded com.unity.jobs to 0.2.10-preview.12

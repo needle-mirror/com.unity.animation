@@ -2,6 +2,7 @@
     "name": "Unity.Animation.Hybrid",
     "references": [
         "Unity.Animation",
+        "Unity.Animation.Authoring",
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",

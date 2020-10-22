@@ -126,5 +126,35 @@ namespace Unity.Animation.Hybrid
 
             return channels.ToArray();
         }
+
+        /// <summary>
+        /// Returns a component of Type type in the GameObject or parent GameObjects.
+        /// </summary>
+        /// <param name="gameObject">The GameObject from where to start searching.</param>
+        /// <typeparam name="T">The type of Component to retrieve.</typeparam>
+        /// <returns>A component matching the specified type. Null if none was found.</returns>
+        public static T GetComponentInParent<T>(GameObject gameObject)
+        {
+            var res = GetComponentInParent(typeof(T), gameObject);
+            return (T)(object)res;     // Can be either a Component or an Interface that also implement the Component class...
+        }
+
+        /// <summary>
+        /// Returns a component of Type type in the GameObject or parent GameObjects.
+        /// </summary>
+        /// <param name="type">The type of Component to retrieve.</param>
+        /// <param name="gameObject">The GameObject from where to start searching.</param>
+        /// <returns>A component matching the specified type. Null if none was found.</returns>
+        public static Component GetComponentInParent(System.Type type, GameObject gameObject)
+        {
+            Component queryComponent = null;
+
+            for (var transform = gameObject.transform; queryComponent == null && transform != null; transform = transform.parent)
+            {
+                transform.TryGetComponent(type, out queryComponent);
+            }
+
+            return queryComponent;
+        }
     }
 }

@@ -5,14 +5,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "ad8ef6033fd64cff8c1bbcb0b2b30291", version: 1, category: "Animation Core/Utils", description: "Gets an integer value from the AnimationStream")]
     public class GetAnimationStreamIntNode
-        : NodeDefinition<GetAnimationStreamIntNode.Data, GetAnimationStreamIntNode.SimPorts, GetAnimationStreamIntNode.KernelData, GetAnimationStreamIntNode.KernelDefs, GetAnimationStreamIntNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<GetAnimationStreamIntNode.SimPorts, GetAnimationStreamIntNode.KernelDefs>
+        , IRigContextHandler<GetAnimationStreamIntNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "40137712b11041f79fd9dd1267ed0cbc", isHidden: true)]
@@ -30,17 +27,24 @@ namespace Unity.Animation
             public DataOutput<GetAnimationStreamIntNode, int> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -51,23 +55,15 @@ namespace Unity.Animation
             }
         }
 
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-        }
-
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "9be251e51f4c4285835e8ec200827c2b", version: 1, category: "Animation Core/Utils", description: "Sets an integer value in the AnimationStream")]
     public class SetAnimationStreamIntNode
-        : NodeDefinition<SetAnimationStreamIntNode.Data, SetAnimationStreamIntNode.SimPorts, SetAnimationStreamIntNode.KernelData, SetAnimationStreamIntNode.KernelDefs, SetAnimationStreamIntNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<SetAnimationStreamIntNode.SimPorts, SetAnimationStreamIntNode.KernelDefs>
+        , IRigContextHandler<SetAnimationStreamIntNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "cbad1651d4cd461d9229170fe64b6d79", isHidden: true)]
@@ -87,17 +83,30 @@ namespace Unity.Animation
             public DataOutput<SetAnimationStreamIntNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -111,16 +120,6 @@ namespace Unity.Animation
 
                 stream.SetInt(context.Resolve(ports.Index), context.Resolve(ports.Value));
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

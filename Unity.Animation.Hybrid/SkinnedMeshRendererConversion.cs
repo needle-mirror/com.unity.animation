@@ -7,22 +7,12 @@ using UnityEngine;
 
 namespace Unity.Animation.Hybrid
 {
-    [ConverterVersion("Unity.Animation.Hybrid.SkinnedMeshRendererConversion", 5)]
+    [ConverterVersion("simonbz", 6)]
     [UpdateInGroup(typeof(GameObjectConversionGroup))]
+    [UpdateAfter(typeof(RigConversion))]
+    [UpdateAfter(typeof(RigAuthoringConversion))]
     public class SkinnedMeshRendererConversion : GameObjectConversionSystem
     {
-        T GetComponentInParent<T>(GameObject gameObject) where T : Component
-        {
-            T queryComponent = null;
-
-            for (var transform = gameObject.transform; queryComponent == null && transform != null; transform = transform.parent)
-            {
-                transform.TryGetComponent<T>(out queryComponent);
-            }
-
-            return queryComponent;
-        }
-
         /// <summary>
         /// Returns true when all blendshapes weights are declared by the rig definition in the same order
         /// found on the SkinnedMeshRenderer.
@@ -97,20 +87,21 @@ namespace Unity.Animation.Hybrid
             Entities.ForEach((SkinnedMeshRenderer meshRenderer) =>
             {
                 // Would need to validate why Component.GetComponentInParent doesn't return the expected results
-                //var rigComponent = meshRenderer.GetComponentInParent<RigComponent>();
-                var rigComponent = GetComponentInParent<RigComponent>(meshRenderer.gameObject);
+                //var rigComponent = meshRenderer.GetComponentInParent<IRigAuthoring>();
+                var rigAuthoring = RigGenerator.GetComponentInParent<IRigAuthoring>(meshRenderer.gameObject);
+                var rigAuthoringComponent = rigAuthoring as Component;
 #if UNITY_ENABLE_ANIMATION_ANIMATOR_CONVERSION
                 var animatorComponent = GetComponentInParent<Animator>(meshRenderer.gameObject);
 #else
                 Animator animatorComponent = null;
 #endif
-                if (rigComponent == null && animatorComponent == null)
+                if (rigAuthoring == null && animatorComponent == null)
                 {
                     return;
                 }
 
-                var rigEntity = rigComponent != null ? GetPrimaryEntity(rigComponent) : GetPrimaryEntity(animatorComponent);
-                var skBones = rigComponent != null ? rigComponent.Bones : animatorComponent.ExtractBoneTransforms();
+                var rigEntity = rigAuthoringComponent != null ? GetPrimaryEntity(rigAuthoringComponent) : GetPrimaryEntity(animatorComponent);
+                var skBones = rigAuthoring != null ? rigAuthoring.Bones : animatorComponent.ExtractBoneTransforms();
                 using (var skinnedMeshToRigIndexMappings = new NativeList<SkinnedMeshToRigIndexMapping>(Allocator.Temp))
                 {
                     var boneMatchCount = meshRenderer.ExtractMatchingBoneBindings(skBones, skinnedMeshToRigIndexMappings);
@@ -118,7 +109,7 @@ namespace Unity.Animation.Hybrid
                     {
                         ValidateSkinnedMeshRendererRootBoneIsExposed(
                             meshRenderer,
-                            rigComponent != null ? rigComponent.transform : animatorComponent.transform,
+                            rigAuthoringComponent != null ? rigAuthoringComponent.transform : animatorComponent.transform,
                             skBones
                         );
 
@@ -164,7 +155,7 @@ namespace Unity.Animation.Hybrid
                 using (var blendShapeToRigIndexMappings = new NativeList<BlendShapeToRigIndexMapping>(Allocator.Temp))
                 {
                     var matchCount = meshRenderer.ExtractMatchingBlendShapeBindings(
-                        rigComponent != null ? rigComponent.transform : animatorComponent.transform,
+                        rigAuthoringComponent != null ? rigAuthoringComponent.transform : animatorComponent.transform,
                         DstEntityManager.GetComponentData<Rig>(rigEntity),
                         blendShapeToRigIndexMappings
                     );

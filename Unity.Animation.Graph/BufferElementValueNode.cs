@@ -4,17 +4,10 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "be1a7512286b41479d93a3e4e1db9534", version: 1, category: "Animation Core/Utils", description: "Gets a value given an index from a buffer")]
     public class GetBufferElementValueNode
-        : NodeDefinition<GetBufferElementValueNode.Data, GetBufferElementValueNode.SimPorts, GetBufferElementValueNode.KernelData, GetBufferElementValueNode.KernelDefs, GetBufferElementValueNode.Kernel>
+        : KernelNodeDefinition<GetBufferElementValueNode.KernelDefs>
     {
-#pragma warning restore 0618
-
-        public struct SimPorts : ISimulationPortDefinition
-        {
-        }
-
         public struct KernelDefs : IKernelPortDefinition
         {
             [PortDefinition(guid: "bfb9c7c192af4e0b9e01a20ae9de6713", description: "Input buffer")]
@@ -26,16 +19,12 @@ namespace Unity.Animation
             public DataOutput<GetBufferElementValueNode, float> Output;
         }
 
-        public struct Data : INodeData
-        {
-        }
-
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {

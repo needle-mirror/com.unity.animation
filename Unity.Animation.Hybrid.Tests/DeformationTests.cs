@@ -16,7 +16,7 @@ namespace Unity.Animation.Tests
 {
     public class BlendshapeTests : AnimationTestsFixture
     {
-        static readonly string k_BlendshapeFBXPath = "Packages/com.unity.animation/Unity.Animation.Hybrid.Tests/Resources/BlendshapeTest.fbx";
+        static readonly string k_BlendshapePrefabPath = "Packages/com.unity.animation/Unity.Animation.Hybrid.Tests/Resources/BlendshapeTest.prefab";
 
         const float m_BlendShapeConstantClip_Value1 = 10f;
         const float m_BlendShapeConstantClip_Value2 = 60f;
@@ -53,7 +53,7 @@ namespace Unity.Animation.Tests
                 Array.Empty<(string, int)>()
             );
 
-            m_BlendShapeGO = GameObject.Instantiate(AssetDatabase.LoadAssetAtPath(k_BlendshapeFBXPath, typeof(GameObject)), Vector3.zero, Quaternion.identity) as GameObject;
+            m_BlendShapeGO = GameObject.Instantiate(AssetDatabase.LoadAssetAtPath(k_BlendshapePrefabPath, typeof(GameObject)), Vector3.zero, Quaternion.identity) as GameObject;
             m_BlendShapeGO.AddComponent<RigComponent>();
         }
 
@@ -133,7 +133,7 @@ namespace Unity.Animation.Tests
 
                     Core.EvaluateClip(ClipManager.Instance.GetClipFor(rig, m_BlendshapeClip), 1f, ref stream, 0);
 
-                    m_Manager.World.GetOrCreateSystem<ComputeSkinMatrixSystem>().Update();
+                    m_Manager.World.GetOrCreateSystem<ComputeDeformationData>().Update();
                     m_Manager.CompleteAllJobs();
 
                     bsBuffer = m_Manager.GetBuffer<BlendShapeWeight>(entity);

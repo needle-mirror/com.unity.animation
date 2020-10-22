@@ -1,7 +1,10 @@
 using System;
+using System.Runtime.CompilerServices;
+using System.Diagnostics;
+
 using Unity.Entities;
 using Unity.Mathematics;
-using System.Runtime.CompilerServices;
+
 
 namespace Unity.Animation
 {
@@ -147,6 +150,8 @@ namespace Unity.Animation
         static public bool operator!=(RigDefinition lhs, RigDefinition rhs) =>
             lhs.m_HashCode != rhs.m_HashCode;
     }
+
+    [DebuggerTypeProxy(typeof(RigDebugView))]
 
     public struct Rig : IComponentData
     {

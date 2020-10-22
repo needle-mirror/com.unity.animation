@@ -3,6 +3,7 @@
     "references": [
         "Unity.Animation",
         "Unity.Animation.Hybrid",
+        "Unity.Animation.Authoring",
         "Unity.Entities",
         "Unity.Mathematics",
         "Unity.DataFlowGraph",

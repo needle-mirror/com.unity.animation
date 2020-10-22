@@ -5,28 +5,32 @@ using Unity.Entities;
 
 namespace Unity.Animation.Hybrid
 {
-    [ConverterVersion("Unity.Animation.Hybrid.BoneRendererConversion", 1)]
+    [ConverterVersion("simonbz", 2)]
     [UpdateInGroup(typeof(GameObjectConversionGroup))]
     [UpdateAfter(typeof(RigConversion))]
+    [UpdateAfter(typeof(RigAuthoringConversion))]
     public class BoneRendererConversion : GameObjectConversionSystem
     {
         protected override void OnUpdate()
         {
             Entities.ForEach((BoneRendererComponent boneRenderer) =>
             {
-                if (boneRenderer.RigComponent == null)
+                var rigAuthoring = RigGenerator.GetComponentInParent<IRigAuthoring>(boneRenderer.gameObject);
+                if (rigAuthoring == null)
                 {
                     Debug.LogWarning($"BoneRendererComponent on '{boneRenderer.gameObject.name}' has a null RigComponent");
                 }
                 else
                 {
-                    var rigEntity = GetPrimaryEntity(boneRenderer.RigComponent);
+                    var rigAuthoringComponent = rigAuthoring as Component;
+                    var rigEntity = GetPrimaryEntity(rigAuthoringComponent);
                     if (boneRenderer.RenderBones && DstEntityManager.HasComponent<Rig>(rigEntity))
                     {
+                        var bones = rigAuthoring.Bones;
                         var transformIndices = new NativeList<int>(boneRenderer.Transforms.Length, Allocator.Temp);
                         for (int i = 0; i < boneRenderer.Transforms.Length; ++i)
                         {
-                            int idx = RigGenerator.FindTransformIndex(boneRenderer.Transforms[i], boneRenderer.RigComponent.Bones);
+                            int idx = RigGenerator.FindTransformIndex(boneRenderer.Transforms[i], bones);
                             if (idx != -1)
                                 transformIndices.Add(idx);
                         }

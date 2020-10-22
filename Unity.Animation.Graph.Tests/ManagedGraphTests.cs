@@ -6,12 +6,13 @@ namespace Unity.Animation.Tests
     public class ManagedGraphTests : AnimationTestsFixture
     {
         [DisableAutoCreation]
-        internal class TestAnimationSystem : AnimationGraphSystemBase<
+        class MockProcessAnimationGraph : ProcessAnimationGraphBase<
             NotSupportedTransformHandle,
             NotSupportedTransformHandle
         >
         {
         }
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void InvalidGraphHandlesThrowExceptions()
@@ -29,10 +30,11 @@ namespace Unity.Animation.Tests
         }
 
 #endif
+
         [Test]
         public void ManagedNodesAreDisposedAfterExplicitGraphDispose()
         {
-            var tmpSystem = World.GetOrCreateSystem<TestAnimationSystem>();
+            var tmpSystem = World.GetOrCreateSystem<MockProcessAnimationGraph>();
             tmpSystem.AddRef();
 
             var entity0 = m_Manager.CreateEntity();
@@ -61,7 +63,7 @@ namespace Unity.Animation.Tests
         [Test]
         public void ManagedNodesAreDisposedOnSystemCleanUp()
         {
-            var tmpSystem = World.GetOrCreateSystem<TestAnimationSystem>();
+            var tmpSystem = World.GetOrCreateSystem<MockProcessAnimationGraph>();
             tmpSystem.AddRef();
 
             var entity0 = m_Manager.CreateEntity();

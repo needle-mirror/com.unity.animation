@@ -285,7 +285,7 @@ namespace Unity.Animation.Tests
 
             // Add animated root motion and offset components
             var rmOffset = new RigidTransform(quaternion.AxisAngle(math.float3(1f, 0f, 0f), math.radians(30f)), math.float3(2f, 3f, 4f));
-            m_Manager.AddComponent<PreAnimationGraphSystem.AnimatedRootMotion>(rigEntity);
+            m_Manager.AddComponent<ProcessDefaultAnimationGraph.AnimatedRootMotion>(rigEntity);
             m_Manager.AddComponentData(rigEntity, new RootMotionOffset { Value = rmOffset });
 
             var targetEntity = m_Manager.CreateEntity();

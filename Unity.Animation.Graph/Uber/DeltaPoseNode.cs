@@ -4,18 +4,18 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "fd66a28a123c416a9860c6e090650266", version: 1, category: "Animation Core/Utils", description: "Computes the delta animation stream given two input streams")]
     public class DeltaPoseNode
-        : NodeDefinition<DeltaPoseNode.Data, DeltaPoseNode.SimPorts, DeltaPoseNode.KernelData, DeltaPoseNode.KernelDefs, DeltaPoseNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<DeltaPoseNode.SimPorts, DeltaPoseNode.KernelDefs>
+        , IRigContextHandler<DeltaPoseNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "7e89282e80fa40619ea8e2e3426ab9b7", isHidden: true)]
             public MessageInput<DeltaPoseNode, Rig> Rig;
+
+            // For internal messages in node data.
+            internal MessageOutput<DeltaPoseNode, Rig> m_OutRig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
@@ -30,61 +30,58 @@ namespace Unity.Animation
             public DataOutput<DeltaPoseNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IInit, IDestroy
+            , IMsgHandler<Rig>
         {
-            public NodeHandle<SimPassThroughNode<Rig>> RigNode;
-            public NodeHandle<AddPoseNode> AddNode;
-            public NodeHandle<InversePoseNode> InverseNode;
+            NodeHandle<SimPassThroughNode<Rig>> m_RigNode;
+            NodeHandle<AddPoseNode> m_AddNode;
+            NodeHandle<InversePoseNode> m_InverseNode;
+
+            public void Init(InitContext ctx)
+            {
+                var thisHandle = ctx.Set.CastHandle<DeltaPoseNode>(ctx.Handle);
+
+                m_RigNode = ctx.Set.Create<SimPassThroughNode<Rig>>();
+                m_AddNode = ctx.Set.Create<AddPoseNode>();
+                m_InverseNode = ctx.Set.Create<InversePoseNode>();
+
+                ctx.Set.Connect(m_RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, m_AddNode, AddPoseNode.SimulationPorts.Rig);
+                ctx.Set.Connect(m_RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, m_InverseNode, InversePoseNode.SimulationPorts.Rig);
+
+                ctx.Set.Connect(m_InverseNode, InversePoseNode.KernelPorts.Output, m_AddNode, AddPoseNode.KernelPorts.InputA);
+
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutRig, m_RigNode, SimPassThroughNode<Rig>.SimulationPorts.Input);
+
+                ctx.ForwardInput(KernelPorts.Input, m_AddNode, AddPoseNode.KernelPorts.InputB);
+                ctx.ForwardInput(KernelPorts.Subtract, m_InverseNode, InversePoseNode.KernelPorts.Input);
+                ctx.ForwardOutput(KernelPorts.Output, m_AddNode, AddPoseNode.KernelPorts.Output);
+            }
+
+            public void Destroy(DestroyContext ctx)
+            {
+                ctx.Set.Destroy(m_RigNode);
+                ctx.Set.Destroy(m_AddNode);
+                ctx.Set.Destroy(m_InverseNode);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.EmitMessage(SimulationPorts.m_OutRig, rig);
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
         }
 
         [BurstCompile]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
             }
         }
 
-        protected override void Init(InitContext ctx)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-
-            nodeData.RigNode = Set.Create<SimPassThroughNode<Rig>>();
-            nodeData.AddNode = Set.Create<AddPoseNode>();
-            nodeData.InverseNode = Set.Create<InversePoseNode>();
-
-            Set.Connect(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, nodeData.AddNode, AddPoseNode.SimulationPorts.Rig);
-            Set.Connect(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Output, nodeData.InverseNode, InversePoseNode.SimulationPorts.Rig);
-
-            Set.Connect(nodeData.InverseNode, InversePoseNode.KernelPorts.Output, nodeData.AddNode, AddPoseNode.KernelPorts.InputA);
-
-            ctx.ForwardInput(KernelPorts.Input, nodeData.AddNode, AddPoseNode.KernelPorts.InputB);
-            ctx.ForwardInput(KernelPorts.Subtract, nodeData.InverseNode, InversePoseNode.KernelPorts.Input);
-            ctx.ForwardOutput(KernelPorts.Output, nodeData.AddNode, AddPoseNode.KernelPorts.Output);
-        }
-
-        protected override void Destroy(DestroyContext ctx)
-        {
-            var nodeData = GetNodeData(ctx.Handle);
-
-            Set.Destroy(nodeData.RigNode);
-            Set.Destroy(nodeData.AddNode);
-            Set.Destroy(nodeData.InverseNode);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SendMessage(nodeData.RigNode, SimPassThroughNode<Rig>.SimulationPorts.Input, rig);
-#pragma warning restore 0618
-        }
-
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }

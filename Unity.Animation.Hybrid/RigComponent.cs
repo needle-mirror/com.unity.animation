@@ -43,12 +43,17 @@ namespace Unity.Animation.Hybrid
     }
 
     // TODO: figure out a better name for RigComponent
-    public class RigComponent : MonoBehaviour
+    public class RigComponent : MonoBehaviour, IRigAuthoring
     {
         internal const int LatestVersion = 1;
         [HideInInspector][SerializeField] int m_Version;
         internal int Version { get => m_Version; set { m_Version = value; } }
         public Transform[] Bones = Array.Empty<Transform>();
+
+        Transform[] IRigAuthoring.Bones
+        {
+            get => Bones;
+        }
 
         internal IReadOnlyList<Transform> ExcludeBones => m_ExcludeBones;
         internal IReadOnlyList<Transform> InvalidBones => m_InvalidBones;
@@ -83,20 +88,17 @@ namespace Unity.Animation.Hybrid
         public FloatChannel[] FloatChannels = Array.Empty<FloatChannel>();
         public IntChannel[] IntChannels = Array.Empty<IntChannel>();
 
-        // TODO : Remove this function once we can properly author RigComponent channels based on hierarchy components
-        void InjectKnownBindings()
+        void InjectDynamicRigChannels(ref RigBuilderData rigData)
         {
-            var skinnedMeshRenderers = GetComponentsInChildren<SkinnedMeshRenderer>();
-            foreach (var smr in skinnedMeshRenderers)
-            {
-                var channelsToAdd = smr.GetBlendShapeChannels(transform);
-                if (channelsToAdd.Length > 0)
-                {
-                    int floatChannelCount = FloatChannels.Length;
-                    Array.Resize(ref FloatChannels, floatChannelCount + channelsToAdd.Length);
-                    Array.Copy(channelsToAdd, 0, FloatChannels, floatChannelCount, channelsToAdd.Length);
-                }
-            }
+            // Known rig channel declarators, this should eventually be replaced with
+            // a proper authoring workflow
+            var collector = new RigChannelCollector(transform, ref rigData);
+            RigChannelDeclarators.Instance.Execute(collector);
+
+            // Pick up custom components that declare rig channels
+            var components = GetComponentsInChildren<IDeclareCustomRigChannels>();
+            foreach (var component in components)
+                component.DeclareRigChannels(collector);
         }
 
         /// <summary>
@@ -105,9 +107,9 @@ namespace Unity.Animation.Hybrid
         /// <returns>The blob asset reference of a RigDefinition.</returns>
         public BlobAssetReference<RigDefinition> ToRigDefinition(BindingHashDelegate bindingHash = null)
         {
-            InjectKnownBindings();
-
             var rigBuilderData = ExtractRigBuilderData(bindingHash);
+            InjectDynamicRigChannels(ref rigBuilderData);
+
             var rigDefinition = RigBuilder.CreateRigDefinition(rigBuilderData);
             rigBuilderData.Dispose();
 

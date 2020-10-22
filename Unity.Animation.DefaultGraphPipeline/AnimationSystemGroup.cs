@@ -7,36 +7,30 @@ namespace Unity.Animation
 {
     [ExecuteAlways]
     [UpdateInGroup(typeof(InitializationSystemGroup))]
-    public class BeginFrameAnimationSystem : BeginFrameAnimationSystemBase
+    public class InitializeAnimation : InitializeAnimationBase
     {
     }
 
     [ExecuteAlways]
     [UpdateBefore(typeof(TransformSystemGroup))]
-    public class PreAnimationSystemGroup : ComponentSystemGroup
+    public class DefaultAnimationSystemGroup : ComponentSystemGroup
     {
     }
 
     [ExecuteAlways]
     [UpdateAfter(typeof(TransformSystemGroup))]
-    public class PostAnimationSystemGroup : ComponentSystemGroup
+    public class LateAnimationSystemGroup : ComponentSystemGroup
     {
     }
 
     [ExecuteAlways]
-    [UpdateInGroup(typeof(PreAnimationSystemGroup))]
-    public class PreAnimationGraphSystem : AnimationGraphSystemBase<
-        PreAnimationGraphSystem.ReadTransformHandle,
-        PreAnimationGraphSystem.WriteTransformHandle,
-        PreAnimationGraphSystem.AnimatedRootMotion
+    [UpdateInGroup(typeof(DefaultAnimationSystemGroup))]
+    public partial class ProcessDefaultAnimationGraph : ProcessAnimationGraphBase<
+        ProcessDefaultAnimationGraph.ReadTransformHandle,
+        ProcessDefaultAnimationGraph.WriteTransformHandle,
+        ProcessDefaultAnimationGraph.AnimatedRootMotion
     >
     {
-        [System.Obsolete("PreAnimationGraphSystem.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public struct Tag : IAnimationSystemTag {}
-
-        [System.Obsolete("PreAnimationGraphSystem.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public Tag TagComponent { get => new Tag(); }
-
         public struct ReadTransformHandle : IReadTransformHandle
         {
             public Entity Entity { get; set; }
@@ -50,7 +44,7 @@ namespace Unity.Animation
         }
 
         /// <summary>
-        /// PreAnimationGraphSystem root motion component to add in order to
+        /// ProcessDefaultAnimationGraph root motion component to add in order to
         /// accumulate the delta root transform evaluated at graph rendering
         /// in the entity transform components.
         /// This works when the rig entity does not hold a DisableRootTransformReadWriteTag component.
@@ -62,18 +56,12 @@ namespace Unity.Animation
     }
 
     [ExecuteAlways]
-    [UpdateInGroup(typeof(PostAnimationSystemGroup))]
-    public class PostAnimationGraphSystem : AnimationGraphSystemBase<
-        PostAnimationGraphSystem.ReadTransformHandle,
-        PostAnimationGraphSystem.WriteTransformHandle
+    [UpdateInGroup(typeof(LateAnimationSystemGroup))]
+    public partial class ProcessLateAnimationGraph : ProcessAnimationGraphBase<
+        ProcessLateAnimationGraph.ReadTransformHandle,
+        ProcessLateAnimationGraph.WriteTransformHandle
     >
     {
-        [System.Obsolete("PostAnimationGraphSystem.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public struct Tag : IAnimationSystemTag {}
-
-        [System.Obsolete("PostAnimationGraphSystem.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public Tag TagComponent { get => new Tag(); }
-
         public struct ReadTransformHandle : IReadTransformHandle
         {
             public Entity Entity { get; set; }
@@ -88,16 +76,16 @@ namespace Unity.Animation
     }
 
     [ExecuteAlways]
-    [UpdateInGroup(typeof(PostAnimationSystemGroup))]
-    [UpdateAfter(typeof(PostAnimationGraphSystem))]
-    public class RigComputeMatricesSystem : RigComputeMatricesSystemBase
+    [UpdateInGroup(typeof(LateAnimationSystemGroup))]
+    [UpdateAfter(typeof(ProcessLateAnimationGraph))]
+    public class ComputeRigMatrices : ComputeRigMatricesBase
     {
     }
 
     [ExecuteAlways]
-    [UpdateInGroup(typeof(PostAnimationSystemGroup))]
-    [UpdateAfter(typeof(RigComputeMatricesSystem))]
-    public class ComputeSkinMatrixSystem : ComputeDeformationDataSystemBase
+    [UpdateInGroup(typeof(LateAnimationSystemGroup))]
+    [UpdateAfter(typeof(ComputeRigMatrices))]
+    public class ComputeDeformationData : ComputeDeformationDataBase
     {
     }
 }

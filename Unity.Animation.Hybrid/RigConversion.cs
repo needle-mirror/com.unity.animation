@@ -1,10 +1,9 @@
 using UnityEngine;
 using Unity.Entities;
-using Unity.Transforms;
 
 namespace Unity.Animation.Hybrid
 {
-    [ConverterVersion("Unity.Animation.Hybrid.RigConversion", 11)]
+    [ConverterVersion("Unity.Animation.Hybrid.RigConversion", 12)]
     [UpdateInGroup(typeof(GameObjectConversionGroup))]
     public class RigConversion : GameObjectConversionSystem
     {

@@ -1,12 +1,11 @@
-using System.Collections.Generic;
-using Unity.Animation.Hybrid;
-using NUnit.Framework;
-using Unity.Entities;
-using Unity.Mathematics;
-using Unity.DataFlowGraph;
-using UnityEngine;
 using System;
-using Unity.Collections;
+using System.Collections.Generic;
+using NUnit.Framework;
+using Unity.Animation.Hybrid;
+using Unity.DataFlowGraph;
+using Unity.Mathematics;
+using Unity.Entities;
+using UnityEngine;
 
 namespace Unity.Animation.Tests
 {
@@ -124,15 +123,15 @@ namespace Unity.Animation.Tests
         protected EntityManager m_Manager;
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
-        // NOTE: Using the PreAnimationGraphSystem for all tests
+        // NOTE: Using the ProcessDefaultAnimationGraph system for all tests
         // if a two pass setup is eventually needed we'll have to
         // consider upgrading our test fixture to handle this
-        protected PreAnimationGraphSystem m_AnimationGraphSystem;
+        protected ProcessDefaultAnimationGraph m_AnimationGraphSystem;
         protected NodeSet Set => m_AnimationGraphSystem.Set;
 
-        protected BeginFrameAnimationSystem m_BeginFrameAnimationSystem;
-        protected PreAnimationGraphSystem m_PreAnimationGraph;
-        protected PostAnimationGraphSystem m_PostAnimationGraph;
+        protected InitializeAnimation m_InitializeAnimation;
+        protected ProcessDefaultAnimationGraph m_PreAnimationGraph;
+        protected ProcessLateAnimationGraph m_PostAnimationGraph;
 
         protected NodeSet PreSet => m_PreAnimationGraph.Set;
         protected NodeSet PostSet => m_PostAnimationGraph.Set;
@@ -190,15 +189,15 @@ namespace Unity.Animation.Tests
             m_Manager = World.EntityManager;
             m_ManagerDebug = new EntityManager.EntityManagerDebug(m_Manager);
 
-            m_BeginFrameAnimationSystem = World.GetOrCreateSystem<BeginFrameAnimationSystem>();
+            m_InitializeAnimation = World.GetOrCreateSystem<InitializeAnimation>();
 
-            m_AnimationGraphSystem = World.GetOrCreateSystem<PreAnimationGraphSystem>();
+            m_AnimationGraphSystem = World.GetOrCreateSystem<ProcessDefaultAnimationGraph>();
             m_AnimationGraphSystem.AddRef();
 
-            m_PreAnimationGraph = World.GetOrCreateSystem<PreAnimationGraphSystem>();
+            m_PreAnimationGraph = World.GetOrCreateSystem<ProcessDefaultAnimationGraph>();
             m_PreAnimationGraph.AddRef();
 
-            m_PostAnimationGraph = World.GetOrCreateSystem<PostAnimationGraphSystem>();
+            m_PostAnimationGraph = World.GetOrCreateSystem<ProcessLateAnimationGraph>();
             m_PostAnimationGraph.AddRef();
         }
 
@@ -229,9 +228,9 @@ namespace Unity.Animation.Tests
             }
         }
 
-        protected GameObject CreateGameObject()
+        protected GameObject CreateGameObject(string name = null)
         {
-            var go = new GameObject();
+            var go = name == null ? new GameObject() : new GameObject(name);
             m_GameObjects.Add(go);
             return go;
         }

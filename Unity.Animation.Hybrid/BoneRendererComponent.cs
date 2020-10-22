@@ -14,6 +14,7 @@ namespace Unity.Animation.Hybrid
         // If you include the shader in the Resources folder you don't need this.
         public Material BoneMaterial;
 
+        [System.Obsolete("A reference to RigComponent is not necessary anymore (RemovedAfter 2020-12-22).")]
         public RigComponent RigComponent;
         [Tooltip("The bones to render. Bones without a connection in the joints' list are not rendered for now.")]
         public Transform[] Transforms;

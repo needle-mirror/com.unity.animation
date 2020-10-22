@@ -10,15 +10,11 @@ namespace Unity.Animation
     /// <summary>
     /// This is an *experimental* node that remaps a transform from world space to root space.
     /// </summary>
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "5241b718a3ba437f9264f23ac7d3f744", version: 1, category: "Animation Core/Utils", description: "Remaps a transform from world space to root space.")]
     public class WorldToRootNode
-        : NodeDefinition<WorldToRootNode.Data, WorldToRootNode.SimPorts, WorldToRootNode.KernelData,
-                         WorldToRootNode.KernelDefs, WorldToRootNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<WorldToRootNode.SimPorts, WorldToRootNode.KernelDefs>
+        , IRigContextHandler<WorldToRootNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "92f925ab4afc486f8438f69a83c003bb", isHidden: true)]
@@ -38,17 +34,24 @@ namespace Unity.Animation
             public DataOutput<WorldToRootNode, float4x4> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>
         {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -61,11 +64,6 @@ namespace Unity.Animation
                 var target = context.Resolve(ports.LocalToWorldToRemap).Value;
                 context.Resolve(ref ports.Output) = math.mul((float4x4)worldToRoot, target);
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
         }
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

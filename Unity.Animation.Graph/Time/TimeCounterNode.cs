@@ -5,14 +5,10 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "3fbf9c93754341edaff155b9fa8363b1", version: 1, category: "Animation Core/Time", description: "Accumulates and output's current time based on scale and delta time")]
     public class TimeCounterNode
-        : NodeDefinition<TimeCounterNode.Data, TimeCounterNode.SimPorts, TimeCounterNode.KernelData, TimeCounterNode.KernelDefs, TimeCounterNode.Kernel>
-        , IMsgHandler<float>
+        : SimulationKernelNodeDefinition<TimeCounterNode.SimPorts, TimeCounterNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "6f1144ea235449529f0e29c58009a605", description: "Set internal time to this value")]
@@ -32,19 +28,48 @@ namespace Unity.Animation
             public DataOutput<TimeCounterNode, float> Time;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IInit, IUpdate, IMsgHandler<float>
         {
-            public int SetTime;
+            KernelData m_KernelData;
+            int m_SetTime;
+
+            public void Init(InitContext ctx) =>
+                ctx.RegisterForUpdate();
+
+            public void Update(in UpdateContext ctx)
+            {
+                if (m_SetTime != 0)
+                {
+                    m_SetTime = 0;
+                }
+                else
+                {
+                    m_KernelData.SetTime = 0;
+                    ctx.UpdateKernelData(m_KernelData);
+                }
+            }
+
+            public void HandleMessage(in MessageContext ctx, in float msg)
+            {
+                if (ctx.Port == SimulationPorts.Time)
+                {
+                    m_KernelData.Time = msg;
+                    m_KernelData.SetTime = 1;
+                    m_SetTime = 1;
+
+                    ctx.UpdateKernelData(m_KernelData);
+                }
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public int SetTime;
             public float Time;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             float m_Time;
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
@@ -54,35 +79,6 @@ namespace Unity.Animation
 
                 context.Resolve(ref ports.Time) =  m_Time;
                 context.Resolve(ref ports.OutputDeltaTime) = deltaTime;
-            }
-        }
-
-        protected override void OnUpdate(in UpdateContext ctx)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-            ref var kernelData = ref GetKernelData(ctx.Handle);
-
-            if (nodeData.SetTime != 0)
-            {
-                nodeData.SetTime = 0;
-                kernelData.SetTime = 1;
-            }
-            else
-            {
-                kernelData.SetTime = 0;
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in float msg)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-            ref var kernelData = ref GetKernelData(ctx.Handle);
-
-            if (ctx.Port == SimulationPorts.Time)
-            {
-                kernelData.Time = msg;
-                kernelData.SetTime = 0;
-                nodeData.SetTime = 1;
             }
         }
     }

@@ -6,15 +6,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "d02f3e16b7044fcd9acd09adf22f2a30", version: 1, category: "Animation Core/Root Motion", description: "Extracts motion from a specified transform and projects it's values on the root transform. This node is internally used by the UberClipNode.")]
     public class InPlaceMotionNode
-        : NodeDefinition<InPlaceMotionNode.Data, InPlaceMotionNode.SimPorts, InPlaceMotionNode.KernelData, InPlaceMotionNode.KernelDefs, InPlaceMotionNode.Kernel>
-        , IMsgHandler<ClipConfiguration>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<InPlaceMotionNode.SimPorts, InPlaceMotionNode.KernelDefs>
+        , IRigContextHandler<InPlaceMotionNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "df8397b840e1401ca4884771eaf7d90f", isHidden: true)]
@@ -31,11 +27,54 @@ namespace Unity.Animation
             public DataOutput<InPlaceMotionNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<Rig>, IMsgHandler<ClipConfiguration>
         {
+            KernelData m_KernelData;
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_KernelData.RigDefinition = rig;
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+                SetMotionIndices(ref m_KernelData);
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+            {
+                m_KernelData.Configuration = msg;
+                SetMotionIndices(ref m_KernelData);
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            private void SetMotionIndices(ref KernelData kData)
+            {
+                if (kData.Configuration.MotionID != 0 && kData.RigDefinition.IsCreated)
+                {
+                    kData.TranslationIndex = Core.FindBindingIndex(ref kData.RigDefinition.Value.Bindings.TranslationBindings, kData.Configuration.MotionID);
+                    kData.RotationIndex = Core.FindBindingIndex(ref kData.RigDefinition.Value.Bindings.RotationBindings, kData.Configuration.MotionID);
+
+                    if (kData.TranslationIndex < 0 || kData.RotationIndex < 0)
+                    {
+                        Debug.LogWarning("InPlaceMotionNode. Could not find the specified MotionID on the Rig. Using index 0 instead.");
+
+                        kData.RotationIndex = math.max(0, kData.RotationIndex);
+                        kData.TranslationIndex = math.max(0, kData.TranslationIndex);
+                    }
+                }
+                else
+                {
+                    kData.TranslationIndex = 0;
+                    kData.RotationIndex = 0;
+                }
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
             public ClipConfiguration Configuration;
@@ -45,7 +84,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -73,49 +112,6 @@ namespace Unity.Animation
 
                 outputStream.SetLocalToRootTranslation(data.TranslationIndex, motionTranslation);
                 outputStream.SetLocalToRootRotation(data.RotationIndex, motionRotation);
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-
-            SetMotionIndices(ref kData);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.Configuration = msg;
-            SetMotionIndices(ref kData);
-        }
-
-        private void SetMotionIndices(ref KernelData kData)
-        {
-            if (kData.Configuration.MotionID != 0 && kData.RigDefinition.IsCreated)
-            {
-                kData.TranslationIndex = Core.FindBindingIndex(ref kData.RigDefinition.Value.Bindings.TranslationBindings, kData.Configuration.MotionID);
-                kData.RotationIndex = Core.FindBindingIndex(ref kData.RigDefinition.Value.Bindings.RotationBindings, kData.Configuration.MotionID);
-
-                if (kData.TranslationIndex < 0 || kData.RotationIndex < 0)
-                {
-                    Debug.LogWarning("InPlaceMotionNode. Could not find the specified MotionID on the Rig. Using index 0 instead.");
-
-                    kData.RotationIndex = math.max(0, kData.RotationIndex);
-                    kData.TranslationIndex = math.max(0, kData.TranslationIndex);
-                }
-            }
-            else
-            {
-                kData.TranslationIndex = 0;
-                kData.RotationIndex = 0;
             }
         }
 

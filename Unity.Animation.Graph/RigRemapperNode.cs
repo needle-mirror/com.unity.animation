@@ -5,15 +5,11 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "8d7926b8dbcf4072b7cf1a10e29de888", version: 1, category: "Animation Core/Utils", description: "Remaps one animation stream to another given a known remapping table")]
     public class RigRemapperNode
-        : NodeDefinition<RigRemapperNode.Data, RigRemapperNode.SimPorts, RigRemapperNode.KernelData, RigRemapperNode.KernelDefs, RigRemapperNode.Kernel>
-        , IMsgHandler<BlobAssetReference<RigRemapTable>>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<RigRemapperNode.SimPorts, RigRemapperNode.KernelDefs>
+        , IRigContextHandler<RigRemapperNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "29d7c6f4946c46d199d9d13e11332983", displayName: "Source Rig", description: "Source rig to remap animation from")]
@@ -35,11 +31,37 @@ namespace Unity.Animation
             public DataOutput<RigRemapperNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        internal struct Data : INodeData, IMsgHandler<Rig>, IMsgHandler<BlobAssetReference<RigRemapTable>>
         {
+            internal KernelData m_KernelData;
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                if (ctx.Port == SimulationPorts.DestinationRig)
+                {
+                    m_KernelData.DestinationRigDefinition = rig;
+                    ctx.Set.SetBufferSize(
+                        ctx.Handle,
+                        (OutputPortID)KernelPorts.Output,
+                        Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                    );
+                }
+                else if (ctx.Port == SimulationPorts.SourceRig)
+                {
+                    m_KernelData.SourceRigDefinition = rig;
+                }
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigRemapTable> remapTable)
+            {
+                m_KernelData.RemapTable = remapTable;
+                ctx.UpdateKernelData(m_KernelData);
+            }
         }
 
-        public struct KernelData : IKernelData
+        internal struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> SourceRigDefinition;
             public BlobAssetReference<RigDefinition> DestinationRigDefinition;
@@ -47,7 +69,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -70,33 +92,6 @@ namespace Unity.Animation
                 }
             }
         }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            if (ctx.Port == SimulationPorts.DestinationRig)
-            {
-                kData.DestinationRigDefinition = rig;
-                Set.SetBufferSize(
-                    ctx.Handle,
-                    (OutputPortID)KernelPorts.Output,
-                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-                );
-            }
-            else if (ctx.Port == SimulationPorts.SourceRig)
-            {
-                kData.SourceRigDefinition = rig;
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<RigRemapTable> remapTable)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.RemapTable = remapTable;
-        }
-
-        internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
 
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.DestinationRig;

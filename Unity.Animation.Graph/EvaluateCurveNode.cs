@@ -6,14 +6,10 @@ using Unity.Burst;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "7e669400e5a54932a5cbfd21ef5ec64a", version: 1, category: "Animation Core", description: "Samples an AnimationCurve at a given time")]
     public class EvaluateCurveNode
-        : NodeDefinition<EvaluateCurveNode.Data, EvaluateCurveNode.SimPorts, EvaluateCurveNode.KernelData, EvaluateCurveNode.KernelDefs, EvaluateCurveNode.Kernel>
-        , IMsgHandler<AnimationCurve>
+        : SimulationKernelNodeDefinition<EvaluateCurveNode.SimPorts, EvaluateCurveNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "a28d3cca5864417d91350f603503a984", description: "The AnimationCurve to sample")]
@@ -29,17 +25,24 @@ namespace Unity.Animation
             public DataOutput<EvaluateCurveNode, float> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<AnimationCurve>
         {
+            public void HandleMessage(in MessageContext ctx, in AnimationCurve curve)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    AnimationCurve = curve
+                });
+            }
         }
 
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public AnimationCurve AnimationCurve;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
             internal static void ValidateIsCreated(AnimationCurve animationCurve)
@@ -58,12 +61,6 @@ namespace Unity.Animation
 
                 output = AnimationCurveEvaluator.Evaluate(time, ref data.AnimationCurve);
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in AnimationCurve curve)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.AnimationCurve = curve;
         }
     }
 }

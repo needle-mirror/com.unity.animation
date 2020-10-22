@@ -27,17 +27,11 @@ namespace Unity.Animation
         public StringHash MotionID;
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "859141ab001b4967b5ea5798db0e5879", version: 1, category: "Animation Core", description: "Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden: true)]
     public class UberClipNode
-        : NodeDefinition<UberClipNode.Data, UberClipNode.SimPorts, UberClipNode.KernelData, UberClipNode.KernelDefs, UberClipNode.Kernel>
-        , IMsgHandler<BlobAssetReference<Clip>>
-        , IMsgHandler<ClipConfiguration>
-        , IMsgHandler<bool>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<UberClipNode.SimPorts, UberClipNode.KernelDefs>
+        , IRigContextHandler<UberClipNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "3e1fda046ee345d7868bede5248b110b", isHidden: true)]
@@ -48,6 +42,14 @@ namespace Unity.Animation
             public MessageInput<UberClipNode, ClipConfiguration> Configuration;
             [PortDefinition(guid: "b932e67455d24b0a818f6b04725231db", description: "Is this an additive clip", defaultValue: false)]
             public MessageInput<UberClipNode, bool> Additive;
+
+            internal MessageOutput<UberClipNode, ClipConfiguration> m_OutClipConfig;
+            internal MessageOutput<UberClipNode, float> m_OutDuration;
+            internal MessageOutput<UberClipNode, Rig> m_OutRig;
+            internal MessageOutput<UberClipNode, BlobAssetReference<Clip>> m_OutClip;
+            internal MessageOutput<UberClipNode, bool> m_OutIsAdditive;
+            internal MessageOutput<UberClipNode, float> m_OutSampleRate;
+            internal MessageOutput<UberClipNode, int> m_OutBufferSize;
         }
 
         public struct KernelDefs : IKernelPortDefinition
@@ -61,221 +63,218 @@ namespace Unity.Animation
             public DataOutput<UberClipNode, Buffer<AnimatedData>> Output;
         }
 
-        public struct Data : INodeData
+        internal struct Data : INodeData, IInit, IDestroy
+            , IMsgHandler<Rig>
+            , IMsgHandler<BlobAssetReference<Clip>>
+            , IMsgHandler<ClipConfiguration>
+            , IMsgHandler<bool>
         {
-            internal NodeHandle<KernelPassThroughNodeFloat>         TimeNode;
-            internal NodeHandle<KernelPassThroughNodeFloat>         DeltaTimeNode;
-            internal NodeHandle<KernelPassThroughNodeBufferFloat>   OutputNode;
+            NodeHandle<KernelPassThroughNodeFloat>         m_TimeNode;
+            NodeHandle<KernelPassThroughNodeFloat>         m_DeltaTimeNode;
+            NodeHandle<KernelPassThroughNodeBufferFloat>   m_OutputNode;
 
-            internal NodeHandle<NormalizedTimeNode>             NormalizedDeltaTimeNode;
-            internal NodeHandle<FloatSubNode>                   PrevTimeNode;
-            internal NodeHandle<ConfigurableClipNode>           PrevClipNode;
-            internal NodeHandle<ConfigurableClipNode>           ClipNode;
-            internal NodeHandle<DeltaRootMotionNode>            DeltaRootMotionNode;
-            internal NodeHandle<RootMotionFromVelocityNode>     RootMotionFromVelocityNode;
+            NodeHandle<NormalizedTimeNode>             m_NormalizedDeltaTimeNode;
+            NodeHandle<FloatSubNode>                   m_PrevTimeNode;
+            NodeHandle<ConfigurableClipNode>           m_PrevClipNode;
+            internal NodeHandle<ConfigurableClipNode>  m_ClipNode;
+            NodeHandle<DeltaRootMotionNode>            m_DeltaRootMotionNode;
+            NodeHandle<RootMotionFromVelocityNode>     m_RootMotionFromVelocityNode;
 
-            public BlobAssetReference<RigDefinition> RigDefinition;
-            public BlobAssetReference<Clip>          Clip;
-            public bool                              IsAdditive;
+            BlobAssetReference<RigDefinition> m_RigDefinition;
+            internal BlobAssetReference<Clip> m_Clip;
+            bool                              m_IsAdditive;
 
-            internal ClipConfiguration Configuration;
+            ClipConfiguration m_Configuration;
+
+            public void Init(InitContext ctx)
+            {
+                var thisHandle = ctx.Set.CastHandle<UberClipNode>(ctx.Handle);
+
+                m_TimeNode = ctx.Set.Create<KernelPassThroughNodeFloat>();
+                m_DeltaTimeNode = ctx.Set.Create<KernelPassThroughNodeFloat>();
+                m_OutputNode = ctx.Set.Create<KernelPassThroughNodeBufferFloat>();
+
+                ctx.ForwardInput(KernelPorts.Time, m_TimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
+                ctx.ForwardInput(KernelPorts.DeltaTime, m_DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
+                ctx.ForwardOutput(KernelPorts.Output, m_OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
+
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutBufferSize, m_OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize);
+            }
+
+            public void Destroy(DestroyContext ctx)
+            {
+                ctx.Set.Destroy(m_TimeNode);
+                ctx.Set.Destroy(m_DeltaTimeNode);
+                ctx.Set.Destroy(m_OutputNode);
+
+                ClearNodes(ctx.Set);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_RigDefinition = rig;
+
+                ClearNodes(ctx.Set);
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+                BuildNodes(ctx);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+            {
+                m_Clip = clip;
+
+                ClearNodes(ctx.Set);
+                BuildNodes(ctx);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+            {
+                m_Configuration = msg;
+
+                ClearNodes(ctx.Set);
+                BuildNodes(ctx);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in bool msg)
+            {
+                m_IsAdditive = msg;
+
+                ClearNodes(ctx.Set);
+                BuildNodes(ctx);
+            }
+
+            void BuildNodes(in MessageContext ctx)
+            {
+                if (m_Clip == BlobAssetReference<Clip>.Null || m_RigDefinition == BlobAssetReference<RigDefinition>.Null)
+                    return;
+
+                var thisHandle = ctx.Set.CastHandle<UberClipNode>(ctx.Handle);
+
+                var mask = m_Configuration.Mask;
+
+                var normalizedTime = (mask & ClipConfigurationMask.NormalizedTime) != 0;
+                var deltaRootMotion =  (mask & ClipConfigurationMask.DeltaRootMotion) != 0;
+                var rootMotionFromVelocity = (mask & ClipConfigurationMask.RootMotionFromVelocity) != 0;
+
+                if (normalizedTime && rootMotionFromVelocity)
+                {
+                    m_NormalizedDeltaTimeNode = ctx.Set.Create<NormalizedTimeNode>();
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutDuration, m_NormalizedDeltaTimeNode, NormalizedTimeNode.SimulationPorts.Duration);
+                }
+
+                if (deltaRootMotion)
+                {
+                    m_PrevTimeNode = ctx.Set.Create<FloatSubNode>();
+                    m_PrevClipNode = ctx.Set.Create<ConfigurableClipNode>();
+                    m_DeltaRootMotionNode = ctx.Set.Create<DeltaRootMotionNode>();
+
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutClipConfig, m_PrevClipNode, ConfigurableClipNode.SimulationPorts.Configuration);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutRig, m_PrevClipNode, ConfigurableClipNode.SimulationPorts.Rig);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutClip, m_PrevClipNode, ConfigurableClipNode.SimulationPorts.Clip);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutIsAdditive, m_PrevClipNode, ConfigurableClipNode.SimulationPorts.Additive);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutRig, m_DeltaRootMotionNode, DeltaRootMotionNode.SimulationPorts.Rig);
+                }
+                else if (rootMotionFromVelocity)
+                {
+                    m_RootMotionFromVelocityNode = ctx.Set.Create<RootMotionFromVelocityNode>();
+
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutRig, m_RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.Rig);
+                    ctx.Set.Connect(thisHandle, SimulationPorts.m_OutSampleRate, m_RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.SampleRate);
+                }
+
+                m_ClipNode = ctx.Set.Create<ConfigurableClipNode>();
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutClipConfig, m_ClipNode, ConfigurableClipNode.SimulationPorts.Configuration);
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutRig, m_ClipNode, ConfigurableClipNode.SimulationPorts.Rig);
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutClip, m_ClipNode, ConfigurableClipNode.SimulationPorts.Clip);
+                ctx.Set.Connect(thisHandle, SimulationPorts.m_OutIsAdditive, m_ClipNode, ConfigurableClipNode.SimulationPorts.Additive);
+
+                if (deltaRootMotion)
+                {
+                    ctx.Set.Connect(m_TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_PrevTimeNode, FloatSubNode.KernelPorts.InputA);
+                    ctx.Set.Connect(m_DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_PrevTimeNode, FloatSubNode.KernelPorts.InputB);
+
+                    ctx.Set.Connect(m_PrevTimeNode, FloatSubNode.KernelPorts.Output, m_PrevClipNode, ConfigurableClipNode.KernelPorts.Time);
+                    ctx.Set.Connect(m_TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_ClipNode, ConfigurableClipNode.KernelPorts.Time);
+
+                    ctx.Set.Connect(m_PrevClipNode, ConfigurableClipNode.KernelPorts.Output, m_DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Previous);
+                    ctx.Set.Connect(m_ClipNode, ConfigurableClipNode.KernelPorts.Output, m_DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Current);
+
+                    ctx.Set.Connect(m_DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Output, m_OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
+                }
+                else if (rootMotionFromVelocity)
+                {
+                    ctx.Set.Connect(m_TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_ClipNode, ConfigurableClipNode.KernelPorts.Time);
+
+                    if (normalizedTime)
+                    {
+                        ctx.Set.Connect(m_DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_NormalizedDeltaTimeNode, NormalizedTimeNode.KernelPorts.InputTime);
+                        ctx.Set.Connect(m_NormalizedDeltaTimeNode, NormalizedTimeNode.KernelPorts.OutputTime, m_RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.DeltaTime);
+                    }
+                    else
+                    {
+                        ctx.Set.Connect(m_DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.DeltaTime);
+                    }
+
+                    ctx.Set.Connect(m_ClipNode, ConfigurableClipNode.KernelPorts.Output, m_RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.Input);
+                    ctx.Set.Connect(m_RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.Output, m_OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
+                }
+                else
+                {
+                    ctx.Set.Connect(m_TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, m_ClipNode, ConfigurableClipNode.KernelPorts.Time);
+                    ctx.Set.Connect(m_ClipNode, ConfigurableClipNode.KernelPorts.Output, m_OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
+                }
+
+                EmitAllOutMessages(ctx);
+            }
+
+            public void EmitAllOutMessages(in MessageContext ctx)
+            {
+                // We can emit on all the output messages, if there's no connection nothing happens.
+                ctx.EmitMessage(SimulationPorts.m_OutRig, new Rig { Value = m_RigDefinition });
+                ctx.EmitMessage(SimulationPorts.m_OutClipConfig, m_Configuration);
+                ctx.EmitMessage(SimulationPorts.m_OutDuration, m_Clip.Value.Duration);
+                ctx.EmitMessage(SimulationPorts.m_OutSampleRate, m_Clip.Value.SampleRate);
+                ctx.EmitMessage(SimulationPorts.m_OutClip, m_Clip);
+                ctx.EmitMessage(SimulationPorts.m_OutIsAdditive, m_IsAdditive);
+                ctx.EmitMessage(SimulationPorts.m_OutBufferSize, m_RigDefinition.Value.Bindings.StreamSize);
+            }
+
+            void ClearNodes(NodeSetAPI set)
+            {
+                if (set.Exists(m_NormalizedDeltaTimeNode))
+                    set.Destroy(m_NormalizedDeltaTimeNode);
+
+                if (set.Exists(m_PrevTimeNode))
+                    set.Destroy(m_PrevTimeNode);
+
+                if (set.Exists(m_PrevClipNode))
+                    set.Destroy(m_PrevClipNode);
+
+                if (set.Exists(m_ClipNode))
+                    set.Destroy(m_ClipNode);
+
+                if (set.Exists(m_DeltaRootMotionNode))
+                    set.Destroy(m_DeltaRootMotionNode);
+
+                if (set.Exists(m_RootMotionFromVelocityNode))
+                    set.Destroy(m_RootMotionFromVelocityNode);
+            }
         }
 
-        public struct KernelData : IKernelData {}
+        struct KernelData : IKernelData {}
 
         [BurstCompile]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports) {}
         }
 
-        void BuildNodes(ref Data nodeData)
-        {
-            if (nodeData.Clip == BlobAssetReference<Clip>.Null || nodeData.RigDefinition == BlobAssetReference<RigDefinition>.Null)
-                return;
-
-            var mask = nodeData.Configuration.Mask;
-
-            var normalizedTime = (mask & ClipConfigurationMask.NormalizedTime) != 0;
-            var deltaRootMotion =  (mask & ClipConfigurationMask.DeltaRootMotion) != 0;
-            var rootMotionFromVelocity = (mask & ClipConfigurationMask.RootMotionFromVelocity) != 0;
-
-            if (normalizedTime && rootMotionFromVelocity)
-            {
-                nodeData.NormalizedDeltaTimeNode = Set.Create<NormalizedTimeNode>();
-            }
-
-            if (deltaRootMotion)
-            {
-                nodeData.PrevTimeNode = Set.Create<FloatSubNode>();
-                nodeData.PrevClipNode = Set.Create<ConfigurableClipNode>();
-                nodeData.DeltaRootMotionNode = Set.Create<DeltaRootMotionNode>();
-            }
-            else if (rootMotionFromVelocity)
-            {
-                nodeData.RootMotionFromVelocityNode = Set.Create<RootMotionFromVelocityNode>();
-            }
-
-            nodeData.ClipNode = Set.Create<ConfigurableClipNode>();
-
-            if (deltaRootMotion)
-            {
-                Set.Connect(nodeData.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.PrevTimeNode, FloatSubNode.KernelPorts.InputA);
-                Set.Connect(nodeData.DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.PrevTimeNode, FloatSubNode.KernelPorts.InputB);
-
-                Set.Connect(nodeData.PrevTimeNode, FloatSubNode.KernelPorts.Output, nodeData.PrevClipNode, ConfigurableClipNode.KernelPorts.Time);
-                Set.Connect(nodeData.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Time);
-
-                Set.Connect(nodeData.PrevClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Previous);
-                Set.Connect(nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Current);
-
-                Set.Connect(nodeData.DeltaRootMotionNode, DeltaRootMotionNode.KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
-            }
-            else if (rootMotionFromVelocity)
-            {
-                Set.Connect(nodeData.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Time);
-
-                if (normalizedTime)
-                {
-                    Set.Connect(nodeData.DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.NormalizedDeltaTimeNode, NormalizedTimeNode.KernelPorts.InputTime);
-                    Set.Connect(nodeData.NormalizedDeltaTimeNode, NormalizedTimeNode.KernelPorts.OutputTime, nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.DeltaTime);
-                }
-                else
-                {
-                    Set.Connect(nodeData.DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.DeltaTime);
-                }
-
-                Set.Connect(nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.Input);
-                Set.Connect(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
-            }
-            else
-            {
-                Set.Connect(nodeData.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Output, nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Time);
-                Set.Connect(nodeData.ClipNode, ConfigurableClipNode.KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Input);
-            }
-
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Configuration, nodeData.Configuration);
-
-            if (normalizedTime && rootMotionFromVelocity)
-            {
-                Set.SendMessage(nodeData.NormalizedDeltaTimeNode, NormalizedTimeNode.SimulationPorts.Duration, nodeData.Clip.Value.Duration);
-            }
-
-            if (deltaRootMotion)
-            {
-                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Configuration, nodeData.Configuration);
-                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
-                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Clip, nodeData.Clip);
-                Set.SendMessage(nodeData.PrevClipNode, ConfigurableClipNode.SimulationPorts.Additive, nodeData.IsAdditive);
-                Set.SendMessage(nodeData.DeltaRootMotionNode, DeltaRootMotionNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
-            }
-            else if (rootMotionFromVelocity)
-            {
-                Set.SendMessage(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
-                Set.SendMessage(nodeData.RootMotionFromVelocityNode, RootMotionFromVelocityNode.SimulationPorts.SampleRate, nodeData.Clip.Value.SampleRate);
-            }
-
-            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Rig, new Rig { Value = nodeData.RigDefinition });
-            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Clip, nodeData.Clip);
-            Set.SendMessage(nodeData.ClipNode, ConfigurableClipNode.SimulationPorts.Additive, nodeData.IsAdditive);
-            Set.SendMessage(nodeData.OutputNode, KernelPassThroughNodeBufferFloat.SimulationPorts.BufferSize, nodeData.RigDefinition.Value.Bindings.StreamSize);
-#pragma warning restore 0618
-        }
-
-        void ClearNodes(Data nodeData)
-        {
-            if (Set.Exists(nodeData.NormalizedDeltaTimeNode))
-                Set.Destroy(nodeData.NormalizedDeltaTimeNode);
-
-            if (Set.Exists(nodeData.PrevTimeNode))
-                Set.Destroy(nodeData.PrevTimeNode);
-
-            if (Set.Exists(nodeData.PrevClipNode))
-                Set.Destroy(nodeData.PrevClipNode);
-
-            if (Set.Exists(nodeData.ClipNode))
-                Set.Destroy(nodeData.ClipNode);
-
-            if (Set.Exists(nodeData.DeltaRootMotionNode))
-                Set.Destroy(nodeData.DeltaRootMotionNode);
-
-            if (Set.Exists(nodeData.RootMotionFromVelocityNode))
-                Set.Destroy(nodeData.RootMotionFromVelocityNode);
-        }
-
-        protected override void Init(InitContext ctx)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-
-            nodeData.TimeNode = Set.Create<KernelPassThroughNodeFloat>();
-            nodeData.DeltaTimeNode = Set.Create<KernelPassThroughNodeFloat>();
-            nodeData.OutputNode = Set.Create<KernelPassThroughNodeBufferFloat>();
-
-            BuildNodes(ref nodeData);
-
-            ctx.ForwardInput(KernelPorts.Time, nodeData.TimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
-            ctx.ForwardInput(KernelPorts.DeltaTime, nodeData.DeltaTimeNode, KernelPassThroughNodeFloat.KernelPorts.Input);
-            ctx.ForwardOutput(KernelPorts.Output, nodeData.OutputNode, KernelPassThroughNodeBufferFloat.KernelPorts.Output);
-        }
-
-        protected override void Destroy(DestroyContext ctx)
-        {
-            var nodeData = GetNodeData(ctx.Handle);
-
-            Set.Destroy(nodeData.TimeNode);
-            Set.Destroy(nodeData.DeltaTimeNode);
-            Set.Destroy(nodeData.OutputNode);
-
-            ClearNodes(nodeData);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-            nodeData.RigDefinition = rig;
-
-            ClearNodes(nodeData);
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-
-            BuildNodes(ref nodeData);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-
-            nodeData.Clip = clip;
-
-            ClearNodes(nodeData);
-            BuildNodes(ref nodeData);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-
-            nodeData.Configuration = msg;
-
-            ClearNodes(nodeData);
-            BuildNodes(ref nodeData);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in bool msg)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-            nodeData.IsAdditive = msg;
-
-            ClearNodes(nodeData);
-            BuildNodes(ref nodeData);
-        }
-
-        internal Data ExposeNodeData(NodeHandle handle) => GetNodeData(handle);
-        internal KernelData ExposeKernelData(NodeHandle handle) => GetKernelData(handle);
 
         static void UpdateFrame(
             ref ClipInstance clipInstance,
@@ -506,7 +505,6 @@ namespace Unity.Animation
             return clipAsset;
         }
 
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }

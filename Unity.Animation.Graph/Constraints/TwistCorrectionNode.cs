@@ -5,19 +5,14 @@ using Unity.DataFlowGraph;
 using Unity.DataFlowGraph.Attributes;
 using Unity.Collections;
 
-using System;
-
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "6f515a98326e46108f9f2f9c251c3afb", version: 1, category: "Animation Core/Constraints", description: "Twist correction is mainly used to redistribute a percentage of the source rotation over a leaf bone in order to correct mesh deformation artifacts.")]
     [PortGroupDefinition(portGroupSizeDescription: "Twist Bone Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class TwistCorrectionNode
-        : NodeDefinition<TwistCorrectionNode.Data, TwistCorrectionNode.SimPorts, TwistCorrectionNode.KernelData, TwistCorrectionNode.KernelDefs, TwistCorrectionNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<TwistCorrectionNode.SimPorts, TwistCorrectionNode.KernelDefs>
+        , IRigContextHandler<TwistCorrectionNode.Data>
     {
-#pragma warning restore 0618
-
         public enum TwistAxis
         {
             X, Y, Z
@@ -52,15 +47,38 @@ namespace Unity.Animation
             public PortArray<DataInput<TwistCorrectionNode, float>> TwistWeights;
         }
 
-        public struct Data : INodeData {}
+        struct Data : INodeData, IInit, IMsgHandler<Rig>
+        {
+            public void Init(InitContext ctx)
+            {
+                ctx.SetInitialPortValue(KernelPorts.Weight, 1f);
+                ctx.SetInitialPortValue(KernelPorts.LocalTwistAxis, TwistAxis.Y);
+                ctx.SetInitialPortValue(KernelPorts.SourceRotation, quaternion.identity);
+                ctx.SetInitialPortValue(KernelPorts.SourceDefaultRotation, quaternion.identity);
+            }
 
-        public struct KernelData : IKernelData
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+            }
+        }
+
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports)
             {
@@ -81,7 +99,7 @@ namespace Unity.Animation
                 var twistIndexArray = new NativeArray<int>(twistIndexPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 var twistWeightArray = new NativeArray<float>(twistWeightPorts.Length, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 twistIndexPorts.CopyTo(twistIndexArray);
-                twistWeightArray.CopyTo(twistWeightArray);
+                twistWeightPorts.CopyTo(twistWeightArray);
 
                 var twistData = new Core.TwistCorrectionData
                 {
@@ -109,27 +127,6 @@ namespace Unity.Animation
             }
         }
 
-        protected override void Init(InitContext ctx)
-        {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.LocalTwistAxis, TwistAxis.Y);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.SourceRotation, quaternion.identity);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.SourceDefaultRotation,  quaternion.identity);
-#pragma warning restore 0618
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-        }
-
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }

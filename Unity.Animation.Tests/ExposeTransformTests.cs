@@ -6,7 +6,6 @@ using Unity.Entities;
 using Unity.Transforms;
 using Unity.Mathematics;
 using Unity.DataFlowGraph;
-using Unity.DataFlowGraph.Attributes;
 using Unity.Collections;
 using Unity.Jobs;
 
@@ -128,10 +127,10 @@ namespace Unity.Animation.Tests
             }
         }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-        internal class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
+        internal class TestNode
+            : SimulationKernelNodeDefinition<TestNode.SimPorts, TestNode.KernelDefs>
+            , IRigContextHandler<TestNode.Data>
         {
-#pragma warning restore 0618
 #pragma warning disable 0649
             public struct SimPorts : ISimulationPortDefinition
             {
@@ -145,15 +144,26 @@ namespace Unity.Animation.Tests
             }
 #pragma warning restore 0649
 
-            public struct Data : INodeData {}
+            struct Data : INodeData, IMsgHandler<Rig>
+            {
+                public void HandleMessage(in MessageContext ctx, in Rig rig)
+                {
+                    ctx.UpdateKernelData(new KernelData
+                    {
+                        RigDefinition = rig
+                    });
 
-            public struct KernelData : IKernelData
+                    ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0));
+                }
+            }
+
+            struct KernelData : IKernelData
             {
                 public BlobAssetReference<RigDefinition> RigDefinition;
             }
 
             [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-            public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+            struct Kernel : IGraphKernel<KernelData, KernelDefs>
             {
                 public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
                 {
@@ -165,12 +175,6 @@ namespace Unity.Animation.Tests
 
                     outputStream.CopyFrom(ref inputStream);
                 }
-            }
-
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
-            {
-                GetKernelData(ctx.Handle).RigDefinition = rig.Value;
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0));
             }
 
             InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
@@ -253,7 +257,7 @@ namespace Unity.Animation.Tests
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
-                RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
             }
@@ -269,7 +273,7 @@ namespace Unity.Animation.Tests
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
-            // Validate that the PreAnimationGraphSystem copy the transform value into the stream
+            // Validate that the ProcessDefaultAnimationGraph system copy the transform value into the stream
             var ecsStream = AnimationStream.Create(
                 rig,
                 m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
@@ -288,7 +292,7 @@ namespace Unity.Animation.Tests
             ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem
+            // Validate that the ProcessLateAnimationGraph system doesn't copy the transform value into the stream since we are targeting only ProcessDefaultAnimationGraph
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -315,7 +319,7 @@ namespace Unity.Animation.Tests
             {
                 if (i % 2 == 0)
                 {
-                    RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                    RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                         m_Manager, rigEntity, entityTransforms[i], i
                     );
                 }
@@ -332,7 +336,7 @@ namespace Unity.Animation.Tests
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
-            // Validate that the PreAnimationGraphSystem copy the transform value into the stream
+            // Validate that the ProcessDefaultAnimationGraph system copy the transform value into the stream
             var ecsStream = AnimationStream.Create(
                 rig,
                 m_Manager.GetBuffer<AnimatedData>(rigEntity).AsNativeArray()
@@ -351,7 +355,7 @@ namespace Unity.Animation.Tests
             ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem doesn't copy the transform value into the stream since we are targeting only PreAnimationGraphSystem
+            // Validate that the ProcessLateAnimationGraph system doesn't copy the transform value into the stream since we are targeting only ProcessDefaultAnimationGraph
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -376,7 +380,7 @@ namespace Unity.Animation.Tests
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
-                RigEntityBuilder.AddReadTransformHandle<PostAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessLateAnimationGraph.ReadTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
             }
@@ -389,7 +393,7 @@ namespace Unity.Animation.Tests
 
             var graphBuffer = CreateGraphValue(testNode, TestNode.KernelPorts.Output, PostSet);
 
-            // Validate that the PreAnimationGraphSystem doesn't copy the transform value into the stream
+            // Validate that the ProcessDefaultAnimationGraph system doesn't copy the transform value into the stream
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -399,7 +403,7 @@ namespace Unity.Animation.Tests
             );
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem copy the transform value into the stream since we are targeting only PostAnimationGraphTag
+            // Validate that the ProcessLateAnimationGraph system copy the transform value into the stream since we are targeting only ProcessLateAnimationGraphTag
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -430,7 +434,7 @@ namespace Unity.Animation.Tests
             {
                 if (i % 2 == 0)
                 {
-                    RigEntityBuilder.AddReadTransformHandle<PostAnimationGraphSystem.ReadTransformHandle>(
+                    RigEntityBuilder.AddReadTransformHandle<ProcessLateAnimationGraph.ReadTransformHandle>(
                         m_Manager, rigEntity, entityTransforms[i], i
                     );
                 }
@@ -444,7 +448,7 @@ namespace Unity.Animation.Tests
 
             var graphBuffer = CreateGraphValue(testNode, TestNode.KernelPorts.Output, PostSet);
 
-            // Validate that the PreAnimationGraphSystem doesn't copy the transform value into the stream
+            // Validate that the ProcessDefaultAnimationGraph system doesn't copy the transform value into the stream
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -454,7 +458,7 @@ namespace Unity.Animation.Tests
             );
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem copy the transform value into the stream since we are targeting only PreAnimationGraphSystem
+            // Validate that the ProcessLateAnimationGraph system copy the transform value into the stream since we are targeting only ProcessDefaultAnimationGraph
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -483,10 +487,10 @@ namespace Unity.Animation.Tests
 
             for (int i = 0; i < entityTransforms.Count; i++)
             {
-                RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
-                RigEntityBuilder.AddReadTransformHandle<PostAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessLateAnimationGraph.ReadTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
             }
@@ -507,7 +511,7 @@ namespace Unity.Animation.Tests
 
             var postGraphBuffer = CreateGraphValue(postTestNode, TestNode.KernelPorts.Output, PostSet);
 
-            // Validate that the PreAnimationGraphSystem copy the transform value into the stream
+            // Validate that the ProcessDefaultAnimationGraph system copy the transform value into the stream
             m_PreAnimationGraph.Update();
             m_Manager.CompleteAllJobs();
 
@@ -529,7 +533,7 @@ namespace Unity.Animation.Tests
             ecsStream.ResetToDefaultValues();
             ValidateAnimationStream(ref ecsStream, ref m_ExpectedStreamDefault);
 
-            // Validate that the PostAnimationGraphSystem copy the transform value into the stream
+            // Validate that the ProcessLateAnimationGraph system copy the transform value into the stream
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
             m_PostAnimationGraph.Update();
@@ -558,7 +562,7 @@ namespace Unity.Animation.Tests
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
-                RigEntityBuilder.AddWriteTransformHandle<PostAnimationGraphSystem.WriteTransformHandle>(
+                RigEntityBuilder.AddWriteTransformHandle<ProcessLateAnimationGraph.WriteTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
             }
@@ -569,10 +573,10 @@ namespace Unity.Animation.Tests
                 Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
             }
 
-            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessDefaultAnimationGraph>().Update();
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessLateAnimationGraph>().Update();
             m_Manager.CompleteAllJobs();
 
             // The animation stream start with default values, so after writing into entities they all should have the identity matrix
@@ -597,7 +601,7 @@ namespace Unity.Animation.Tests
             {
                 if (i % 2 == 0)
                 {
-                    RigEntityBuilder.AddWriteTransformHandle<PostAnimationGraphSystem.WriteTransformHandle>(
+                    RigEntityBuilder.AddWriteTransformHandle<ProcessLateAnimationGraph.WriteTransformHandle>(
                         m_Manager, rigEntity, entityTransforms[i], i
                     );
                 }
@@ -609,10 +613,10 @@ namespace Unity.Animation.Tests
                 Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
             }
 
-            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessDefaultAnimationGraph>().Update();
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessLateAnimationGraph>().Update();
             m_Manager.CompleteAllJobs();
 
             // The animation stream start with default values, so after writing into entities they all should have the identity matrix
@@ -643,7 +647,7 @@ namespace Unity.Animation.Tests
             SetupEntityTransformComponent(rigEntity);
 
             // Writing to a transform in the hierarchy should update the children.
-            RigEntityBuilder.AddWriteTransformHandle<PreAnimationGraphSystem.WriteTransformHandle>(
+            RigEntityBuilder.AddWriteTransformHandle<ProcessDefaultAnimationGraph.WriteTransformHandle>(
                 m_Manager, rigEntity, entityTransforms[index], index
             );
 
@@ -653,7 +657,7 @@ namespace Unity.Animation.Tests
                 Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
             }
 
-            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessDefaultAnimationGraph>().Update();
             m_Manager.CompleteAllJobs();
 
             // After the pre-anim pass, only the entity that was written to has changed value.
@@ -674,7 +678,7 @@ namespace Unity.Animation.Tests
 
             World.GetOrCreateSystem<EndFrameParentSystem>().Update();
             World.GetOrCreateSystem<EndFrameLocalToParentSystem>().Update();
-            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessLateAnimationGraph>().Update();
             m_Manager.CompleteAllJobs();
 
             // The transform systems have updated the local to world of the children entities of the entity that was written to.
@@ -714,10 +718,10 @@ namespace Unity.Animation.Tests
             SetupRigEntity(rigEntity, rig, entityTransforms[0]);
             SetupEntityTransformComponent(rigEntity);
 
-            RigEntityBuilder.AddWriteTransformHandle<PreAnimationGraphSystem.WriteTransformHandle>(
+            RigEntityBuilder.AddWriteTransformHandle<ProcessDefaultAnimationGraph.WriteTransformHandle>(
                 m_Manager, rigEntity, entityTransforms[preIndex], preIndex
             );
-            RigEntityBuilder.AddWriteTransformHandle<PostAnimationGraphSystem.WriteTransformHandle>(
+            RigEntityBuilder.AddWriteTransformHandle<ProcessLateAnimationGraph.WriteTransformHandle>(
                 m_Manager, rigEntity, entityTransforms[postIndex], postIndex
             );
 
@@ -727,7 +731,7 @@ namespace Unity.Animation.Tests
                 Assert.That(localToWorld.Value, Is.EqualTo(float4x4.TRS(math.pow(2, i) - 1, quaternion.identity, math.pow(2, i))));
             }
 
-            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessDefaultAnimationGraph>().Update();
             m_Manager.CompleteAllJobs();
 
             // After the pre-anim pass, only the entity that was written to has changed value.
@@ -774,7 +778,7 @@ namespace Unity.Animation.Tests
                 }
             }
 
-            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessLateAnimationGraph>().Update();
             m_Manager.CompleteAllJobs();
 
             // The transform systems have updated the local to world of the children entities of the entity that was written to.
@@ -809,22 +813,22 @@ namespace Unity.Animation.Tests
 
             for (int i = 1; i < entityTransforms.Count; i++)
             {
-                RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
 
-                RigEntityBuilder.AddWriteTransformHandle<PostAnimationGraphSystem.WriteTransformHandle>(
+                RigEntityBuilder.AddWriteTransformHandle<ProcessLateAnimationGraph.WriteTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
             }
 
-            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
-            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessDefaultAnimationGraph>().Update();
+            World.GetOrCreateSystem<ProcessLateAnimationGraph>().Update();
 
             m_Manager.DestroyEntity(rigEntity);
 
-            World.GetOrCreateSystem<PreAnimationGraphSystem>().Update();
-            World.GetOrCreateSystem<PostAnimationGraphSystem>().Update();
+            World.GetOrCreateSystem<ProcessDefaultAnimationGraph>().Update();
+            World.GetOrCreateSystem<ProcessLateAnimationGraph>().Update();
 
             Assert.Pass();
         }
@@ -841,7 +845,7 @@ namespace Unity.Animation.Tests
 
             for (int i = entityTransforms.Count - 1; i > 0; i--)
             {
-                RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                     m_Manager, rigEntity, entityTransforms[i], i
                 );
             }
@@ -858,7 +862,7 @@ namespace Unity.Animation.Tests
             m_Manager.CompleteAllJobs();
 
             // Validate that Read Transform handle are sorted
-            var readTransformHandles = m_Manager.GetBuffer<PreAnimationGraphSystem.ReadTransformHandle>(rigEntity);
+            var readTransformHandles = m_Manager.GetBuffer<ProcessDefaultAnimationGraph.ReadTransformHandle>(rigEntity);
             Assert.That(readTransformHandles.Length, Is.EqualTo(entityTransforms.Count - 1));
             for (int i = 1; i < readTransformHandles.Length; i++)
             {
@@ -867,8 +871,8 @@ namespace Unity.Animation.Tests
         }
 
         [DisableAutoCreation]
-        [UpdateBefore(typeof(PreAnimationSystemGroup))]
-        internal class TestAddEntityTransformSystem : JobComponentSystem
+        [UpdateBefore(typeof(DefaultAnimationSystemGroup))]
+        internal class MockAddEntityTransform : JobComponentSystem
         {
             internal Entity Rig;
             internal List<Entity> EntityTransforms;
@@ -879,7 +883,7 @@ namespace Unity.Animation.Tests
                 if (Iterator == 0)
                     return inputDeps;
 
-                RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                     EntityManager, Rig, EntityTransforms[Iterator], Iterator
                 );
                 --Iterator;
@@ -906,7 +910,7 @@ namespace Unity.Animation.Tests
 
             var graphBuffer = CreateGraphValue(testNode, TestNode.KernelPorts.Output, PreSet);
 
-            var addTransformSystem = World.GetOrCreateSystem<TestAddEntityTransformSystem>();
+            var addTransformSystem = World.GetOrCreateSystem<MockAddEntityTransform>();
             addTransformSystem.Rig = rigEntity;
             addTransformSystem.EntityTransforms = entityTransforms;
             addTransformSystem.Iterator = entityTransforms.Count - 1;
@@ -918,7 +922,7 @@ namespace Unity.Animation.Tests
                 m_Manager.CompleteAllJobs();
 
                 // Validate that Read Transform handle are sorted
-                var readTransformHandles = m_Manager.GetBuffer<PreAnimationGraphSystem.ReadTransformHandle>(rigEntity);
+                var readTransformHandles = m_Manager.GetBuffer<ProcessDefaultAnimationGraph.ReadTransformHandle>(rigEntity);
                 for (int j = 1; j < readTransformHandles.Length; j++)
                 {
                     Assert.That(readTransformHandles[j - 1].Index, Is.LessThan(readTransformHandles[j].Index), $"On Update '{i}': ReadTransformHandle are not sorted");
@@ -942,22 +946,22 @@ namespace Unity.Animation.Tests
             {
                 if (i % 2 == 0)
                 {
-                    RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                    RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                         m_Manager, rigEntity, entityTransforms[i], i
                     );
                 }
                 else
                 {
                     // Explicitly create multiple ReadTransformHandle that target the same index
-                    RigEntityBuilder.AddReadTransformHandle<PreAnimationGraphSystem.ReadTransformHandle>(
+                    RigEntityBuilder.AddReadTransformHandle<ProcessDefaultAnimationGraph.ReadTransformHandle>(
                         m_Manager, rigEntity, entityTransforms[i], i - 1
                     );
                 }
             }
 
-            var readTransformHandles = m_Manager.GetBuffer<PreAnimationGraphSystem.ReadTransformHandle>(rigEntity).AsNativeArray();
-            readTransformHandles.Sort(new RigEntityBuilder.TransformHandleComparer<PreAnimationGraphSystem.ReadTransformHandle>());
-            var end = readTransformHandles.Unique(new RigEntityBuilder.TransformHandleComparer<PreAnimationGraphSystem.ReadTransformHandle>());
+            var readTransformHandles = m_Manager.GetBuffer<ProcessDefaultAnimationGraph.ReadTransformHandle>(rigEntity).AsNativeArray();
+            readTransformHandles.Sort(new RigEntityBuilder.TransformHandleComparer<ProcessDefaultAnimationGraph.ReadTransformHandle>());
+            var end = readTransformHandles.Unique(new RigEntityBuilder.TransformHandleComparer<ProcessDefaultAnimationGraph.ReadTransformHandle>());
 
             Assert.That(end, Is.LessThan(readTransformHandles.Length));
             Assert.That(end, Is.EqualTo(5));

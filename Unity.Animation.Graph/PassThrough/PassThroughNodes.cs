@@ -5,48 +5,36 @@ using Unity.Burst;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     public class SimPassThroughNode<T>
-        : NodeDefinition<SimPassThroughNode<T>.Data, SimPassThroughNode<T>.SimPorts>
-        , IMsgHandler<T>
+        : SimulationNodeDefinition<SimPassThroughNode<T>.SimPorts>
         where T : struct
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             public MessageInput<SimPassThroughNode<T>, T> Input;
             public MessageOutput<SimPassThroughNode<T>, T> Output;
         }
 
-        public struct Data : INodeData {}
-
-        public void HandleMessage(in MessageContext ctx, in T msg) =>
-            ctx.EmitMessage(SimulationPorts.Output, msg);
+        struct Data : INodeData, IMsgHandler<T>
+        {
+            public void HandleMessage(in MessageContext ctx, in T msg) =>
+                ctx.EmitMessage(SimulationPorts.Output, msg);
+        }
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     public abstract class KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>
-        : NodeDefinition<KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.Data, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelDefs, TKernel>
+        : KernelNodeDefinition<KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelDefs>
         where TFinalNodeDefinition : NodeDefinition
         where T : struct
         where TKernel : struct, IGraphKernel<KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNode<TFinalNodeDefinition, T, TKernel>.KernelDefs>
     {
-#pragma warning restore 0618
-
-        public struct SimPorts : ISimulationPortDefinition {}
-
         public struct KernelDefs : IKernelPortDefinition
         {
             public DataInput<TFinalNodeDefinition, T> Input;
             public DataOutput<TFinalNodeDefinition, T> Output;
         }
 
-        public struct Data : INodeData {}
-
-        public struct KernelData : IKernelData
-        {
-        }
+        public struct KernelData : IKernelData {}
     }
 
     // Until this is fixed in Burst, we must avoid IGraphKernel implementations which include any generics.
@@ -63,16 +51,12 @@ namespace Unity.Animation
         }
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     public abstract class KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>
-        : NodeDefinition<KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.Data, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelDefs, TKernel>
-        , IMsgHandler<int>
-        where TFinalNodeDefinition : NodeDefinition, IMsgHandler<int>
+        : SimulationKernelNodeDefinition<KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.SimPorts, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelDefs>
+        where TFinalNodeDefinition : NodeDefinition
         where T : struct
         where TKernel : struct, IGraphKernel<KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelData, KernelPassThroughNodeBuffer<TFinalNodeDefinition, T, TKernel>.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             public MessageInput<TFinalNodeDefinition, int> BufferSize;
@@ -84,17 +68,14 @@ namespace Unity.Animation
             public DataOutput<TFinalNodeDefinition, Buffer<T>> Output;
         }
 
-        public struct Data : INodeData
+        public struct Data : INodeData, IMsgHandler<int>
         {
+            public void HandleMessage(in MessageContext ctx, in int msg) =>
+                ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<T>.SizeRequest(msg));
         }
 
         public struct KernelData : IKernelData
         {
-        }
-
-        public void HandleMessage(in MessageContext ctx, in  int msg)
-        {
-            Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<T>.SizeRequest(msg));
         }
     }
 

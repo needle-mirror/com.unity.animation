@@ -458,10 +458,10 @@ namespace Unity.Animation.Tests
             Set.ReleaseGraphValue(output);
         }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-        internal class TestNode : NodeDefinition<TestNode.Data, TestNode.SimPorts, TestNode.KernelData, TestNode.KernelDefs, TestNode.Kernel>, IRigContextHandler
+        internal class TestNode
+            : SimulationKernelNodeDefinition<TestNode.SimPorts, TestNode.KernelDefs>
+            , IRigContextHandler<TestNode.Data>
         {
-#pragma warning restore 0618
 #pragma warning disable 0649
             public struct SimPorts : ISimulationPortDefinition
             {
@@ -474,25 +474,30 @@ namespace Unity.Animation.Tests
             }
 #pragma warning restore 0649
 
-            public struct Data : INodeData {}
+            struct Data : INodeData, IMsgHandler<Rig>
+            {
+                public void HandleMessage(in MessageContext ctx, in Rig rig)
+                {
+                    ctx.UpdateKernelData(new KernelData
+                    {
+                        RigDefinition = rig
+                    });
 
-            public struct KernelData : IKernelData
+                    ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0));
+                }
+            }
+
+            struct KernelData : IKernelData
             {
                 public BlobAssetReference<RigDefinition> RigDefinition;
             }
 
-            public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+            struct Kernel : IGraphKernel<KernelData, KernelDefs>
             {
                 public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
                 {
                     // Test to validate that output is initialized with 0 if nobody write to the buffer
                 }
-            }
-
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
-            {
-                GetKernelData(ctx.Handle).RigDefinition = rig.Value;
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0));
             }
 
             InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>

@@ -6,19 +6,18 @@ using Unity.Collections;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "7921f59316444412ae7120293a3cfe74", version: 1, category: "Animation Core/Utils", description: "Creates weight masks based on passed channel indices and weights")]
     [PortGroupDefinition(portGroupSizeDescription: "Number of channels", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class WeightBuilderNode
-        : NodeDefinition<WeightBuilderNode.Data, WeightBuilderNode.SimPorts, WeightBuilderNode.KernelData, WeightBuilderNode.KernelDefs, WeightBuilderNode.Kernel>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<WeightBuilderNode.SimPorts, WeightBuilderNode.KernelDefs>
+        , IRigContextHandler<WeightBuilderNode.Data>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "197cf10d665a4f4981fad39738643998", isHidden: true)]
             public MessageInput<WeightBuilderNode, Rig> Rig;
+
+            internal MessageOutput<WeightBuilderNode, Rig> m_OutRig;
         }
 
         public struct KernelDefs : IKernelPortDefinition
@@ -34,66 +33,54 @@ namespace Unity.Animation
             public DataOutput<WeightBuilderNode, Buffer<WeightData>> Output;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IInit, IDestroy, IMsgHandler<Rig>
         {
-            internal NodeHandle<ConvertChannelIndicesNode> ConvertNode;
-            internal NodeHandle<ComputeWeightDataNode> ComputeWeightDataNode;
+            internal NodeHandle<ConvertChannelIndicesNode> m_ConvertNode;
+            internal NodeHandle<ComputeWeightDataNode> m_ComputeWeightDataNode;
+
+            public void Init(InitContext ctx)
+            {
+                m_ConvertNode = ctx.Set.Create<ConvertChannelIndicesNode>();
+                m_ComputeWeightDataNode = ctx.Set.Create<ComputeWeightDataNode>();
+
+                ctx.Set.Connect(ctx.Handle, (OutputPortID)SimulationPorts.m_OutRig, m_ConvertNode, (InputPortID)ConvertChannelIndicesNode.SimulationPorts.Rig);
+                ctx.Set.Connect(ctx.Handle, (OutputPortID)SimulationPorts.m_OutRig, m_ComputeWeightDataNode, (InputPortID)ComputeWeightDataNode.SimulationPorts.Rig);
+                ctx.Set.Connect(m_ConvertNode, ConvertChannelIndicesNode.KernelPorts.WeightCount, m_ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.WeightCount);
+                ctx.Set.Connect(m_ConvertNode, ConvertChannelIndicesNode.KernelPorts.WeightDataOffsets, m_ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.WeightDataOffsets);
+
+                ctx.ForwardInput(KernelPorts.DefaultWeight, m_ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.DefaultWeight);
+                ctx.ForwardInput(KernelPorts.ChannelIndices, m_ConvertNode, ConvertChannelIndicesNode.KernelPorts.ChannelIndices);
+                ctx.ForwardInput(KernelPorts.ChannelWeights, m_ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.ChannelWeights);
+                ctx.ForwardOutput(KernelPorts.Output, m_ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.Output);
+            }
+
+            public void Destroy(DestroyContext ctx)
+            {
+                ctx.Set.Destroy(m_ConvertNode);
+                ctx.Set.Destroy(m_ComputeWeightDataNode);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig) =>
+                ctx.EmitMessage(SimulationPorts.m_OutRig, rig);
         }
 
-        public struct KernelData : IKernelData {}
+        struct KernelData : IKernelData {}
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
             }
         }
 
-        protected override void Init(InitContext ctx)
-        {
-            ref var data = ref GetNodeData(ctx.Handle);
-
-            data.ConvertNode = Set.Create<ConvertChannelIndicesNode>();
-            data.ComputeWeightDataNode = Set.Create<ComputeWeightDataNode>();
-
-            Set.Connect(data.ConvertNode, ConvertChannelIndicesNode.KernelPorts.WeightCount, data.ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.WeightCount);
-            Set.Connect(data.ConvertNode, ConvertChannelIndicesNode.KernelPorts.WeightDataOffsets, data.ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.WeightDataOffsets);
-
-            ctx.ForwardInput(KernelPorts.DefaultWeight, data.ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.DefaultWeight);
-            ctx.ForwardInput(KernelPorts.ChannelIndices, data.ConvertNode, ConvertChannelIndicesNode.KernelPorts.ChannelIndices);
-            ctx.ForwardInput(KernelPorts.ChannelWeights, data.ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.ChannelWeights);
-            ctx.ForwardOutput(KernelPorts.Output, data.ComputeWeightDataNode, ComputeWeightDataNode.KernelPorts.Output);
-        }
-
-        protected override void Destroy(DestroyContext ctx)
-        {
-            var nodeData = GetNodeData(ctx.Handle);
-            Set.Destroy(nodeData.ConvertNode);
-            Set.Destroy(nodeData.ComputeWeightDataNode);
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            ref var nodeData = ref GetNodeData(ctx.Handle);
-
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SendMessage(nodeData.ConvertNode, ConvertChannelIndicesNode.SimulationPorts.Rig, rig);
-            Set.SendMessage(nodeData.ComputeWeightDataNode, ComputeWeightDataNode.SimulationPorts.Rig, rig);
-#pragma warning restore 0618
-        }
-
         InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
             (InputPortID)SimulationPorts.Rig;
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     internal class ConvertChannelIndicesNode
-        : NodeDefinition<ConvertChannelIndicesNode.Data, ConvertChannelIndicesNode.SimPorts, ConvertChannelIndicesNode.KernelData, ConvertChannelIndicesNode.KernelDefs, ConvertChannelIndicesNode.Kernel>
-        , IMsgHandler<Rig>
+        : SimulationKernelNodeDefinition<ConvertChannelIndicesNode.SimPorts, ConvertChannelIndicesNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             public MessageInput<ConvertChannelIndicesNode, Rig> Rig;
@@ -107,15 +94,30 @@ namespace Unity.Animation
             public DataOutput<ConvertChannelIndicesNode, Buffer<int>> WeightDataOffsets;
         }
 
-        public struct Data : INodeData {}
+        struct Data : INodeData, IMsgHandler<Rig>
+        {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
 
-        public struct KernelData : IKernelData
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.WeightDataOffsets,
+                    Buffer<int>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.CurveCount : 0)
+                );
+            }
+        }
+
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -132,25 +134,11 @@ namespace Unity.Animation
                 }
             }
         }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.WeightDataOffsets,
-                Buffer<int>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.CurveCount : 0)
-            );
-        }
     }
 
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     internal class ComputeWeightDataNode
-        : NodeDefinition<ComputeWeightDataNode.Data, ComputeWeightDataNode.SimPorts, ComputeWeightDataNode.KernelData, ComputeWeightDataNode.KernelDefs, ComputeWeightDataNode.Kernel>
-        , IMsgHandler<Rig>
+        : SimulationKernelNodeDefinition<ComputeWeightDataNode.SimPorts, ComputeWeightDataNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             public MessageInput<ComputeWeightDataNode, Rig> Rig;
@@ -166,15 +154,30 @@ namespace Unity.Animation
             public DataOutput<ComputeWeightDataNode, Buffer<WeightData>> Output;
         }
 
-        public struct Data : INodeData {}
+        struct Data : INodeData, IMsgHandler<Rig>
+        {
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    RigDefinition = rig
+                });
 
-        public struct KernelData : IKernelData
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<WeightData>.SizeRequest(rig.Value.IsCreated ? Core.WeightDataSize(rig.Value) : 0)
+                );
+            }
+        }
+
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -194,16 +197,6 @@ namespace Unity.Animation
                     context.Resolve(ref ports.Output)
                 );
             }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<WeightData>.SizeRequest(rig.Value.IsCreated ? Core.WeightDataSize(rig.Value) : 0)
-            );
         }
     }
 }

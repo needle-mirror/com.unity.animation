@@ -6,22 +6,36 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "79412b5295e542daad10167c1b418522", version: 1, category: "Animation Core/Blend Trees", description: "Computes 2D BlendTree weights based on parameter input", isHidden: true)]
     public class ComputeBlendTree2DWeightsNode
-        : NodeDefinition<ComputeBlendTree2DWeightsNode.Data, ComputeBlendTree2DWeightsNode.SimPorts, ComputeBlendTree2DWeightsNode.KernelData, ComputeBlendTree2DWeightsNode.KernelDefs, ComputeBlendTree2DWeightsNode.Kernel>
-        , IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectional>>
+        : SimulationKernelNodeDefinition<ComputeBlendTree2DWeightsNode.SimPorts, ComputeBlendTree2DWeightsNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "de45bb03e06142c1bd27361e890369fd", description: "BlendTree 2D properties")]
             public MessageInput<ComputeBlendTree2DWeightsNode, BlobAssetReference<BlendTree2DSimpleDirectional>> BlendTree;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectional>>
         {
+            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree2DSimpleDirectional> blendTree)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    BlendTree = blendTree
+                });
+
+                if (blendTree.IsCreated)
+                {
+                    ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(blendTree.Value.Motions.Length));
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, (ushort)blendTree.Value.Motions.Length);
+                }
+                else
+                {
+                    ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(0));
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, 0);
+                }
+            }
         }
 
         public struct KernelDefs : IKernelPortDefinition
@@ -38,13 +52,13 @@ namespace Unity.Animation
             [PortDefinition(guid: "263544bcaef14db5982111b2ca206e2a", description: "Current motion duration")]
             public DataOutput<ComputeBlendTree2DWeightsNode, float> Duration;
         }
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<BlendTree2DSimpleDirectional> BlendTree;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -64,23 +78,6 @@ namespace Unity.Animation
                 }
 
                 context.Resolve(ref ports.Duration) = duration;
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree2DSimpleDirectional> blendTree)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.BlendTree = blendTree;
-            if (blendTree.IsCreated)
-            {
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(blendTree.Value.Motions.Length));
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, (ushort)blendTree.Value.Motions.Length);
-            }
-            else
-            {
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(0));
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, 0);
             }
         }
     }

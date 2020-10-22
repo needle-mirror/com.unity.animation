@@ -5,22 +5,36 @@ using Unity.DataFlowGraph.Attributes;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "aac0d8d10f594218aa77961604da05e2", version: 1, category: "Animation Core/Blend Trees", description: "Computes 1D BlendTree weights based on parameter input", isHidden: true)]
     public class ComputeBlendTree1DWeightsNode
-        : NodeDefinition<ComputeBlendTree1DWeightsNode.Data, ComputeBlendTree1DWeightsNode.SimPorts, ComputeBlendTree1DWeightsNode.KernelData, ComputeBlendTree1DWeightsNode.KernelDefs, ComputeBlendTree1DWeightsNode.Kernel>
-        , IMsgHandler<BlobAssetReference<BlendTree1D>>
+        : SimulationKernelNodeDefinition<ComputeBlendTree1DWeightsNode.SimPorts, ComputeBlendTree1DWeightsNode.KernelDefs>
     {
-#pragma warning restore 0618
-
         public struct SimPorts : ISimulationPortDefinition
         {
             [PortDefinition(guid: "6195a5fe9d5642469dc78d2efb5fbde6", description: "BlendTree 1D properties")]
             public MessageInput<ComputeBlendTree1DWeightsNode, BlobAssetReference<BlendTree1D>> BlendTree;
         }
 
-        public struct Data : INodeData
+        struct Data : INodeData, IMsgHandler<BlobAssetReference<BlendTree1D>>
         {
+            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
+            {
+                ctx.UpdateKernelData(new KernelData
+                {
+                    BlendTree = blendTree
+                });
+
+                if (blendTree.IsCreated)
+                {
+                    ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(blendTree.Value.Motions.Length));
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, (ushort)blendTree.Value.Motions.Length);
+                }
+                else
+                {
+                    ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(0));
+                    ctx.Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, 0);
+                }
+            }
         }
 
         public struct KernelDefs : IKernelPortDefinition
@@ -35,13 +49,13 @@ namespace Unity.Animation
             [PortDefinition(guid: "31b3a792162f47a2ba5e670c2ebf6399", description: "Current motion duration")]
             public DataOutput<ComputeBlendTree1DWeightsNode, float> Duration;
         }
-        public struct KernelData : IKernelData
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<BlendTree1D> BlendTree;
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
             {
@@ -59,23 +73,6 @@ namespace Unity.Animation
                 }
 
                 context.Resolve(ref ports.Duration) = duration;
-            }
-        }
-
-        public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.BlendTree = blendTree;
-            if (blendTree.IsCreated)
-            {
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(blendTree.Value.Motions.Length));
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, (ushort)blendTree.Value.Motions.Length);
-            }
-            else
-            {
-                Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Weights, Buffer<float>.SizeRequest(0));
-                Set.SetPortArraySize(ctx.Handle, (InputPortID)KernelPorts.MotionDurations, 0);
             }
         }
     }

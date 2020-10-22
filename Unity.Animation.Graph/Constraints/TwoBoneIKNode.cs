@@ -7,15 +7,11 @@ using Unity.Entities;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "bf4c5a78bcd94ce7a5ad2d0efd5fa50b", version: 1, category: "Animation Core/Constraints", description: "Two bone IK solver")]
     public class TwoBoneIKNode
-        : NodeDefinition<TwoBoneIKNode.Data, TwoBoneIKNode.SimPorts, TwoBoneIKNode.KernelData, TwoBoneIKNode.KernelDefs, TwoBoneIKNode.Kernel>
-        , IMsgHandler<TwoBoneIKNode.SetupMessage>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<TwoBoneIKNode.SimPorts, TwoBoneIKNode.KernelDefs>
+        , IRigContextHandler<TwoBoneIKNode.Data>
     {
-#pragma warning restore 0618
-
         [Serializable]
         public struct SetupMessage
         {
@@ -56,9 +52,51 @@ namespace Unity.Animation
             public DataInput<TwoBoneIKNode, float3> Hint;
         }
 
-        public struct Data : INodeData {}
+        struct Data : INodeData, IInit
+            , IMsgHandler<Rig>, IMsgHandler<SetupMessage>
+        {
+            KernelData m_KernelData;
 
-        public struct KernelData : IKernelData
+            public void Init(InitContext ctx)
+            {
+                m_KernelData.RootIndex = -1;
+                m_KernelData.MidIndex = -1;
+                m_KernelData.TipIndex = -1;
+                m_KernelData.TargetOffset = RigidTransform.identity;
+
+                ctx.SetInitialPortValue(KernelPorts.Weight, 1f);
+                ctx.SetInitialPortValue(KernelPorts.TargetPositionWeight, 1f);
+                ctx.SetInitialPortValue(KernelPorts.TargetRotationWeight, 1f);
+                ctx.SetInitialPortValue(KernelPorts.Target, float4x4.identity);
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_KernelData.RigDefinition = rig;
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in SetupMessage msg)
+            {
+                m_KernelData.RootIndex = msg.RootIndex;
+                m_KernelData.MidIndex = msg.MidIndex;
+                m_KernelData.TipIndex = msg.TipIndex;
+                m_KernelData.TargetOffset = msg.TargetOffset;
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+        }
+
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
 
@@ -70,7 +108,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports)
             {
@@ -99,43 +137,6 @@ namespace Unity.Animation
             }
         }
 
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-
-            kData.RootIndex = -1;
-            kData.MidIndex = -1;
-            kData.TipIndex = -1;
-            kData.TargetOffset = RigidTransform.identity;
-
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.TargetPositionWeight, 1f);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.TargetRotationWeight, 1f);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Target, float4x4.identity);
-#pragma warning restore 0618
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-        }
-
-        public void HandleMessage(in MessageContext ctx, in SetupMessage msg)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.RootIndex    = msg.RootIndex;
-            kData.MidIndex     = msg.MidIndex;
-            kData.TipIndex     = msg.TipIndex;
-            kData.TargetOffset = msg.TargetOffset;
-        }
-
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }

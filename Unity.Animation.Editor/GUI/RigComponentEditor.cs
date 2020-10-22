@@ -88,8 +88,6 @@ namespace Unity.Animation.Editor
         static GUIContent s_TransformContent;
         static GUIContent transformContent => s_TransformContent ?? (s_TransformContent = new GUIContent(string.Empty, AssetPreview.GetMiniTypeThumbnail(typeof(Transform))));
 
-        static GUIStyle s_EmptyStyle;
-        static GUIStyle EmptyStyle => s_EmptyStyle ?? (s_EmptyStyle = new GUIStyle());
         static GUIStyle s_SearchFieldStyle;
         static GUIStyle SearchFieldStyle => s_SearchFieldStyle ?? (s_SearchFieldStyle = "SearchTextField");
 
@@ -270,7 +268,7 @@ namespace Unity.Animation.Editor
                 // Search is always shown when we have more than 1 bone
                 var searchRect = GUILayoutUtility.GetRect(0, 10000, 0, EditorGUIUtility.singleLineHeight);
                 if (string.IsNullOrWhiteSpace(m_TreeView.searchString))
-                    m_TreeView.searchString = m_SearchField.OnGUI(searchRect, m_TreeView.searchString, SearchFieldStyle, EmptyStyle, EmptyStyle);
+                    m_TreeView.searchString = m_SearchField.OnGUI(searchRect, m_TreeView.searchString, SearchFieldStyle, GUIStyle.none, GUIStyle.none);
                 else
                     m_TreeView.searchString = m_SearchField.OnGUI(searchRect, m_TreeView.searchString);
 

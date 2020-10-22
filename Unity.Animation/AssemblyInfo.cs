@@ -4,8 +4,10 @@ using Unity.Entities;
 
 
 [assembly: InternalsVisibleTo("Unity.Animation.Hybrid")]
+[assembly: InternalsVisibleTo("Unity.Animation.Authoring")]
 [assembly: InternalsVisibleTo("Unity.Animation.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Animation.Tests")]
+[assembly: InternalsVisibleTo("Unity.Animation.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Animation.Graph")]
 [assembly: InternalsVisibleTo("Unity.Animation.DefaultGraphPipeline")]
 

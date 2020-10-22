@@ -2,8 +2,11 @@
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Diagnostics;
+
 using Unity.Mathematics;
 using Unity.Collections.LowLevel.Unsafe;
+
 
 #if DEBUG_STRINGHASH
 using System.Collections.Generic;
@@ -25,20 +28,9 @@ namespace Unity.Animation
                 throw new Exception($"StringHash [{hash}] for '{str}' collides with existing hash of '{value}'");
         }
     }
-
-    sealed class StringHashDebugView
-    {
-        StringHash m_Hash;
-
-        public StringHashDebugView(StringHash hash) =>
-            m_Hash = hash;
-
-        public uint Id => m_Hash.Id;
-        public string String => StringHashDebugCache.Hashes[m_Hash];
-    }
-
-    [System.Diagnostics.DebuggerTypeProxy(typeof(StringHashDebugView))]
 #endif
+
+    [DebuggerDisplay("{DebuggerDisplay,nq}")]
     [Serializable]
     public struct StringHash : IEquatable<StringHash>
     {
@@ -102,6 +94,24 @@ namespace Unity.Animation
 #endif
 
             return hash;
+        }
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        internal string DebuggerDisplay
+        {
+            get
+            {
+                string debugDisplay = default;
+#if DEBUG_STRINGHASH
+                StringHashDebugCache.Hashes.TryGetValue(this, out var value);
+                if (string.IsNullOrEmpty(value))
+                    value = "null";
+                debugDisplay = $"Id = {Id} : '{value}'";
+#else
+                debugDisplay = $"Id = {Id}";
+#endif
+                return debugDisplay;
+            }
         }
     }
 }

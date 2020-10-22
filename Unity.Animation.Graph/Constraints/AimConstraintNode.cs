@@ -9,16 +9,12 @@ using System;
 
 namespace Unity.Animation
 {
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
     [NodeDefinition(guid: "e1446b44998a48a4803fd10b9508857f", version: 1, category: "Animation Core/Constraints", description: "Aim constraint based on multiple sources")]
     [PortGroupDefinition(portGroupSizeDescription: "Source Count", groupIndex: 1, minInstance: 1, maxInstance: -1)]
     public class AimConstraintNode
-        : NodeDefinition<AimConstraintNode.Data, AimConstraintNode.SimPorts, AimConstraintNode.KernelData, AimConstraintNode.KernelDefs, AimConstraintNode.Kernel>
-        , IMsgHandler<AimConstraintNode.SetupMessage>
-        , IRigContextHandler
+        : SimulationKernelNodeDefinition<AimConstraintNode.SimPorts, AimConstraintNode.KernelDefs>
+        , IRigContextHandler<AimConstraintNode.Data>
     {
-#pragma warning restore 0618
-
         [Serializable]
         public struct SetupMessage
         {
@@ -61,9 +57,49 @@ namespace Unity.Animation
             public PortArray<DataInput<AimConstraintNode, float>> SourceWeights;
         }
 
-        public struct Data : INodeData {}
+        struct Data : INodeData, IInit
+            , IMsgHandler<Rig>, IMsgHandler<SetupMessage>
+        {
+            KernelData m_KernelData;
 
-        public struct KernelData : IKernelData
+            public void Init(InitContext ctx)
+            {
+                m_KernelData.Index = -1;
+                m_KernelData.LocalAimAxis = math.up();
+                m_KernelData.LocalAxesMask = new bool3(true);
+
+                ctx.SetInitialPortValue(KernelPorts.Weight, 1f);
+                ctx.SetInitialPortValue(KernelPorts.LocalOffsetRotationOrder, math.RotationOrder.Default);
+                ctx.SetInitialPortValue(KernelPorts.MinAngleLimit, -180f);
+                ctx.SetInitialPortValue(KernelPorts.MaxAngleLimit,  180f);
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            {
+                m_KernelData.RigDefinition = rig;
+
+                ctx.Set.SetBufferSize(
+                    ctx.Handle,
+                    (OutputPortID)KernelPorts.Output,
+                    Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
+                );
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+
+            public void HandleMessage(in MessageContext ctx, in SetupMessage msg)
+            {
+                m_KernelData.Index = msg.Index;
+                m_KernelData.LocalAimAxis = msg.LocalAimAxis;
+                m_KernelData.LocalAxesMask = msg.LocalAxesMask;
+
+                ctx.UpdateKernelData(m_KernelData);
+            }
+        }
+
+        struct KernelData : IKernelData
         {
             public BlobAssetReference<RigDefinition> RigDefinition;
 
@@ -73,7 +109,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        public struct Kernel : IGraphKernel<KernelData, KernelDefs>
+        struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports)
             {
@@ -120,40 +156,6 @@ namespace Unity.Animation
             }
         }
 
-        protected override void Init(InitContext ctx)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.Index = -1;
-            kData.LocalAimAxis = math.up();
-            kData.LocalAxesMask = new bool3(true);
-
-#pragma warning disable 0618 // TODO : Convert to new DFG API then remove this directive
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.Weight, 1f);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.LocalOffsetRotationOrder, math.RotationOrder.Default);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.MinAngleLimit, -180f);
-            Set.SetData(ctx.Handle, (InputPortID)KernelPorts.MaxAngleLimit,  180f);
-#pragma warning restore 0618
-        }
-
-        public void HandleMessage(in MessageContext ctx, in Rig rig)
-        {
-            GetKernelData(ctx.Handle).RigDefinition = rig;
-            Set.SetBufferSize(
-                ctx.Handle,
-                (OutputPortID)KernelPorts.Output,
-                Buffer<AnimatedData>.SizeRequest(rig.Value.IsCreated ? rig.Value.Value.Bindings.StreamSize : 0)
-            );
-        }
-
-        public void HandleMessage(in MessageContext ctx, in SetupMessage msg)
-        {
-            ref var kData = ref GetKernelData(ctx.Handle);
-            kData.Index = msg.Index;
-            kData.LocalAimAxis = msg.LocalAimAxis;
-            kData.LocalAxesMask = msg.LocalAxesMask;
-        }
-
-        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) =>
-            (InputPortID)SimulationPorts.Rig;
+        InputPortID ITaskPort<IRigContextHandler>.GetPort(NodeHandle handle) => (InputPortID)SimulationPorts.Rig;
     }
 }
