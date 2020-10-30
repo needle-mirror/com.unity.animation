@@ -77,7 +77,7 @@ namespace Unity.Animation
         /// <param name="channelsList">A list that contains allChannels + typedChannels.</param>
         unsafe static void GetChannelsMap(ChannelMap[] allChannels, ChannelMap[] typedChannels, NativeList<ChannelMap> channelsList)
         {
-            Core.ValidateIsCreated(channelsList);
+            Core.ValidateArgumentIsCreated(channelsList);
 
             int totalSize = allChannels.Length + typedChannels.Length;
             if (channelsList.Capacity < totalSize)
@@ -180,8 +180,8 @@ namespace Unity.Animation
         /// <exception cref="ArgumentNullException">Both source and destination rigs must be defined.</exception>
         public BlobAssetReference<RigRemapTable> ToRigRemapTable(BlobAssetReference<RigDefinition> sourceRigDefinition, BlobAssetReference<RigDefinition> destinationRigDefinition)
         {
-            Core.ValidateIsCreated(sourceRigDefinition);
-            Core.ValidateIsCreated(destinationRigDefinition);
+            Core.ValidateArgumentIsCreated(sourceRigDefinition);
+            Core.ValidateArgumentIsCreated(destinationRigDefinition);
 
             var translations = new NativeList<ChannelMap>(AllChannels.Length + TranslationChannels.Length, Allocator.Temp);
             var rotations = new NativeList<ChannelMap>(AllChannels.Length + RotationChannels.Length, Allocator.Temp);

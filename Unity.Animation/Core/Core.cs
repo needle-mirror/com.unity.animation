@@ -284,7 +284,7 @@ namespace Unity.Animation
             destinationStream.ValidateIsNotNull();
             sourceStream.ValidateIsNotNull();
 
-            ValidateIsCreated(remapTable);
+            ValidateArgumentIsCreated(remapTable);
 
             ref var remap = ref remapTable.Value;
 
@@ -616,14 +616,23 @@ namespace Unity.Animation
 
             static public ClipKeyframe Create(ref Clip clip, float time)
             {
-                var curveCount = clip.Bindings.CurveCount;
-                var sampleIndex = math.clamp(time, 0, clip.Duration) * clip.SampleRate;
+                return Create(clip.Duration, clip.SampleRate, clip.Bindings.CurveCount, time);
+            }
 
+            static public ClipKeyframe Create(ref ClipBuilder clipBuilder, float time)
+            {
+                // not interleaved
+                return Create(clipBuilder.Duration, clipBuilder.SampleRate, 1, time);
+            }
+
+            static ClipKeyframe Create(float duration, float frameRate, int curveCount, float time)
+            {
+                var sampleIndex = math.clamp(time, 0, duration) * frameRate;
                 return new ClipKeyframe
                 {
                     Left = (int)math.floor(sampleIndex) * curveCount,
                     Right = (int)math.ceil(sampleIndex) * curveCount,
-                    Weight = sampleIndex - math.floor(sampleIndex)
+                    Weight = math.frac(sampleIndex)
                 };
             }
         }

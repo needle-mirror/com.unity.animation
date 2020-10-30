@@ -71,7 +71,7 @@ namespace Unity.Animation.Tests
         public void GetClip_SameAnimationClip_ReturnsSameBlob()
         {
             var clip = new AnimationClip();
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 1.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 1.0f);
             clip.SetCurve("", typeof(Transform), "m_LocalPosition.x", constantCurve);
             clip.SetCurve("", typeof(Transform), "m_LocalPosition.y", constantCurve);
             clip.SetCurve("", typeof(Transform), "m_LocalPosition.z", constantCurve);
@@ -85,13 +85,13 @@ namespace Unity.Animation.Tests
         public void GetClip_DifferentAnimationClips_ReturnsDifferentBlobs()
         {
             var clipA = new AnimationClip();
-            var constantCurveA = AnimationCurve.Constant(0.0f, 1.0f, 1.0f);
+            var constantCurveA = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 1.0f);
             clipA.SetCurve("", typeof(Transform), "m_LocalPosition.x", constantCurveA);
             clipA.SetCurve("", typeof(Transform), "m_LocalPosition.y", constantCurveA);
             clipA.SetCurve("", typeof(Transform), "m_LocalPosition.z", constantCurveA);
 
             var clipB = new AnimationClip();
-            var constantCurveB = AnimationCurve.Constant(0.0f, 1.0f, 2.0f);
+            var constantCurveB = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 2.0f);
             clipB.SetCurve("", typeof(Transform), "m_LocalPosition.x", constantCurveB);
             clipB.SetCurve("", typeof(Transform), "m_LocalPosition.y", constantCurveB);
             clipB.SetCurve("", typeof(Transform), "m_LocalPosition.z", constantCurveB);

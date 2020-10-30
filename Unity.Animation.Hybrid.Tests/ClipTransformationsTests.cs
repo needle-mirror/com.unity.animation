@@ -285,24 +285,24 @@ namespace Unity.Animation.Tests
 
         static void CreateLinearTranslate(AnimationClip animClip, string path, float3 start, float3 end, float time)
         {
-            animClip.SetCurve(path, typeof(Transform), "m_LocalPosition.x", AnimationCurve.Linear(0, start.x, time, end.x));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalPosition.y", AnimationCurve.Linear(0, start.y, time, end.y));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalPosition.z", AnimationCurve.Linear(0, start.z, time, end.z));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalPosition.x", UnityEngine.AnimationCurve.Linear(0, start.x, time, end.x));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalPosition.y", UnityEngine.AnimationCurve.Linear(0, start.y, time, end.y));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalPosition.z", UnityEngine.AnimationCurve.Linear(0, start.z, time, end.z));
         }
 
         static void CreateRotation(AnimationClip animClip, string path, quaternion start, quaternion end, float time)
         {
-            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.x", AnimationCurve.Linear(0, start.value.x, time, end.value.x));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.y", AnimationCurve.Linear(0, start.value.y, time, end.value.y));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.z", AnimationCurve.Linear(0, start.value.z, time, end.value.z));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.w", AnimationCurve.Linear(0, start.value.w, time, end.value.w));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.x", UnityEngine.AnimationCurve.Linear(0, start.value.x, time, end.value.x));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.y", UnityEngine.AnimationCurve.Linear(0, start.value.y, time, end.value.y));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.z", UnityEngine.AnimationCurve.Linear(0, start.value.z, time, end.value.z));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalRotation.w", UnityEngine.AnimationCurve.Linear(0, start.value.w, time, end.value.w));
         }
 
         static void CreateScale(AnimationClip animClip, string path, float3 start, float3 end, float time)
         {
-            animClip.SetCurve(path, typeof(Transform), "m_LocalScale.x", AnimationCurve.Linear(0, start.x, time, end.x));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalScale.y", AnimationCurve.Linear(0, start.y, time, end.y));
-            animClip.SetCurve(path, typeof(Transform), "m_LocalScale.z", AnimationCurve.Linear(0, start.z, time, end.z));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalScale.x", UnityEngine.AnimationCurve.Linear(0, start.x, time, end.x));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalScale.y", UnityEngine.AnimationCurve.Linear(0, start.y, time, end.y));
+            animClip.SetCurve(path, typeof(Transform), "m_LocalScale.z", UnityEngine.AnimationCurve.Linear(0, start.z, time, end.z));
         }
     }
 }

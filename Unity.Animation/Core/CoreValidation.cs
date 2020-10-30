@@ -8,87 +8,31 @@ namespace Unity.Animation
     static public partial class Core
     {
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(BlobAssetReference<RigDefinition> rig)
+        internal static void ValidateIsCreated<T>(BlobAssetReference<T> blob) where T : struct
         {
-            if (!rig.IsCreated)
-                throw new System.ArgumentNullException("RigDefinition is null.");
+            if (!blob.IsCreated)
+                throw new System.NullReferenceException($"BlobAssetReference of {typeof(T).Name} is not created.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(BlobAssetReference<Clip> clip)
+        internal static void ValidateArgumentIsCreated<T>(BlobAssetReference<T> blob) where T : struct
         {
-            if (!clip.IsCreated)
-                throw new System.NullReferenceException("Clip is null.");
+            if (!blob.IsCreated)
+                throw new System.ArgumentNullException($"BlobAssetReference of {typeof(T).Name} is not created.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(BlobAssetReference<BlendTree1D> blendTree1D)
+        internal static void ValidateIsCreated<T>(NativeList<T> list) where T : struct
         {
-            if (!blendTree1D.IsCreated)
-                throw new System.ArgumentNullException("BlendTree1D is null.");
+            if (!list.IsCreated)
+                throw new System.NullReferenceException($"List of {typeof(T).Name} is not created.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(BlobAssetReference<BlendTree2DSimpleDirectional> blendTree2D)
+        internal static void ValidateArgumentIsCreated<T>(NativeList<T> list) where T : struct
         {
-            if (!blendTree2D.IsCreated)
-                throw new System.ArgumentNullException("BlendTree2D is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(BlobAssetReference<ClipInstance> clipInstance)
-        {
-            if (!clipInstance.IsCreated)
-                throw new System.ArgumentNullException("ClipInstance is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(BlobAssetReference<RigRemapTable> remapTable)
-        {
-            if (!remapTable.IsCreated)
-                throw new System.ArgumentNullException("RigRemapTable is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(NativeList<RigRemapEntry> entries)
-        {
-            if (!entries.IsCreated)
-                throw new System.ArgumentNullException("RigRemapEntry list is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(NativeList<RigTranslationOffset> offsets)
-        {
-            if (!offsets.IsCreated)
-                throw new System.ArgumentNullException("RigTranslationOffset list is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(NativeList<RigRotationOffset> offsets)
-        {
-            if (!offsets.IsCreated)
-                throw new System.ArgumentNullException("RigRotationOffset list is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(NativeList<ChannelMap> channelsList)
-        {
-            if (!channelsList.IsCreated)
-                throw new System.ArgumentNullException("ChannelMap list is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(NativeList<ChannelWeightMap> channels)
-        {
-            if (!channels.IsCreated)
-                throw new System.ArgumentNullException("ChannelWeightMap list is null.");
-        }
-
-        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateIsCreated(NativeList<WeightEntry> entries)
-        {
-            if (!entries.IsCreated)
-                throw new System.ArgumentNullException("WeightEntry list is null.");
+            if (!list.IsCreated)
+                throw new System.ArgumentNullException($"List of {typeof(T).Name} is not created.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
@@ -148,10 +92,10 @@ namespace Unity.Animation
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal static void ValidateBufferIndexBounds(int index, int Length)
+        internal static void ValidateBufferIndexBounds(int index, int length)
         {
-            if ((uint)index >= Length)
-                throw new System.IndexOutOfRangeException($"index '{index}' is out of range of '{Length}'.");
+            if ((uint)index >= length)
+                throw new System.IndexOutOfRangeException($"index '{index}' is out of range of '{length}'.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]

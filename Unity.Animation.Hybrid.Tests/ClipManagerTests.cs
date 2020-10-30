@@ -49,7 +49,7 @@ namespace Unity.Animation.Tests
         public void BindingIntersection_ClipAndRigHaveSameBindings()
         {
             var clip = new AnimationClip();
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.y", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.z", constantCurve);
@@ -75,7 +75,7 @@ namespace Unity.Animation.Tests
         public void BindingIntersection_ClipHasMoreBindingsThanRig()
         {
             var clip = new AnimationClip();
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.y", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.z", constantCurve);
@@ -104,7 +104,7 @@ namespace Unity.Animation.Tests
         public void BindingIntersection_ClipHasLessBindingsThanRig()
         {
             var clip = new AnimationClip();
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.y", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.z", constantCurve);
@@ -128,7 +128,7 @@ namespace Unity.Animation.Tests
         public void BindingIntersection_ClipHasDifferentBindingsThanRig()
         {
             var clip = new AnimationClip();
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.y", constantCurve);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.z", constantCurve);
@@ -169,7 +169,7 @@ namespace Unity.Animation.Tests
         public void ClipInstanceHasAllBindings()
         {
             var clip = new AnimationClip();
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve);
             clip.SetCurve("Child1", typeof(Transform), "m_LocalRotation.x", constantCurve);
             clip.SetCurve("Child2", typeof(Transform), "m_LocalScale.x", constantCurve);
@@ -229,7 +229,7 @@ namespace Unity.Animation.Tests
         {
             var clip = new AnimationClip();
             clip.frameRate = 30.0f;
-            var constantCurve = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve);
             var denseClip = clip.ToDenseClip();
 
@@ -243,9 +243,9 @@ namespace Unity.Animation.Tests
         public void DenseClipsWithSameDataHaveSameHashCode()
         {
             var clip = new AnimationClip();
-            var constantCurve0 = AnimationCurve.Constant(1.0f, 0.0f, 0.0f);
-            var constantCurve1 = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
-            var constantCurve2 = AnimationCurve.Constant(0.0f, 0.0f, 1.0f);
+            var constantCurve0 = UnityEngine.AnimationCurve.Constant(1.0f, 0.0f, 0.0f);
+            var constantCurve1 = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve2 = UnityEngine.AnimationCurve.Constant(0.0f, 0.0f, 1.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve0);
             clip.SetCurve("Child1", typeof(Transform), "m_LocalRotation.x", constantCurve1);
             clip.SetCurve("Child2", typeof(Transform), "m_LocalScale.x", constantCurve2);
@@ -263,9 +263,9 @@ namespace Unity.Animation.Tests
         public void DenseClipsWithDifferentDataHaveDifferentHashCode()
         {
             var clip = new AnimationClip();
-            var constantCurve0 = AnimationCurve.Constant(1.0f, 0.0f, 0.0f);
-            var constantCurve1 = AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
-            var constantCurve2 = AnimationCurve.Constant(0.0f, 0.0f, 1.0f);
+            var constantCurve0 = UnityEngine.AnimationCurve.Constant(1.0f, 0.0f, 0.0f);
+            var constantCurve1 = UnityEngine.AnimationCurve.Constant(0.0f, 1.0f, 0.0f);
+            var constantCurve2 = UnityEngine.AnimationCurve.Constant(0.0f, 0.0f, 1.0f);
             clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", constantCurve0);
             clip.SetCurve("Child1", typeof(Transform), "m_LocalRotation.x", constantCurve1);
             clip.SetCurve("Child2", typeof(Transform), "m_LocalScale.x", constantCurve2);

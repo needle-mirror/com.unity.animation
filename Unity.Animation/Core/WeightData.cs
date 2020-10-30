@@ -9,7 +9,7 @@ namespace Unity.Animation
     {
         public static int WeightDataSize(BlobAssetReference<RigDefinition> rig)
         {
-            ValidateIsCreated(rig);
+            ValidateArgumentIsCreated(rig);
 
             ref var bindings = ref rig.Value.Bindings;
             return bindings.InterpolatedDataChunkCount * BindingSet.k_InterpolatedDataChunkSize + bindings.DiscreteDataChunkCount * BindingSet.k_DiscreteDataChunkSize + bindings.RotationCurveCount;
@@ -17,7 +17,7 @@ namespace Unity.Animation
 
         internal static int ChannelIndexToWeightDataOffset(BlobAssetReference<RigDefinition> rig, int channelIndex)
         {
-            ValidateIsCreated(rig);
+            ValidateArgumentIsCreated(rig);
 
             ref var bindings = ref rig.Value.Bindings;
 
@@ -87,7 +87,7 @@ namespace Unity.Animation
             NativeArray<WeightData> weightData
         )
         {
-            ValidateIsCreated(rig);
+            ValidateArgumentIsCreated(rig);
             ValidateBufferLengthsAreEqual(channelIndices.Length, channelWeights.Length);
             ValidateBufferLengthsAreEqual(WeightDataSize(rig), weightData.Length);
 
@@ -106,7 +106,7 @@ namespace Unity.Animation
             NativeArray<WeightData> weightData
         )
         {
-            ValidateIsCreated(rig);
+            ValidateArgumentIsCreated(rig);
             ValidateLessOrEqual(channelWeights.Length, weightOffsets.Length);
             ValidateBufferLengthsAreEqual(WeightDataSize(rig), weightData.Length);
 

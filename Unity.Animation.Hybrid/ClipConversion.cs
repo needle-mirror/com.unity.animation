@@ -59,7 +59,8 @@ namespace Unity.Animation.Hybrid
                 }
             }
 
-            var syncTags = ExtractSynchronizationTag(sourceClip);
+            var syncTags = new NativeList<SynchronizationTag>(Allocator.Temp);
+            sourceClip.ExtractSynchronizationTag(syncTags);
 
             var blobBuilder = new BlobBuilder(Allocator.Temp);
             ref var clip = ref blobBuilder.ConstructRoot<Clip>();
@@ -71,44 +72,45 @@ namespace Unity.Animation.Hybrid
             var outputClip = blobBuilder.CreateBlobAssetReference<Clip>(Allocator.Persistent);
 
             blobBuilder.Dispose();
+            syncTags.Dispose();
 
             outputClip.Value.m_HashCode = (int)HashUtils.ComputeHash(ref outputClip);
 
             return outputClip;
         }
 
-        private static AnimationEvent[] ExtractSynchronizationTag(AnimationClip sourceClip)
+        internal static void ExtractSynchronizationTag(this AnimationClip sourceClip, NativeList<SynchronizationTag> syncTags)
         {
-            var syncTags = new List<AnimationEvent>();
+            Core.ValidateArgumentIsCreated(syncTags);
+
+            var duration = sourceClip.length != 0.0f ? sourceClip.length : 1.0f;
+
             var animationEvents = AnimationUtility.GetAnimationEvents(sourceClip);
             for (int i = 0; i < animationEvents.Length; i++)
             {
                 var go = animationEvents[i].objectReferenceParameter as GameObject;
                 if (go != null)
                 {
-                    var syncTag = go.GetComponent(typeof(ISynchronizationTag));
+                    var syncTag = go.GetComponent(typeof(ISynchronizationTag)) as ISynchronizationTag;
                     if (syncTag != null)
                     {
-                        syncTags.Add(animationEvents[i]);
+                        syncTags.Add(new SynchronizationTag { NormalizedTime = animationEvents[i].time / duration, Type = syncTag.Type, State = syncTag.State});
                     }
                 }
             }
-
-            return syncTags.ToArray();
         }
 
-        private static void FillSynchronizationTag(AnimationEvent[] syncTags, ref BlobBuilder blobBuilder, ref Clip clip)
+        internal static void FillSynchronizationTag(NativeList<SynchronizationTag> syncTags, ref BlobBuilder blobBuilder, ref Clip clip)
         {
-            if (syncTags == null || syncTags.Length == 0)
+            Core.ValidateArgumentIsCreated(syncTags);
+
+            if (syncTags.Length == 0)
                 return;
 
-            var duration = clip.Duration != 0.0f ? clip.Duration : 1.0f;
             var arrayBuilder = blobBuilder.Allocate(ref clip.SynchronizationTags, syncTags.Length);
             for (var i = 0; i != syncTags.Length; ++i)
             {
-                var go = syncTags[i].objectReferenceParameter as GameObject;
-                var syncTag = go.GetComponent(typeof(ISynchronizationTag)) as ISynchronizationTag;
-                arrayBuilder[i] = new SynchronizationTag { NormalizedTime = syncTags[i].time / duration, Type = syncTag.Type, State = syncTag.State};
+                arrayBuilder[i] = syncTags[i];
             }
         }
 
@@ -195,37 +197,37 @@ namespace Unity.Animation.Hybrid
         private static void AddVector3Curve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
             string property, int curveIndex, in int curveCount)
         {
-            binding.propertyName = property + ".x";
+            binding.propertyName = $"{property}.x";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
 
-            binding.propertyName = property + ".y";
+            binding.propertyName = $"{property}.y";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
 
-            binding.propertyName = property + ".z";
+            binding.propertyName = $"{property}.z";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
         }
 
         private static void AddQuaternionCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
             string property, int curveIndex, in int curveCount)
         {
-            binding.propertyName = property + ".x";
+            binding.propertyName = $"{property}.x";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
-            binding.propertyName = property + ".y";
+            binding.propertyName = $"{property}.y";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
-            binding.propertyName = property + ".z";
+            binding.propertyName = $"{property}.z";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
-            binding.propertyName = property + ".w";
+            binding.propertyName = $"{property}.w";
             ConvertCurve(ref clip, ref samples, AnimationUtility.GetEditorCurve(sourceClip, binding), curveIndex++, curveCount);
         }
 
         private static void AddEulerCurve(ref Clip clip, ref BlobBuilderArray<float> samples, AnimationClip sourceClip, EditorCurveBinding binding,
             string property, int curveIndex, in int curveCount)
         {
-            binding.propertyName = property + ".x";
+            binding.propertyName = $"{property}.x";
             var xEulerCurve = AnimationUtility.GetEditorCurve(sourceClip, binding);
-            binding.propertyName = property + ".y";
+            binding.propertyName = $"{property}.y";
             var yEulerCurve = AnimationUtility.GetEditorCurve(sourceClip, binding);
-            binding.propertyName = property + ".z";
+            binding.propertyName = $"{property}.z";
             var zEulerCurve = AnimationUtility.GetEditorCurve(sourceClip, binding);
 
             float xLastValue, yLastValue, zLastValue;

@@ -46,8 +46,8 @@ namespace Unity.Animation
         void AddMatchingChannelWeightsToEntries(NativeList<ChannelWeightMap> channels, ref BlobArray<StringHash> sourceBindings, int offset,
             NativeList<WeightEntry> entries)
         {
-            Core.ValidateIsCreated(channels);
-            Core.ValidateIsCreated(entries);
+            Core.ValidateArgumentIsCreated(channels);
+            Core.ValidateArgumentIsCreated(entries);
 
             for (int i = 0; i != channels.Length; i++)
             {
@@ -67,7 +67,7 @@ namespace Unity.Animation
         /// <exception cref="ArgumentNullException">The rig should be defined.</exception>
         public BlobAssetReference<ChannelWeightTable> ToChannelWeightTable(BlobAssetReference<RigDefinition> rigDef)
         {
-            Core.ValidateIsCreated(rigDef);
+            Core.ValidateArgumentIsCreated(rigDef);
 
             var channels = new NativeList<ChannelWeightMap>(Allocator.Temp);
             channels.CopyFrom(Channels);

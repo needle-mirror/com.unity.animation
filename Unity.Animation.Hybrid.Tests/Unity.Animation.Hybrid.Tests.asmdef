@@ -18,7 +18,8 @@
         "Unity.Animation.Editor",
         "Unity.Animation.Hybrid",
         "Unity.Animation.Authoring",
-        "Unity.Deformations"
+        "Unity.Deformations",
+        "Unity.Animation.Curves"
     ],
     "includePlatforms": [
         "Editor"

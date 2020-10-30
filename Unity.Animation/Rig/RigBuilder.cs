@@ -137,7 +137,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile]
-        internal struct CreateRigDefinitionJob : IJob
+        struct CreateRigDefinitionJob : IJob
         {
             public BlobBuilder BlobBuilder;
             public RigBuilderData RigBuilderData;

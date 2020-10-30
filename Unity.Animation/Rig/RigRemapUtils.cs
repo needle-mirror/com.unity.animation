@@ -116,8 +116,8 @@ namespace Unity.Animation
             OffsetOverrides offsetOverrides = default
         )
         {
-            Core.ValidateIsCreated(srcRig);
-            Core.ValidateIsCreated(dstRig);
+            Core.ValidateArgumentIsCreated(srcRig);
+            Core.ValidateArgumentIsCreated(dstRig);
 
             ref var srcBindings = ref srcRig.Value.Bindings;
             ref var dstBindings = ref dstRig.Value.Bindings;
@@ -255,10 +255,10 @@ namespace Unity.Animation
             int localToRootRotationCount
         )
         {
-            Core.ValidateIsCreated(translationMatches);
-            Core.ValidateIsCreated(rotationMatches);
-            Core.ValidateIsCreated(translationOffsets);
-            Core.ValidateIsCreated(rotationOffsets);
+            Core.ValidateArgumentIsCreated(translationMatches);
+            Core.ValidateArgumentIsCreated(rotationMatches);
+            Core.ValidateArgumentIsCreated(translationOffsets);
+            Core.ValidateArgumentIsCreated(rotationOffsets);
 
             int totalCount = localToRootTranslationCount + localToRootRotationCount;
             if (totalCount == 0)

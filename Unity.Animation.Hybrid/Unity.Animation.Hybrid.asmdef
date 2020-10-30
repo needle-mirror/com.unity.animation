@@ -3,6 +3,8 @@
     "references": [
         "Unity.Animation",
         "Unity.Animation.Authoring",
+        "Unity.Animation.Curves",
+        "Unity.Animation.Curves.Hybrid",
         "Unity.Collections",
         "Unity.Entities",
         "Unity.Entities.Hybrid",

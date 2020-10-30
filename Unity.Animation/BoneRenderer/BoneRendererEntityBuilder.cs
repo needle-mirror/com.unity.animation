@@ -92,7 +92,7 @@ namespace Unity.Animation
             NativeList<int> transformIndices
         )
         {
-            Core.ValidateIsCreated(rigDefinition);
+            Core.ValidateArgumentIsCreated(rigDefinition);
             ValidateTransformIndices(transformIndices, rigDefinition.Value.Skeleton.BoneCount);
 
             entityManager.AddComponents(boneDataEntity, new ComponentTypes(s_BoneMatrixComponentTypes));
@@ -141,7 +141,7 @@ namespace Unity.Animation
             NativeList<StringHash> transformIds = default
         )
         {
-            Core.ValidateIsCreated(rigDefinition);
+            Core.ValidateArgumentIsCreated(rigDefinition);
 
             NativeList<int> transformIndices;
 

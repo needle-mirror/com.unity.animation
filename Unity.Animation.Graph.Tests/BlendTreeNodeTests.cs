@@ -168,7 +168,7 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.Rig, m_Rig);
 
             Assert.Throws(Is.TypeOf<System.NullReferenceException>()
-                .And.Message.EqualTo("Clip is null."),
+                .And.Message.Contains("BlobAssetReference of Clip is not created."),
                 () => Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, blendTreeAsset));
         }
 

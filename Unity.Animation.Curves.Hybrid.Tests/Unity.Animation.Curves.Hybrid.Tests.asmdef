@@ -8,7 +8,8 @@
         "Unity.PerformanceTesting",
         "Unity.Mathematics",
         "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner"
+        "UnityEditor.TestRunner",
+        "Unity.Animation.Tests"
     ],
     "includePlatforms": [
         "Editor"

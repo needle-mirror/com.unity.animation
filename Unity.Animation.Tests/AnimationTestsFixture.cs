@@ -105,6 +105,112 @@ namespace Unity.Animation.Tests
         }
     }
 
+    public class AnimationStreamEqualityComparer : IEqualityComparer<AnimationStream>
+    {
+        protected readonly Float3AbsoluteEqualityComparer m_TranslationComparer;
+        protected readonly QuaternionAbsoluteEqualityComparer m_RotationComparer;
+        protected readonly Float3AbsoluteEqualityComparer m_ScaleComparer;
+        protected readonly FloatAbsoluteEqualityComparer m_FloatComparer;
+
+        public AnimationStreamEqualityComparer(Float3AbsoluteEqualityComparer translationComparer,
+                                               QuaternionAbsoluteEqualityComparer rotationComparer,
+                                               Float3AbsoluteEqualityComparer scaleComparer,
+                                               FloatAbsoluteEqualityComparer floatComparer)
+        {
+            m_TranslationComparer = translationComparer;
+            m_RotationComparer = rotationComparer;
+            m_ScaleComparer = scaleComparer;
+            m_FloatComparer = floatComparer;
+        }
+
+        public bool Equals(AnimationStream expected, AnimationStream actual)
+        {
+            // Translations
+            for (var i = 0; i < expected.TranslationCount; ++i)
+            {
+                float3 expectedTranslation = expected.GetLocalToParentTranslation(i);
+                float3 actualTranslation = actual.GetLocalToParentTranslation(i);
+                if (!m_TranslationComparer.Equals(expectedTranslation, actualTranslation))
+                {
+                    return false;
+                }
+            }
+
+            // Rotations
+            for (var i = 0; i < expected.RotationCount; ++i)
+            {
+                quaternion expectedRotation = expected.GetLocalToParentRotation(i);
+                quaternion actualRotation = actual.GetLocalToParentRotation(i);
+                if (!m_RotationComparer.Equals(expectedRotation, actualRotation))
+                {
+                    return false;
+                }
+            }
+
+            // Scales
+            for (var i = 0; i < expected.ScaleCount; ++i)
+            {
+                float3 expectedScale = expected.GetLocalToParentScale(i);
+                float3 actualScale = actual.GetLocalToParentScale(i);
+                if (!m_ScaleComparer.Equals(expectedScale, actualScale))
+                {
+                    return false;
+                }
+            }
+
+            // Float
+            for (var i = 0; i < expected.FloatCount; ++i)
+            {
+                float expectedFloat = expected.GetFloat(i);
+                float actualFloat = actual.GetFloat(i);
+                if (!m_FloatComparer.Equals(expectedFloat, actualFloat))
+                {
+                    return false;
+                }
+            }
+
+            // Int
+            for (var i = 0; i < expected.IntCount; ++i)
+            {
+                float expectedInt = expected.GetInt(i);
+                float actualInt = actual.GetInt(i);
+                if (actualInt != expectedInt)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public int GetHashCode(AnimationStream value)
+        {
+            return 0;
+        }
+    }
+
+    public class SynchronizationTagAbsoluteEqualityComparer : IEqualityComparer<SynchronizationTag>
+    {
+        private readonly float m_AllowedTimeError;
+
+        public SynchronizationTagAbsoluteEqualityComparer(float allowedTimeError)
+        {
+            m_AllowedTimeError = allowedTimeError;
+        }
+
+        public bool Equals(SynchronizationTag expected, SynchronizationTag actual)
+        {
+            return math.abs(expected.NormalizedTime - actual.NormalizedTime) < m_AllowedTimeError &&
+                expected.Type == actual.Type &&
+                expected.State == actual.State;
+        }
+
+        public int GetHashCode(SynchronizationTag value)
+        {
+            return 0;
+        }
+    }
+
     public abstract class AnimationTestsFixture
     {
         private const float kTranslationTolerance = 1e-5f;
@@ -118,6 +224,8 @@ namespace Unity.Animation.Tests
         protected readonly Float3AbsoluteEqualityComparer ScaleComparer;
         protected readonly FloatAbsoluteEqualityComparer FloatComparer;
         protected readonly Float4x4AbsoluteEqualityComparer Float4x4Comparer;
+        protected readonly SynchronizationTagAbsoluteEqualityComparer SynchronizationTagComparer;
+        protected readonly AnimationStreamEqualityComparer AnimationStreamComparer;
 
         protected World World;
         protected EntityManager m_Manager;
@@ -164,6 +272,11 @@ namespace Unity.Animation.Tests
             ScaleComparer = new Float3AbsoluteEqualityComparer(kScaleTolerance);
             FloatComparer = new FloatAbsoluteEqualityComparer(kTranslationTolerance);
             Float4x4Comparer = new Float4x4AbsoluteEqualityComparer(kFloat4x4Tolerance);
+            SynchronizationTagComparer = new SynchronizationTagAbsoluteEqualityComparer(kTimeTolerance);
+            AnimationStreamComparer = new AnimationStreamEqualityComparer(TranslationComparer,
+                RotationComparer,
+                ScaleComparer,
+                FloatComparer);
         }
 
         [OneTimeSetUp]
