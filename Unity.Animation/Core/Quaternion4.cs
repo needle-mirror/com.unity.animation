@@ -1,11 +1,13 @@
-using Unity.Mathematics;
 using System;
 using System.Runtime.CompilerServices;
+using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Unity.Animation
 {
     // SOA 4-wide quaternion
     [Serializable]
+    [BurstCompatible]
     public partial struct quaternion4 : IEquatable<quaternion4>, IFormattable
     {
         public float4 x;
@@ -43,19 +45,22 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(quaternion4 q) { return x.Equals(q.x) && y.Equals(q.y) && z.Equals(q.z) && w.Equals(q.w); }
 
+        [NotBurstCompatible]
         public override bool Equals(object o) { return Equals((quaternion4)o); }
 
-        /// <summary>Returns a hash code for the float4x4.</summary>
+        /// <summary>Returns a hash code for the quaternion4.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() { return (int)mathex.hash(this); }
 
-        /// <summary>Returns a string representation of the float4x4.</summary>
+        [NotBurstCompatible]
+        /// <summary>Returns a string representation of the quaternion4.</summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override string ToString()
         {
             return string.Format("quaternion4({0}f, {1}f, {2}f, {3}f,  {4}f, {5}f, {6}f, {7}f,  {8}f, {9}f, {10}f, {11}f,  {12}f, {13}f, {14}f, {15}f)", x.x, y.x, z.x, w.x, x.y, y.y, z.y, w.y, x.z, y.z, z.z, w.z, x.w, y.w, z.w, w.w);
         }
 
+        [NotBurstCompatible]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string ToString(string format, IFormatProvider formatProvider)
         {
@@ -63,6 +68,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public static partial class mathex
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

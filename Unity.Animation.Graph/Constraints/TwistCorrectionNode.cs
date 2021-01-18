@@ -57,7 +57,7 @@ namespace Unity.Animation
                 ctx.SetInitialPortValue(KernelPorts.SourceDefaultRotation, quaternion.identity);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -80,7 +80,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext ctx, in KernelData data, ref KernelDefs ports)
             {
                 var input = ctx.Resolve(ports.Input);
                 var output = ctx.Resolve(ref ports.Output);

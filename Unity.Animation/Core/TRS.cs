@@ -1,8 +1,10 @@
-using Unity.Mathematics;
 using System.Runtime.CompilerServices;
+using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     internal struct TRS
     {
         public quaternion r;
@@ -18,6 +20,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public static partial class mathex
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

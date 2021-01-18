@@ -1,9 +1,11 @@
 using System;
 using System.Diagnostics;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     static internal class UnsafeBitArrayExtensions
     {
         const int k_SizeMultiple = 64;

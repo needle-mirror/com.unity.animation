@@ -17,7 +17,7 @@ namespace Unity.Animation
 
         struct Data : INodeData, IMsgHandler<T>
         {
-            public void HandleMessage(in MessageContext ctx, in T msg) =>
+            public void HandleMessage(MessageContext ctx, in T msg) =>
                 ctx.EmitMessage(SimulationPorts.Output, msg);
         }
     }
@@ -44,7 +44,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 context.Resolve(ref ports.Output) = context.Resolve(ports.Input);
             }
@@ -70,7 +70,7 @@ namespace Unity.Animation
 
         public struct Data : INodeData, IMsgHandler<int>
         {
-            public void HandleMessage(in MessageContext ctx, in int msg) =>
+            public void HandleMessage(MessageContext ctx, in int msg) =>
                 ctx.Set.SetBufferSize(ctx.Handle, (OutputPortID)KernelPorts.Output, Buffer<T>.SizeRequest(msg));
         }
 
@@ -87,7 +87,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 context.Resolve(ref ports.Output).CopyFrom(context.Resolve(ports.Input));
             }

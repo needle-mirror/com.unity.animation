@@ -1,0 +1,21 @@
+.sm-state-border {
+    flex-grow: 1;
+    border-width: 30px;
+    padding: 30px;
+    border-color: transparent;
+    border-radius: var(--selection-border-radius);
+    margin: -30px;
+}
+
+.sm-state-border__content-container {
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.sm-state-border .ge-selection-border {
+    margin: -31px;
+}
+
+.sm-state-border--connection-mode {
+    border-color: rgb(255, 129, 21);
+}

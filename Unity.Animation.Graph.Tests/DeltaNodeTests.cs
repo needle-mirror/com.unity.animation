@@ -27,16 +27,16 @@ namespace Unity.Animation.Tests
         {
             var skeletonNodes = new[]
             {
-                new SkeletonNode { ParentIndex = -1, Id = "Root", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 0, Id = "Child1", AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = -1, Id = TransformChannelID("Root"), AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 0, Id = TransformChannelID("Child1"), AxisIndex = -1 },
             };
 
             var animationChannel = new IAnimationChannel[]
             {
-                new FloatChannel {Id = "Root", DefaultValue = 1000.0f},
-                new FloatChannel {Id = "Child1", DefaultValue = 1000.0f},
-                new IntChannel {Id = "Root", DefaultValue = 1000},
-                new IntChannel {Id = "Child1", DefaultValue = 1000},
+                new FloatChannel {Id = FloatChannelID("Root"), DefaultValue = 1000.0f},
+                new FloatChannel {Id = FloatChannelID("Child1"), DefaultValue = 1000.0f},
+                new IntChannel {Id = IntegerChannelID("Root"), DefaultValue = 1000},
+                new IntChannel {Id = IntegerChannelID("Child1"), DefaultValue = 1000},
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannel);

@@ -6,11 +6,11 @@ namespace Unity.Animation.Tests
 {
     public class RigEntityBuilderTests : AnimationTestsFixture
     {
-        void CheckEntityHasRigComponentTypeAndBufferResized(Entity entity, BlobAssetReference<RigDefinition> rigDefinition, ComponentType[] rigComponentTypes, int bufferLength)
+        void CheckEntityHasRigComponentTypeAndBufferResized(Entity entity, BlobAssetReference<RigDefinition> rigDefinition, ComponentTypes rigComponentTypes, int bufferLength)
         {
-            foreach (var componentType in rigComponentTypes)
+            for (int i = 0; i < rigComponentTypes.Length; ++i)
             {
-                Assert.IsTrue(m_Manager.HasComponent(entity, componentType));
+                Assert.IsTrue(m_Manager.HasComponent(entity, rigComponentTypes.GetComponentType(i)));
             }
 
             var rigBuffer = new RigEntityBuilder.RigBuffers(m_Manager, entity);

@@ -22,9 +22,4 @@ namespace Unity.Animation
     {
         public float4x4 Value;
     }
-
-    [System.Obsolete("IAnimationSystemTag has been deprecated and is no longer necessary (RemovedAfter 2020-11-04).", false)]
-    public interface IAnimationSystemTag : IComponentData
-    {
-    }
 }

@@ -4,8 +4,9 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
-using Unity.Mathematics;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 
 #if DEBUG_STRINGHASH
@@ -31,6 +32,7 @@ namespace Unity.Animation
 #endif
 
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
+    [BurstCompatible]
     [Serializable]
     public struct StringHash : IEquatable<StringHash>
     {
@@ -68,6 +70,7 @@ namespace Unity.Animation
         public override int GetHashCode() =>
             (int)Id;
 
+        [NotBurstCompatible]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override bool Equals(object other)
         {
@@ -77,6 +80,7 @@ namespace Unity.Animation
             return Id == ((StringHash)other).Id;
         }
 
+        [NotBurstCompatible]
         unsafe static internal uint Hash(string str)
         {
             uint hash = 0;
@@ -96,6 +100,7 @@ namespace Unity.Animation
             return hash;
         }
 
+        [NotBurstCompatible]
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal string DebuggerDisplay
         {

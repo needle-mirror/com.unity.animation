@@ -1,0 +1,30 @@
+.compositorPort.static .ge-port__connector {
+    visibility: hidden;
+}
+
+.compositorPort.execution .ge-port__icon {
+    display: none;
+}
+
+.compositorPort.execution {
+    --port-color:#D7AE1F;
+}
+
+.compositorPort.execution .ge-port__connector
+{
+    border-radius: 0;
+    width: 8px;
+    height: 8px;
+}
+
+.compositorPort.execution .ge-port__cap
+{
+    border-radius: 0;
+    width: 4px;
+    height: 4px;
+}
+
+.ge-port--direction-output.compositorPort.execution .ge-port__label,
+.ge-port--direction-output.compositorPort.portConnectorOnly .ge-port__label{
+    display: none;
+}

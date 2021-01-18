@@ -1,29 +1,26 @@
 {
     "name": "Unity.Animation.Editor.Tests",
     "references": [
-        "Unity.Burst",
-        "Unity.Collections",
-        "Unity.Entities",
-        "Unity.Entities.Hybrid",
-        "Unity.Transforms",
-        "Unity.Mathematics",
-        "Unity.DataFlowGraph",
         "Unity.Animation",
-        "Unity.Animation.Graph",
-        "Unity.Animation.DefaultGraphPipeline",
-        "Unity.Animation.Tests",
-        "Unity.PerformanceTesting",
-        "UnityEngine.TestRunner",
-        "UnityEditor.TestRunner",
         "Unity.Animation.Editor",
         "Unity.Animation.Hybrid",
-        "Unity.Deformations"
+        "Unity.Animation.Graph",
+        "Unity.Animation.Graph.Hybrid",
+        "Unity.DataFlowGraph",
+        "Unity.GraphTools.Foundation.Overdrive.Editor",
+        "Unity.Searcher.Editor",
+        "Unity.Entities",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner",
+        "Unity.Mathematics",
+        "Unity.Animation.Editor.Nodes.Tests",
+        "Unity.Animation.Editor.Nodes.Error.Tests"
     ],
     "includePlatforms": [
         "Editor"
     ],
     "excludePlatforms": [],
-    "allowUnsafeCode": true,
+    "allowUnsafeCode": false,
     "overrideReferences": true,
     "precompiledReferences": [
         "nunit.framework.dll"

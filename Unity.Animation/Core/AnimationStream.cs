@@ -1,4 +1,3 @@
-using System;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
@@ -9,6 +8,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Animation
 {
+    [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
     unsafe internal struct Ptr<T> where T : unmanaged
     {
         internal T* m_Ptr;
@@ -44,6 +44,7 @@ namespace Unity.Animation
     /// An AnimationStream is a data proxy to a Rig's AnimatedData. It can be used to read from or write to individual rig channels.
     /// </summary>
     [DebuggerTypeProxy(typeof(AnimationStreamDebugView))]
+    [BurstCompatible]
     public partial struct AnimationStream
     {
         /// <summary>
@@ -567,19 +568,11 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe void* GetUnsafePtr() => (void*)m_LocalTranslationData.m_Ptr;
 
-        [Obsolete("GetDataChunkUnsafePtr has been renamed to GetInterpolatedDataChunkUnsafePtr (RemovedAfter 2020-11-04).", false)]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe float4* GetDataChunkUnsafePtr() => GetInterpolatedDataChunkUnsafePtr();
-
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe float4* GetInterpolatedDataChunkUnsafePtr() => (float4*)m_LocalTranslationData.m_Ptr;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe int4* GetDiscreteDataChunkUnsafePtr() => (int4*)m_IntData.m_Ptr;
-
-        [Obsolete("GetRotationChunkUnsafePtr has been renamed to GetRotationDataChunkUnsafePtr (RemovedAfter 2020-11-04).", false)]
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public unsafe quaternion4* GetRotationChunkUnsafePtr() => GetRotationDataChunkUnsafePtr();
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public unsafe quaternion4* GetRotationDataChunkUnsafePtr() => m_LocalRotationData.m_Ptr;
@@ -596,8 +589,6 @@ namespace Unity.Animation
             get => Rig.Value.Bindings.RotationBindings.Length;
         }
 
-        [Obsolete("RotationChunkCount has been renamed to RotationDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> RotationDataChunkCount", false)]
-        public int RotationChunkCount => RotationDataChunkCount;
         public int RotationDataChunkCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -628,8 +619,6 @@ namespace Unity.Animation
             get => Rig.Value.Bindings.DiscreteDataChunkCount;
         }
 
-        [Obsolete("DataChunkCount has been renamed to InterpolatedDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> InterpolatedDataChunkCount", false)]
-        public int DataChunkCount => InterpolatedDataChunkCount;
         public int InterpolatedDataChunkCount
         {
             [MethodImpl(MethodImplOptions.AggressiveInlining)]

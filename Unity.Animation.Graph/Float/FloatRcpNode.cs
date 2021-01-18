@@ -20,7 +20,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 context.Resolve(ref ports.Output) = math.rcp(context.Resolve(ports.Input));
             }

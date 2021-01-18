@@ -3,11 +3,17 @@
     "references": [
         "Unity.Animation",
         "Unity.Animation.Hybrid",
+        "Unity.Animation.Graph.Hybrid",
         "Unity.Animation.Authoring",
         "Unity.Entities",
+        "Unity.Entities.Hybrid",
         "Unity.Mathematics",
         "Unity.DataFlowGraph",
-        "Unity.Animation.Graph"
+        "Unity.Animation.Graph",
+        "Unity.GraphTools.Foundation.Overdrive.Editor",
+        "Unity.InternalAPIEngineBridgeDev.003",
+        "Unity.Properties.UI.Editor",
+        "Unity.Searcher.Editor"
     ],
     "includePlatforms": [
         "Editor"

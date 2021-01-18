@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 
@@ -10,6 +11,7 @@ namespace Unity.Animation
     /// The data associated at a point in time in a bezier curve. If the weights of the tangents are
     /// <see cref="DEFAULT_WEIGHT"/>, then the tangent is equivalent to a hermit curve.
     /// </summary>
+    [BurstCompatible]
     public struct KeyframeData
     {
         /// <summary>
@@ -72,6 +74,7 @@ namespace Unity.Animation
     /// The order in the arrays is preserved, so that for any index 'i', the data in
     /// `KeyframesData[i]` is the one set at the time `KeyframesTime[i]`.
     /// </remarks>
+    [BurstCompatible]
     public struct AnimationCurveBlob
     {
         /// <summary>
@@ -171,6 +174,7 @@ namespace Unity.Animation
             return new Builder(ref this, builder, type, keyframeLength);
         }
 
+        [BurstCompatible]
         struct HermiteKeyframeData
         {
             public float Value;
@@ -288,6 +292,7 @@ namespace Unity.Animation
     /// Stores the indices of the last two keyframes that were used for evaluation.
     /// Speeds up the performance when evaluating several times within the same interval.
     /// </summary>
+    [BurstCompatible]
     public struct AnimationCurveCache
     {
         /// <summary>
@@ -318,6 +323,7 @@ namespace Unity.Animation
     /// instead of going through the curve. If we evaluate outside of the interval, the
     /// cache is updated.
     /// </remarks>
+    [BurstCompatible]
     public struct AnimationCurve : IDisposable
     {
         internal BlobAssetReference<AnimationCurveBlob> CurveBlob;

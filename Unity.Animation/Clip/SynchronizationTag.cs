@@ -1,3 +1,5 @@
+using Unity.Collections;
+
 namespace Unity.Animation
 {
     /// <summary>
@@ -22,6 +24,7 @@ namespace Unity.Animation
     /// }
     /// </code>
     /// </remarks>
+    [BurstCompatible]
     public struct SynchronizationTag
     {
         /// <summary>

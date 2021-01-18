@@ -78,7 +78,7 @@ namespace Unity.Animation
                     ctx.Set.Destroy(m_MotionDurationNodes[i]);
             }
 
-            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
+            public void HandleMessage(MessageContext ctx, in BlobAssetReference<BlendTree1D> blendTree)
             {
                 var thisHandle = ctx.Set.CastHandle<BlendTree1DNode>(ctx.Handle);
 
@@ -108,8 +108,8 @@ namespace Unity.Animation
 
                 for (int i = 0; i < length; i++)
                 {
-                    var clip = m_BlendTree.Value.Motions[i].Clip;
-                    Core.ValidateIsCreated(clip);
+                    var clip = m_BlendTree.Value.Motions[i];
+                    Core.ValidateIsCreated((BlobAssetReference<Clip>)clip);
 
                     var motionNode = ctx.Set.Create<UberClipNode>();
 
@@ -139,7 +139,7 @@ namespace Unity.Animation
                 ctx.EmitMessage(SimulationPorts.RigOut, new Rig { Value = m_RigDefinition });
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_RigDefinition = rig;
                 ctx.EmitMessage(SimulationPorts.RigOut, rig);
@@ -164,7 +164,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
             }
         }

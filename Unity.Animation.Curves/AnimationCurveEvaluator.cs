@@ -1,8 +1,10 @@
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public struct AnimationCurveEvaluator
     {
         /// <summary>

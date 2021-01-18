@@ -44,7 +44,7 @@ namespace Unity.Animation
                 {
                     motionThresholdBuilderArray[i] = motionDataList[i].MotionThreshold;
                     motionSpeedBuilderArray[i] = motionDataList[i].MotionSpeed;
-                    motionBuilderArray[i].Clip = motionDataList[i].Motion.Clip;
+                    motionBuilderArray[i] = motionDataList[i].Motion;
                 }
 
                 return blobBuilder.CreateBlobAssetReference<BlendTree1D>(Allocator.Persistent);
@@ -70,7 +70,7 @@ namespace Unity.Animation
                 {
                     motionPositionBuilderArray[i] = motionData[i].MotionPosition;
                     motionSpeedBuilderArray[i] = motionData[i].MotionSpeed;
-                    motionBuilderArray[i].Clip = motionData[i].Motion.Clip;
+                    motionBuilderArray[i] = motionData[i].Motion;
                 }
 
                 return blobBuilder.CreateBlobAssetReference<BlendTree2DSimpleDirectional>(Allocator.Persistent);

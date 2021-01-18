@@ -33,10 +33,8 @@ namespace Unity.Animation.Tests
             var rigRemapper = CreateNode<RigRemapperNode>();
             Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.SourceRig, rig);
 
-            Set.SendTest(rigRemapper, (RigRemapperNode.Data data) =>
-            {
-                Assert.That(data.m_KernelData.SourceRigDefinition.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
-            });
+            Set.SendTest<RigRemapperNode.Data>(rigRemapper, data =>
+                Assert.That(data.m_KernelData.SourceRigDefinition.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode())));
         }
 
         [Test]
@@ -54,10 +52,8 @@ namespace Unity.Animation.Tests
             var rigRemapper = CreateNode<RigRemapperNode>();
             Set.SendMessage(rigRemapper, RigRemapperNode.SimulationPorts.DestinationRig, rig);
 
-            Set.SendTest(rigRemapper, (RigRemapperNode.Data data) =>
-            {
-                Assert.That(data.m_KernelData.DestinationRigDefinition.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode()));
-            });
+            Set.SendTest<RigRemapperNode.Data>(rigRemapper, data =>
+                Assert.That(data.m_KernelData.DestinationRigDefinition.Value.GetHashCode(), Is.EqualTo(rig.Value.Value.GetHashCode())));
         }
 
         [Test]

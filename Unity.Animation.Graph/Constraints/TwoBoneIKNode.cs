@@ -72,7 +72,7 @@ namespace Unity.Animation
                 ctx.UpdateKernelData(m_KernelData);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_KernelData.RigDefinition = rig;
 
@@ -85,7 +85,7 @@ namespace Unity.Animation
                 ctx.UpdateKernelData(m_KernelData);
             }
 
-            public void HandleMessage(in MessageContext ctx, in SetupMessage msg)
+            public void HandleMessage(MessageContext ctx, in SetupMessage msg)
             {
                 m_KernelData.RootIndex = msg.RootIndex;
                 m_KernelData.MidIndex = msg.MidIndex;
@@ -110,7 +110,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext ctx, in KernelData data, ref KernelDefs ports)
             {
                 var input = ctx.Resolve(ports.Input);
                 var output = ctx.Resolve(ref ports.Output);

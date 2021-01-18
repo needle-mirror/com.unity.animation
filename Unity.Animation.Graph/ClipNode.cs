@@ -35,7 +35,7 @@ namespace Unity.Animation
         {
             internal KernelData m_KernelData;
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_KernelData.RigDefinition = rig;
                 ctx.Set.SetBufferSize(
@@ -52,7 +52,7 @@ namespace Unity.Animation
                 ctx.UpdateKernelData(m_KernelData);
             }
 
-            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+            public void HandleMessage(MessageContext ctx, in BlobAssetReference<Clip> clip)
             {
                 m_KernelData.Clip = clip;
                 ctx.EmitMessage(SimulationPorts.Duration, clip.Value.Duration);
@@ -65,7 +65,7 @@ namespace Unity.Animation
                 ctx.UpdateKernelData(m_KernelData);
             }
 
-            public void HandleMessage(in MessageContext ctx, in bool msg)
+            public void HandleMessage(MessageContext ctx, in bool msg)
             {
                 m_KernelData.Additive = msg ? 1 : 0;
                 ctx.UpdateKernelData(m_KernelData);
@@ -83,7 +83,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 Core.ValidateIsCreated(data.RigDefinition);
                 Core.ValidateIsCreated(data.ClipInstance);

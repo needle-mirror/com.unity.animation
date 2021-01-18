@@ -1,14 +1,18 @@
+using System.Diagnostics;
+
 using Unity.Mathematics;
 using Unity.Collections;
 using System.Runtime.CompilerServices;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public static partial class Core
     {
         const float k_Epsilon = 1e-5f;
         const float k_SqEpsilon = 1e-8f;
 
+        [BurstCompatible]
         public struct TwoBoneIKData
         {
             public RigidTransform Target;
@@ -43,6 +47,8 @@ namespace Unity.Animation
             Core.ValidateGreater(data.RootIndex, -1);
             Core.ValidateGreater(data.MidIndex, -1);
             Core.ValidateGreater(data.TipIndex, -1);
+            Core.Validate(data.Target.rot);
+            Core.Validate(data.TargetOffset.rot);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -134,6 +140,7 @@ namespace Unity.Animation
             return sum;
         }
 
+        [BurstCompatible]
         public struct PositionConstraintData
         {
             public float3 LocalOffset;
@@ -195,6 +202,7 @@ namespace Unity.Animation
             stream.SetLocalToParentTranslation(data.Index, math.lerp(currentLocalT, accumT + data.LocalOffset, weight));
         }
 
+        [BurstCompatible]
         public struct RotationConstraintData
         {
             public quaternion LocalOffset;
@@ -218,6 +226,9 @@ namespace Unity.Animation
             Core.ValidateGreater(data.Index, -1);
             Core.ValidateBufferLengthsAreEqual(data.SourceRotations.Length,  data.SourceOffsets.Length);
             Core.ValidateBufferLengthsAreEqual(data.SourceRotations.Length,  data.SourceWeights.Length);
+            Core.Validate(data.LocalOffset);
+            Core.Validate(data.SourceRotations);
+            Core.Validate(data.SourceOffsets);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -258,6 +269,7 @@ namespace Unity.Animation
             stream.SetLocalToParentRotation(data.Index, mathex.lerp(currentLocalR, mathex.mul(accumR, data.LocalOffset), weight));
         }
 
+        [BurstCompatible]
         public struct ParentConstraintData
         {
             public bool3 LocalTranslationAxesMask;
@@ -281,6 +293,8 @@ namespace Unity.Animation
             Core.ValidateGreater(data.Index, -1);
             Core.ValidateBufferLengthsAreEqual(data.SourceTx.Length,  data.SourceOffsets.Length);
             Core.ValidateBufferLengthsAreEqual(data.SourceTx.Length,  data.SourceWeights.Length);
+            Core.Validate(data.SourceTx);
+            Core.Validate(data.SourceOffsets);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -336,6 +350,7 @@ namespace Unity.Animation
             );
         }
 
+        [BurstCompatible]
         public struct AimConstraintData
         {
             public quaternion LocalOffset;
@@ -365,6 +380,8 @@ namespace Unity.Animation
             Core.ValidateGreater(data.Index, -1);
             Core.ValidateBufferLengthsAreEqual(data.SourcePositions.Length,  data.SourceOffsets.Length);
             Core.ValidateBufferLengthsAreEqual(data.SourcePositions.Length,  data.SourceWeights.Length);
+            Core.Validate(data.LocalOffset);
+            Core.Validate(data.SourceOffsets);
 
             weight = math.saturate(weight);
             if (!(weight > 0f))
@@ -439,6 +456,7 @@ namespace Unity.Animation
             );
         }
 
+        [BurstCompatible]
         public struct TwistCorrectionData
         {
             public quaternion SourceRotation;
@@ -459,6 +477,8 @@ namespace Unity.Animation
         public static void SolveTwistCorrection(ref AnimationStream stream, in TwistCorrectionData data, float weight)
         {
             Core.ValidateBufferLengthsAreEqual(data.TwistIndices.Length,  data.TwistWeights.Length);
+            Core.Validate(data.SourceRotation);
+            Core.Validate(data.SourceInverseDefaultRotation);
 
             if (data.TwistIndices.Length == 0)
                 return;
@@ -481,6 +501,27 @@ namespace Unity.Animation
 
                 stream.SetLocalToParentRotation(data.TwistIndices[i], mathex.lerp(defaultStream.GetLocalToParentRotation(data.TwistIndices[i]), rot, weight));
             }
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void Validate(in quaternion q)
+        {
+            if (math.lengthsq(q) < math.FLT_MIN_NORMAL)
+                throw new System.InvalidOperationException($"Quaternion is invalid {q}");
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void Validate(NativeArray<quaternion> quaternions)
+        {
+            for (int i = 0; i < quaternions.Length; ++i)
+                Validate(quaternions[i]);
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
+        static void Validate(NativeArray<RigidTransform> transforms)
+        {
+            for (int i = 0; i < transforms.Length; ++i)
+                Validate(transforms[i].rot);
         }
     }
 }

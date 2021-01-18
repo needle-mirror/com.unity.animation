@@ -1,32 +1,35 @@
 {
   "name": "com.unity.animation",
   "displayName": "Animation",
-  "version": "0.8.0-preview.4",
+  "version": "0.9.0-preview.6",
   "unity": "2020.1",
-  "unityRelease": "0b15",
+  "unityRelease": "9f1",
   "description": "The Animation package defines a new animation system entirely written in C# based on our Data-Oriented Technology Stack. \n\nThis is a highly experimental package which should NOT be considered suitable for production.",
   "dependencies": {
     "com.unity.mathematics": "1.2.1",
-    "com.unity.entities": "0.16.0-preview.21",
-    "com.unity.collections": "0.14.0-preview.16",
-    "com.unity.jobs": "0.7.0-preview.17",
-    "com.unity.burst": "1.3.7",
-    "com.unity.test-framework": "1.1.13",
-    "com.unity.dataflowgraph": "0.18.0-preview.3",
-    "com.unity.test-framework.performance": "2.0.8-preview",
+    "com.unity.entities": "0.17.0-preview.41",
+    "com.unity.collections": "0.15.0-preview.21",
+    "com.unity.jobs": "0.8.0-preview.23",
+    "com.unity.burst": "1.4.1",
+    "com.unity.test-framework": "1.1.20",
+    "com.unity.dataflowgraph": "0.19.0-preview.7",
+    "com.unity.graphtools.foundation": "0.7.0-preview.2",
+    "com.unity.test-framework.performance": "2.3.1-preview",
     "com.unity.modules.animation": "1.0.0"
   },
   "keywords": [
     "dots",
     "animation",
-    "unity"
+    "unity",
+    "state machine",
+    "blend graph"
   ],
   "upmCi": {
-    "footprint": "158069157b35f704caf5a270d143d921cb59ff58"
+    "footprint": "903e889d30ef74ba81e68bc4c1e1c79ae6c1e4cc"
   },
   "repository": {
     "url": "https://github.com/Unity-Technologies/Unity.Animation.git",
     "type": "git",
-    "revision": "ca7e4be3de75329e58784931a2b11902bc7bce7f"
+    "revision": "1eee17bbbd13a78d9b29bb49c16a16b08321fefa"
   }
 }

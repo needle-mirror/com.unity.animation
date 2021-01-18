@@ -49,6 +49,7 @@ namespace Unity.Animation.Tests
                 () => Set.SetData(node, ComputeBlendTree1DWeightsNode.KernelPorts.MotionDurations, m_BlendTree.Value.Motions.Length + 1, 1.0f));
         }
 
+#if !ENABLE_IL2CPP
         [TestCase(0.0f, new float[] {1.0f, 0.0f, 0.0f, 0.0f, 0.0f })]
         [TestCase(0.2f, new float[] {1.0f, 0.0f, 0.0f, 0.0f, 0.0f })]
         [TestCase(0.25f, new float[] {0.75f, 0.25f, 0.0f, 0.0f, 0.0f })]
@@ -113,5 +114,7 @@ namespace Unity.Animation.Tests
 
             Assert.That(duration, Is.EqualTo(expectedDuration).Using(FloatComparer));
         }
+
+#endif
     }
 }

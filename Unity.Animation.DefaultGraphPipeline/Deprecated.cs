@@ -120,28 +120,6 @@ namespace Unity.Animation
     {
     }
 
-    public partial class ProcessDefaultAnimationGraph
-    {
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ProcessDefaultAnimationGraph.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public struct Tag : IAnimationSystemTag {}
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ProcessDefaultAnimationGraph.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public Tag TagComponent => new Tag();
-    }
-
-    public partial class ProcessLateAnimationGraph
-    {
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ProcessLateAnimationGraph.Tag is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public struct Tag : IAnimationSystemTag {}
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        [Obsolete("ProcessLateAnimationGraph.TagComponent is deprecated. Animation system tags are not required anymore (RemovedAfter 2020-11-04).")]
-        public Tag TagComponent => new Tag();
-    }
-
     [EditorBrowsable(EditorBrowsableState.Never)]
 #if UNITY_SKIP_UPDATES_WITH_VALIDATION_SUITE
     // API updater fails package validation check, but is still source compatible

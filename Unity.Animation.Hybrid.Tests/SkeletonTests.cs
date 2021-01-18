@@ -3,6 +3,7 @@ using System.Linq;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Animation.Authoring;
+using Unity.Animation.Hybrid;
 using Unity.Collections;
 using Unity.Mathematics;
 using UnityEngine;
@@ -15,7 +16,8 @@ namespace Unity.Animation.Tests
 
         private void AssumeThatTransformChannelExistsAndIsActive(Authoring.Skeleton skeletonAsset, TransformBindingID id, TransformChannelProperties expectedProperties)
         {
-            var transformChannels = skeletonAsset.ActiveTransformChannels.ToList();
+            var transformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(transformChannels, TransformChannelSearchMode.ActiveRootDescendants);
 
             var channelIndex = transformChannels.FindIndex(channel => channel.ID.Equals(id));
 
@@ -26,7 +28,8 @@ namespace Unity.Animation.Tests
 
         private void AssertThatTransformChannelExistsAndIsActive(Authoring.Skeleton skeletonAsset, TransformBindingID id, TransformChannelProperties expectedProperties)
         {
-            var transformChannels = skeletonAsset.ActiveTransformChannels.ToList();
+            var transformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(transformChannels, TransformChannelSearchMode.ActiveRootDescendants);
 
             var channelIndex = transformChannels.FindIndex(channel => channel.ID.Equals(id));
 
@@ -37,7 +40,8 @@ namespace Unity.Animation.Tests
 
         private void AssertThatTransformChannelExistsAndIsInactive(Authoring.Skeleton skeletonAsset, TransformBindingID id, TransformChannelProperties expectedProperties)
         {
-            var transformChannels = skeletonAsset.InactiveTransformChannels.ToList();
+            var transformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(transformChannels, TransformChannelSearchMode.InactiveAll);
 
             var channelIndex = transformChannels.FindIndex(channel => channel.ID.Equals(id));
 
@@ -134,13 +138,13 @@ namespace Unity.Animation.Tests
         {
             switch (valueType.GetGenericChannelType())
             {
-                case GenericPropertyType.Float:
+                case GenericChannelType.Float:
                     var floatChannels = m_Skeleton.FloatChannels;
                     return floatChannels.Cast<IGenericChannel>().ToArray();
-                case GenericPropertyType.Int:
+                case GenericChannelType.Int:
                     var intChannels = m_Skeleton.IntChannels;
                     return intChannels.Cast<IGenericChannel>().ToArray();
-                case GenericPropertyType.Quaternion:
+                case GenericChannelType.Quaternion:
                     var quaternionChannels = m_Skeleton.QuaternionChannels;
                     return quaternionChannels.Cast<IGenericChannel>().ToArray();
             }
@@ -152,6 +156,8 @@ namespace Unity.Animation.Tests
         public void SetUp()
         {
             m_Skeleton = ScriptableObject.CreateInstance<Authoring.Skeleton>();
+            Assume.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "Skeleton was not empty.");
+            Assume.That(m_Skeleton.InactiveTransformChannelCount, Is.EqualTo(0), "Skeleton was not empty");
         }
 
         [TearDown]
@@ -161,15 +167,55 @@ namespace Unity.Animation.Tests
                 ScriptableObject.DestroyImmediate(m_Skeleton);
         }
 
-        private static TransformBindingID[] s_TransformBindings =
+        [Test]
+        public void Skeleton_ActiveTransformChannelCount_AfterSettingPathToGrandchild_IncludesAllAncestors()
         {
-            new TransformBindingID {Path = "Root"},
-            new TransformBindingID {Path = "Root/A"},
-            new TransformBindingID {Path = "Root/A/B"},
-            new TransformBindingID {Path = "Root/B"},
+            m_Skeleton[new TransformBindingID { Path = "A/B/C" }] = default;
+
+            var expectedTransformChannelCount = new[] { "", "A", "A/B", "A/B/C" }.Length;
+            Assert.That(
+                m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(expectedTransformChannelCount),
+                "Active transform channel count did not include only descendants of root."
+            );
+        }
+
+        [Test]
+        public void Skeleton_ActiveTransformChannelCount_ExcludesRootAncestors()
+        {
+            m_Skeleton[new TransformBindingID { Path = "A/B/C" }] = default;
+
+            m_Skeleton.Root = new TransformBindingID { Path = "A/B" };
+
+            var expectedTransformChannelCount = new[] { "A/B", "A/B/C" }.Length;
+            Assert.That(
+                m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(expectedTransformChannelCount),
+                "Active transform channel count did not include only descendants of root."
+            );
+        }
+
+        [Test]
+        public void Skeleton_InactiveTransformChannelCount_IncludesRootAncestors()
+        {
+            m_Skeleton[new TransformBindingID { Path = "A/B/C" }] = default;
+
+            m_Skeleton.Root = new TransformBindingID { Path = "A/B" };
+
+            var expectedTransformChannelCount = new[] { "", "A" }.Length;
+            Assert.That(
+                m_Skeleton.InactiveTransformChannelCount, Is.EqualTo(expectedTransformChannelCount),
+                "Active transform channel count did not include only ancestors of root."
+            );
+        }
+
+        static readonly TransformBindingID[] s_TransformBindings =
+        {
+            TransformBindingID.Root,
+            new TransformBindingID {Path = "A"},
+            new TransformBindingID {Path = "A/B"},
+            new TransformBindingID {Path = "B"},
         };
 
-        private static TransformChannel[] s_TransformProperties =
+        static readonly TransformChannel[] s_TransformProperties =
         {
             new TransformChannel { ID = s_TransformBindings[0], Properties = new TransformChannelProperties { DefaultTranslationValue = float3.zero, DefaultRotationValue = quaternion.identity, DefaultScaleValue = new float3(1f) } },
             new TransformChannel { ID = s_TransformBindings[1], Properties = new TransformChannelProperties { DefaultTranslationValue = new float3(1f, 0f, 0f), DefaultRotationValue = quaternion.Euler(25f, 0f, 0f), DefaultScaleValue = new float3(1f) } },
@@ -179,17 +225,18 @@ namespace Unity.Animation.Tests
 
         // Skeleton management.
         [Test]
-        public void Skeleton_AddBone_AppendsTo_TransformChannels()
+        public void Skeleton_SetTransformChannelsOutOfOrder_AppendsToActiveTransformsInOrder()
         {
-            foreach (var property in s_TransformProperties)
-            {
-                m_Skeleton[property.ID] = property.Properties;
-                AssumeThatTransformChannelExistsAndIsActive(m_Skeleton, property.ID, property.Properties);
-            }
+            m_Skeleton[new TransformBindingID { Path = "B" }] = default;
+            m_Skeleton[new TransformBindingID { Path = "A/B" }] = default;
+            m_Skeleton[new TransformBindingID { Path = "A" }] = default;
+            m_Skeleton[new TransformBindingID { Path = "" }] = default;
 
-            var transformChannels = m_Skeleton.ActiveTransformChannels;
+            var transformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(transformChannels, TransformChannelSearchMode.ActiveRootDescendants);
 
-            Assert.That(transformChannels, Has.Count.EqualTo(s_TransformProperties.Length));
+            var expectedOrder = new[] { "", "A", "A/B", "B" };
+            Assert.That(transformChannels.Select(c => c.ID.Path), Is.EqualTo(expectedOrder));
         }
 
         [Test]
@@ -198,72 +245,80 @@ namespace Unity.Animation.Tests
         )
         {
             m_Skeleton[channel.ID] = channel.Properties;
-            Assume.That(m_Skeleton.Contains(channel.ID), Is.True, "Skeleton did not contain bone to be removed.");
+            Assume.That(m_Skeleton.Contains(channel.ID, TransformChannelSearchMode.ActiveAndInactiveAll), Is.True, "Skeleton did not contain bone to be removed.");
 
             var retValue = m_Skeleton.RemoveTransformChannelAndDescendants(channel.ID);
             Assume.That(retValue, Is.True, "Removing bone returned failure.");
 
-            Assert.That(m_Skeleton.Contains(channel.ID), Is.False, "Bone still defined on skeleton.");
+            Assert.That(m_Skeleton.Contains(channel.ID, TransformChannelSearchMode.ActiveAndInactiveAll), Is.False, "Bone still defined on skeleton.");
         }
 
         [Test]
         public void Skeleton_RemoveBone_WhenDescendentsAreInactive_DescendantsAreRemoved()
         {
+            var root = TransformBindingID.Root;
             var a = new TransformBindingID { Path = "A" };
             var b = new TransformBindingID { Path = "A/B" };
             var c = new TransformBindingID { Path = "A/B/C" };
             m_Skeleton[c] = default;
             m_Skeleton.SetTransformChannelDescendantsToInactive(b, includeSelf: true);
-            Assume.That(m_Skeleton.ActiveTransformChannels.Select(ch => ch.ID), Is.EqualTo(new[] { a }), "Active transforms did not initialize correctly.");
-            Assume.That(m_Skeleton.InactiveTransformChannels.Select(ch => ch.ID), Is.EqualTo(new[] { b, c }), "Inactive transforms did not initialize correctly.");
+            Assume.That(m_Skeleton.GetTransformChannelState(root), Is.EqualTo(TransformChannelState.Active), "Active transforms did not initialize correctly.");
+            Assume.That(m_Skeleton.GetTransformChannelState(a), Is.EqualTo(TransformChannelState.Active), "Active transforms did not initialize correctly.");
+            Assume.That(m_Skeleton.GetTransformChannelState(b), Is.EqualTo(TransformChannelState.Inactive), "Active transforms did not initialize correctly.");
+            Assume.That(m_Skeleton.GetTransformChannelState(c), Is.EqualTo(TransformChannelState.Inactive), "Active transforms did not initialize correctly.");
 
-            m_Skeleton.RemoveTransformChannelAndDescendants(a);
+            m_Skeleton.RemoveTransformChannelAndDescendants(root);
 
-            Assert.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more active bones still defined on skeleton.");
-            Assert.That(m_Skeleton.InactiveTransformChannels, Is.Empty, "One or more inactive bones still defined on skeleton.");
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more active bones still defined on skeleton.");
+            Assert.That(m_Skeleton.InactiveTransformChannelCount, Is.EqualTo(0), "One or more inactive bones still defined on skeleton.");
         }
 
         [Test]
         public void Skeleton_RemoveTransformChannelAndDescendants_DescendantsRemoved()
         {
+            var root = TransformBindingID.Root;
             var a = new TransformBindingID { Path = "A" };
             var b = new TransformBindingID { Path = "A/B" };
             var c = new TransformBindingID { Path = "A/B/C" };
             m_Skeleton[c] = default;
-            Assume.That(m_Skeleton.ActiveTransformChannels.Select(ch => ch.ID), Is.EqualTo(new[] { a, b, c }), "Skeleton did not contain expected hierarchy.");
+            var activeTransformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(activeTransformChannels, TransformChannelSearchMode.ActiveRootDescendants);
+            Assume.That(activeTransformChannels.Select(ch => ch.ID), Is.EqualTo(new[] { root, a, b, c }), "Skeleton did not contain expected hierarchy.");
 
-            var retValue = m_Skeleton.RemoveTransformChannelAndDescendants(a);
+            var retValue = m_Skeleton.RemoveTransformChannelAndDescendants(root);
             Assume.That(retValue, Is.True, "Removing bone returned failure.");
 
-            Assert.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more bones still defined on skeleton.");
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more bones still defined on skeleton.");
         }
 
         [Test]
         public void Skeleton_Contains_WhenInvalid_ThrowsArgumentException() =>
-            Assert.Throws<ArgumentException>(() => m_Skeleton.Contains(new TransformBindingID { Path = null }));
+            Assert.Throws<ArgumentException>(() => m_Skeleton.Contains(new TransformBindingID { Path = null }, TransformChannelSearchMode.ActiveAndInactiveAll));
 
         [Test]
         public void Skeleton_Contains_WhenDoesNotExist_ReturnsFalse([Values("", "A", "A/B", "/")] string path)
         {
-            Assume.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more active bones defined on skeleton by default.");
-            Assume.That(m_Skeleton.InactiveTransformChannels, Is.Empty, "One or more inactive bones defined on skeleton by default.");
+            Assume.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more active bones defined on skeleton by default.");
+            Assume.That(m_Skeleton.InactiveTransformChannelCount, Is.EqualTo(0), "One or more inactive bones defined on skeleton by default.");
             var id = new TransformBindingID { Path = path };
 
-            var actual = m_Skeleton.Contains(id);
+            var actual = m_Skeleton.Contains(id, TransformChannelSearchMode.ActiveAndInactiveAll);
             Assert.That(actual, Is.False, "Undefined bone located on skeleton definition.");
         }
 
         [Test]
         public void Skeleton_Contains_WhenExistsActive_ReturnsTrue([Values("", "A", "A/B", "/")] string path)
         {
-            Assume.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more active bones defined on skeleton by default.");
-            Assume.That(m_Skeleton.InactiveTransformChannels, Is.Empty, "One or more inactive bones defined on skeleton by default.");
+            Assume.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more active bones defined on skeleton by default.");
+            Assume.That(m_Skeleton.InactiveTransformChannelCount, Is.EqualTo(0), "One or more inactive bones defined on skeleton by default.");
             var id = new TransformBindingID { Path = path };
 
             m_Skeleton[id] = default;
-            Assume.That(m_Skeleton.ActiveTransformChannels.Select(c => c.ID), Contains.Item(id), "Newly added bone absent from skeleton definition.");
+            var activeTransformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(activeTransformChannels, TransformChannelSearchMode.ActiveRootDescendants);
+            Assume.That(activeTransformChannels.Select(c => c.ID), Contains.Item(id), "Newly added bone absent from skeleton definition.");
 
-            var actual = m_Skeleton.Contains(id);
+            var actual = m_Skeleton.Contains(id, TransformChannelSearchMode.ActiveAndInactiveAll);
             Assert.That(actual, Is.True, "Failed to locate newly added (active) bone.");
         }
 
@@ -271,12 +326,12 @@ namespace Unity.Animation.Tests
         public void Skeleton_Contains_WhenExistsInactive_ReturnsTrue([Values("", "A", "A/B", "/")] string path)
         {
             var id = new TransformBindingID { Path = path };
-            Assume.That(m_Skeleton.Contains(id), Is.False, "Bone defined on skeleton by default.");
+            Assume.That(m_Skeleton.Contains(id, TransformChannelSearchMode.ActiveAndInactiveAll), Is.False, "Bone defined on skeleton by default.");
             m_Skeleton[id] = default;
             m_Skeleton.SetTransformChannelDescendantsToInactive(id);
-            Assume.That(m_Skeleton.InactiveTransformChannels.Select(c => c.ID), Contains.Item(id), "Inactive bone not defined.");
+            Assert.That(m_Skeleton.GetTransformChannelState(id), Is.EqualTo(TransformChannelState.Inactive), "Inactive bone not defined.");
 
-            var actual = m_Skeleton.Contains(id);
+            var actual = m_Skeleton.Contains(id, TransformChannelSearchMode.ActiveAndInactiveAll);
             Assert.That(actual, Is.True, "Failed to locate newly added (inactive) bone.");
         }
 
@@ -300,10 +355,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelAncestorsToActiveIncludingSelf_AllDescendantsAreActive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -314,9 +369,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelAncestorsToActive(rootID_B_C, includeSelf: true);
-
 
             // part of chain to root including rootID_B_C, needs to be active
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
@@ -329,10 +382,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelAncestorsToActiveExcludingSelf_AllDescendantsAreActive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -343,9 +396,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelAncestorsToActive(rootID_B_C, includeSelf: false);
-
 
             // part of chain to root, needs to be active
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
@@ -358,10 +409,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelDescendantsAndAncestorsToActive_AllDescendantsAndAncestorsAreActive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -372,9 +423,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelDescendantsAndAncestorsToActive(rootID_B);
-
 
             // part of chain to from Root/B root, needs to be active
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
@@ -387,10 +436,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelDescendantsAndAncestorsToActiveEnumerable_AllDescendantsAndAncestorsAreActive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -401,9 +450,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelDescendantsAndAncestorsToActive(new[] { rootID_B });
-
 
             // part of chain to from Root/B root, needs to be active
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
@@ -416,10 +463,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelDescendantsToInactiveIncludingSelfEnumerable_AllDescendantsAreInactive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -429,9 +476,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelDescendantsToInactive(new[] { rootID_B }, includeSelf: true);
-
 
             // descendants of rootID_B or rootID_B itself, needs to be inactive
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
@@ -444,10 +489,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelDescendantsToInactiveExcludingSelfEnumerable_AllDescendantsAreInactive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -457,9 +502,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelDescendantsToInactive(new[] { rootID_B }, includeSelf: false);
-
 
             // descendants of rootID_B, needs to be inactive
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
@@ -472,10 +515,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelAncestorsToActiveIncludingSelfEnumerable_AllDescendantsAreActive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -486,9 +529,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelAncestorsToActive(new[] { rootID_B_C }, includeSelf: true);
-
 
             // ancestors of rootID_B or rootID_B itself, needs to be active
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
@@ -501,10 +542,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelAncestorsToActiveExcludingSelfEnumerable_AllDescendantsAreActive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -515,9 +556,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
 
-
             m_Skeleton.SetTransformChannelAncestorsToActive(new[] { rootID_B_C }, includeSelf: false);
-
 
             // ancestors of rootID_B, needs to be active
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
@@ -530,10 +569,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelDescendantsToInactiveIncludingSelf_AllDescendantsAreInactive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -543,9 +582,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID_A));
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
 
-
             m_Skeleton.SetTransformChannelDescendantsToInactive(rootID_B, includeSelf: true);
-
 
             // descendants of rootID_B or rootID_B itself, needs to be inactive
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B));
@@ -558,10 +595,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetTransformChannelDescendantsToInactiveExcludingSelf_AllDescendantsAreInactive()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
             m_Skeleton[rootID_B] = TransformChannelProperties.Default;
@@ -571,9 +608,7 @@ namespace Unity.Animation.Tests
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID_A));
             Assert.AreEqual(TransformChannelState.Active, m_Skeleton.GetTransformChannelState(rootID));
 
-
             m_Skeleton.SetTransformChannelDescendantsToInactive(rootID_B, includeSelf: false);
-
 
             // descendants of rootID_B, needs to be inactive
             Assert.AreEqual(TransformChannelState.Inactive, m_Skeleton.GetTransformChannelState(rootID_B_C));
@@ -586,10 +621,10 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_SetRootBone_UpdatesChannelIndices()
         {
-            var rootID = new TransformBindingID { Path = "Root" };
-            var rootID_A = new TransformBindingID { Path = "Root/A" };
-            var rootID_B = new TransformBindingID { Path = "Root/B" };
-            var rootID_B_C = new TransformBindingID { Path = "Root/B/C" };
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "B" };
+            var rootID_B_C = new TransformBindingID { Path = "B/C" };
 
             m_Skeleton[rootID] = TransformChannelProperties.Default;
             m_Skeleton[rootID_A] = TransformChannelProperties.Default;
@@ -608,12 +643,53 @@ namespace Unity.Animation.Tests
             Assert.That(m_Skeleton.QueryTransformIndex(rootID_B), Is.EqualTo(-1));
             Assert.That(m_Skeleton.QueryTransformIndex(rootID_B_C), Is.EqualTo(-1));
 
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(1));
+
             m_Skeleton.Root = rootID_B;
 
             Assert.That(m_Skeleton.QueryTransformIndex(rootID), Is.EqualTo(-1));
             Assert.That(m_Skeleton.QueryTransformIndex(rootID_A), Is.EqualTo(-1));
             Assert.That(m_Skeleton.QueryTransformIndex(rootID_B), Is.EqualTo(0));
             Assert.That(m_Skeleton.QueryTransformIndex(rootID_B_C), Is.EqualTo(1));
+
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Skeleton_WithRootBone_AddBone_Updates_ActiveTransformChannelCount()
+        {
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "A/B" };
+
+            m_Skeleton[rootID] = TransformChannelProperties.Default;
+            m_Skeleton[rootID_A] = TransformChannelProperties.Default;
+            m_Skeleton.Root = rootID_A;
+
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(1));
+
+            m_Skeleton[rootID_B] = TransformChannelProperties.Default;
+
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Skeleton_WithRootBone_RemoveBone_Updates_ActiveTransformChannelCount()
+        {
+            var rootID = TransformBindingID.Root;
+            var rootID_A = new TransformBindingID { Path = "A" };
+            var rootID_B = new TransformBindingID { Path = "A/B" };
+
+            m_Skeleton[rootID] = TransformChannelProperties.Default;
+            m_Skeleton[rootID_A] = TransformChannelProperties.Default;
+            m_Skeleton[rootID_B] = TransformChannelProperties.Default;
+            m_Skeleton.Root = rootID_A;
+
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(2));
+
+            m_Skeleton.RemoveTransformChannelAndDescendants(rootID_B);
+
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -637,7 +713,8 @@ namespace Unity.Animation.Tests
                 Assert.That(properties, Is.EqualTo(newProperties));
             }
 
-            var transformChannels = m_Skeleton.ActiveTransformChannels;
+            var transformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(transformChannels, TransformChannelSearchMode.ActiveRootDescendants);
 
             Assert.That(transformChannels, Has.Count.EqualTo(s_TransformProperties.Length));
         }
@@ -647,7 +724,7 @@ namespace Unity.Animation.Tests
             [ValueSource(nameof(s_TransformProperties))] TransformChannel channel
         )
         {
-            Assume.That(m_Skeleton.Contains(channel.ID), Is.False, "Bone defined on skeleton by default.");
+            Assume.That(m_Skeleton.Contains(channel.ID, TransformChannelSearchMode.ActiveAndInactiveAll), Is.False, "Bone defined on skeleton by default.");
 
             var actual = m_Skeleton.RemoveTransformChannelAndDescendants(channel.ID);
 
@@ -657,9 +734,14 @@ namespace Unity.Animation.Tests
         [Test]
         public void Skeleton_AddBone_WhenNoAncestorsExist_AddsAncestorsWithDefaultValues()
         {
-            Assume.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more active bones defined on skeleton by default.");
-            Assume.That(m_Skeleton.InactiveTransformChannels, Is.Empty, "One or more inactive bones defined on skeleton by default.");
+            Assume.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more active bones defined on skeleton by default.");
+            Assume.That(m_Skeleton.InactiveTransformChannelCount, Is.EqualTo(0), "One or more inactive bones defined on skeleton by default.");
 
+            var root = new TransformChannel
+            {
+                ID = TransformBindingID.Root,
+                Properties = TransformChannelProperties.Default
+            };
             var a = new TransformChannel
             {
                 ID = new TransformBindingID { Path = "A" },
@@ -681,13 +763,20 @@ namespace Unity.Animation.Tests
                 }
             };
             m_Skeleton[c.ID] = c.Properties;
+            var activeTransformChannels = new List<TransformChannel>();
+            m_Skeleton.GetAllTransforms(activeTransformChannels, TransformChannelSearchMode.ActiveRootDescendants);
 
-            Assert.That(m_Skeleton.ActiveTransformChannels, Is.EqualTo(new[] { a, b, c }), "One or more bones initialized incorrectly.");
+            Assert.That(activeTransformChannels, Is.EqualTo(new[] { root, a, b, c }), "One or more bones initialized incorrectly.");
         }
 
         [Test]
         public void Skeleton_AddBone_WhenAncestorsExistAndAreInactive_NewBoneAutomaticallyInactive()
         {
+            var root = new TransformChannel
+            {
+                ID = TransformBindingID.Root,
+                Properties = TransformChannelProperties.Default
+            };
             var a = new TransformChannel
             {
                 ID = new TransformBindingID { Path = "A" },
@@ -698,11 +787,14 @@ namespace Unity.Animation.Tests
                 ID = new TransformBindingID { Path = "A/B" },
                 Properties = TransformChannelProperties.Default
             };
+            m_Skeleton[root.ID] = root.Properties;
             m_Skeleton[a.ID] = a.Properties;
             m_Skeleton[b.ID] = b.Properties;
-            m_Skeleton.SetTransformChannelDescendantsToInactive(a.ID, includeSelf: true);
-            Assume.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more active bones defined on skeleton.");
-            Assume.That(m_Skeleton.InactiveTransformChannels, Is.EqualTo(new[] { a, b }), "Inactive ancestors not present on skeleton.");
+            m_Skeleton.SetTransformChannelDescendantsToInactive(TransformBindingID.Root, includeSelf: true);
+            Assume.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more active bones defined on skeleton.");
+            Assert.That(m_Skeleton.GetTransformChannelState(root.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
+            Assert.That(m_Skeleton.GetTransformChannelState(a.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
+            Assert.That(m_Skeleton.GetTransformChannelState(b.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
 
             var c = new TransformChannel
             {
@@ -711,8 +803,11 @@ namespace Unity.Animation.Tests
             };
             m_Skeleton[c.ID] = c.Properties;
 
-            Assert.That(m_Skeleton.ActiveTransformChannels, Is.Empty, "One or more active bones defined on skeleton.");
-            Assert.That(m_Skeleton.InactiveTransformChannels, Is.EqualTo(new[] { a, b, c }), "Newly added bone or one of its ancestors not present as inactive.");
+            Assert.That(m_Skeleton.ActiveTransformChannelCount, Is.EqualTo(0), "One or more active bones defined on skeleton.");
+            Assert.That(m_Skeleton.GetTransformChannelState(root.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
+            Assert.That(m_Skeleton.GetTransformChannelState(a.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
+            Assert.That(m_Skeleton.GetTransformChannelState(b.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
+            Assert.That(m_Skeleton.GetTransformChannelState(c.ID), Is.EqualTo(TransformChannelState.Inactive), "Newly added bone or one of its ancestors not present as inactive.");
         }
 
         static Tuple<GenericBindingID, GenericPropertyVariant>[] s_GenericProperties =
@@ -878,420 +973,6 @@ namespace Unity.Animation.Tests
             Assert.That(genericChannels, Has.Count.EqualTo(property.Item2.Type.GetNumberOfChannels() - 1));
         }
 
-        [Test]
-        public void Skeleton_RemoveBone_RemovesTransformLabel()
-        {
-            foreach (var property in s_TransformProperties)
-            {
-                m_Skeleton[property.ID] = property.Properties;
-                var retValue = m_Skeleton.AddTransformLabel(property.ID, TransformLabel.Create(property.ID.Name));
-                Assume.That(retValue, Is.True);
-            }
-
-            foreach (var property in s_TransformProperties)
-            {
-                m_Skeleton.RemoveTransformChannelAndDescendants(property.ID);
-                Assume.That(m_Skeleton.Contains(property.ID), Is.False);
-
-                var labels = new List<TransformLabel>();
-                m_Skeleton.QueryTransformLabels(property.ID, labels);
-                Assert.That(labels, Is.Empty);
-            }
-
-            var labelReferences = m_Skeleton.TransformLabels;
-
-            Assert.That(labelReferences, Is.Empty);
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_RemoveGenericProperty_RemovesGenericPropertyLabel(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            m_Skeleton.AddOrSetGenericProperty(property.Item1, property.Item2);
-
-            var newLabel = GenericPropertyLabel.Create(property.Item1.AttributeName);
-            newLabel.ValueType = property.Item1.ValueType;
-
-            var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-            Assume.That(retValue, Is.True);
-
-            retValue = m_Skeleton.RemoveGenericProperty(property.Item1);
-            Assume.That(retValue, Is.True);
-
-            var labels = new List<GenericPropertyLabel>();
-            m_Skeleton.QueryGenericPropertyLabels(property.Item1, labels);
-            Assert.That(labels, Is.Empty);
-
-            var allLabels = m_Skeleton.GenericPropertyLabels;
-
-            Assert.That(allLabels, Is.Empty);
-        }
-
-        // SkeletonLabelSet labels management.
-        // Cannot add duplicate labels
-        // Cannot assign the same label to multiple bindings.
-        [Test]
-        public void Skeleton_AddTransformLabel_LabelApplied()
-        {
-            var property = s_TransformProperties[0];
-
-            m_Skeleton[property.ID] = property.Properties;
-
-            var newLabel = ScriptableObject.CreateInstance<TransformLabel>();
-            try
-            {
-                var retValue = m_Skeleton.AddTransformLabel(property.ID, newLabel);
-                Assume.That(retValue, Is.True);
-
-                var labels = new List<TransformLabel>();
-                m_Skeleton.QueryTransformLabels(property.ID, labels);
-                Assert.That(labels, Contains.Item(newLabel));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        public void Skeleton_RemoveTransformLabel_LabelRemoved()
-        {
-            var property = s_TransformProperties[0];
-
-            m_Skeleton[property.ID] = property.Properties;
-
-            var newLabel = ScriptableObject.CreateInstance<TransformLabel>();
-            try
-            {
-                var retValue = m_Skeleton.AddTransformLabel(property.ID, newLabel);
-                Assume.That(retValue, Is.True);
-
-                retValue = m_Skeleton.RemoveTransformLabel(newLabel);
-                Assume.That(retValue, Is.True);
-
-                var labels = new List<TransformLabel>();
-                m_Skeleton.QueryTransformLabels(property.ID, labels);
-                Assert.That(labels, Does.Not.Contains(newLabel));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        public void Skeleton_AddTransformLabel_IsDuplicate_Returns_False()
-        {
-            var property = s_TransformProperties[0];
-
-            m_Skeleton[property.ID] = property.Properties;
-
-            var newLabel = ScriptableObject.CreateInstance<TransformLabel>();
-            try
-            {
-                var retValue = m_Skeleton.AddTransformLabel(property.ID, newLabel);
-                Assume.That(retValue, Is.True);
-
-                retValue = m_Skeleton.AddTransformLabel(property.ID, newLabel);
-                Assert.That(retValue, Is.False);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        public void Skeleton_AddTransformLabel_IsAssociatedToAnotherChannel_Returns_False()
-        {
-            var property1 = s_TransformProperties[0];
-            var property2 = s_TransformProperties[1];
-
-            m_Skeleton[property1.ID] = property1.Properties;
-
-            m_Skeleton[property2.ID] = property2.Properties;
-
-            var newLabel = ScriptableObject.CreateInstance<TransformLabel>();
-            try
-            {
-                var retValue = m_Skeleton.AddTransformLabel(property1.ID, newLabel);
-                Assume.That(retValue, Is.True);
-
-                retValue = m_Skeleton.AddTransformLabel(property2.ID, newLabel);
-                Assert.That(retValue, Is.False);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        public void Skeleton_AddTransformLabel_TransformChannelDoesntExist_Returns_False()
-        {
-            var property = s_TransformProperties[0];
-
-            var newLabel = ScriptableObject.CreateInstance<TransformLabel>();
-            try
-            {
-                var retValue = m_Skeleton.AddTransformLabel(property.ID, newLabel);
-                Assert.That(retValue, Is.False);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_AddGenericPropertyLabel(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            m_Skeleton.AddOrSetGenericProperty(property.Item1, property.Item2);
-
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = property.Item1.ValueType;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assume.That(retValue, Is.True);
-
-                var labels = new List<GenericPropertyLabel>();
-                m_Skeleton.QueryGenericPropertyLabels(property.Item1, labels);
-                Assert.That(labels, Contains.Item(newLabel));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_RemoveGenericPropertyLabel(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            m_Skeleton.AddOrSetGenericProperty(property.Item1, property.Item2);
-
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = property.Item1.ValueType;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assume.That(retValue, Is.True);
-
-                retValue = m_Skeleton.RemoveGenericPropertyLabel(newLabel);
-                Assume.That(retValue, Is.True);
-
-                var labels = new List<GenericPropertyLabel>();
-                m_Skeleton.QueryGenericPropertyLabels(property.Item1, labels);
-                Assert.That(labels, Does.Not.Contains(newLabel));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_AddGenericPropertyLabel_IsDuplicate_Returns_False(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            m_Skeleton.AddOrSetGenericProperty(property.Item1, property.Item2);
-
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = property.Item1.ValueType;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assume.That(retValue, Is.True);
-
-                retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assert.That(retValue, Is.False);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_AddGenericPropertyLabel_TransformChannelDoesntExist_Returns_False(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assert.That(retValue, Is.False);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_AddGenericPropertyLabel_TypeIsWrong_Returns_False(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            m_Skeleton.AddOrSetGenericProperty(property.Item1, property.Item2);
-
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = property.Item1.ValueType + 1;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assert.That(retValue, Is.False);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        // SkeletonLabelSet queries
-        // Query indices for Transform bindings
-        // Query indices for float/int/quaternion bindings
-        // Query indices for tuple bindings
-        [Test]
-        public void Skeleton_QueryTransformIndex_Returns_ValidChannelIndex()
-        {
-            foreach (var property in s_TransformProperties)
-            {
-                m_Skeleton[property.ID] = property.Properties;
-            }
-
-            var newLabel = ScriptableObject.CreateInstance<TransformLabel>();
-
-            try
-            {
-                var queriedProperty = s_TransformProperties[3];
-
-                var retValue = m_Skeleton.AddTransformLabel(queriedProperty.ID, newLabel);
-                Assume.That(retValue, Is.True);
-
-                var index = m_Skeleton.QueryTransformIndex(newLabel);
-                Assert.That(index, Is.GreaterThanOrEqualTo(0));
-
-                var transformChannels = m_Skeleton.ActiveTransformChannels;
-
-                Assert.That(queriedProperty.ID.Equals(transformChannels[index].ID));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_GenericProperties))]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_QueryPropertyIndex_Returns_ValidChannelIndex(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            m_Skeleton.AddOrSetGenericProperty(property.Item1, property.Item2);
-
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = property.Item1.ValueType;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assume.That(retValue, Is.True);
-
-                var channelIndex = m_Skeleton.QueryGenericPropertyIndex(newLabel);
-                Assert.That(channelIndex, Is.GreaterThanOrEqualTo(0));
-
-                AssertThatGenericChannelAtIndexMatchesGenericBindingID(m_Skeleton, property.Item1, channelIndex);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        [TestCaseSource(nameof(s_TupleGenericProperties))]
-        public void Skeleton_QueryPropertyIndex_OutOfOrderTuples_Returns_ValidChannelIndex(Tuple<GenericBindingID, GenericPropertyVariant> property)
-        {
-            // Add all tuple properties in reverse order.
-            for (int i = (int)property.Item1.ValueType.GetNumberOfChannels() - 1; i >= 0; --i)
-            {
-                m_Skeleton.AddOrSetGenericProperty(property.Item1[i], property.Item2[i]);
-            }
-
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = property.Item1.ValueType;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(property.Item1, newLabel);
-                Assume.That(retValue, Is.True);
-
-                var channelIndex = m_Skeleton.QueryGenericPropertyIndex(newLabel);
-                Assert.That(channelIndex, Is.GreaterThanOrEqualTo(0));
-
-                AssertThatGenericChannelAtIndexMatchesGenericBindingID(m_Skeleton, property.Item1, channelIndex);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
-        [Test]
-        public void Skeleton_QueryPropertyIndex_OfPropertyBuffers_Returns_ValidChannelIndex()
-        {
-            var genericBindings = new GenericBindingID[]
-            {
-                new GenericBindingID {AttributeName = "MyStruct.a", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.b", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.c", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.d", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.e", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.f", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.g", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float},
-                new GenericBindingID {AttributeName = "MyStruct.h", Path = "", ComponentType = typeof(DummyGenericPropertyComponent), ValueType = GenericPropertyType.Float}
-            };
-
-            // Add all properties.
-            for (int i = 0; i < genericBindings.Length; ++i)
-            {
-                m_Skeleton.AddOrSetGenericProperty(genericBindings[i], new GenericPropertyVariant {Float = 0f});
-            }
-
-            // Query on a float with a custom size.
-            var newLabel = ScriptableObject.CreateInstance<GenericPropertyLabel>();
-            newLabel.ValueType = GenericPropertyType.Float;
-
-            try
-            {
-                var retValue = m_Skeleton.AddGenericPropertyLabel(genericBindings[0], newLabel);
-                Assume.That(retValue, Is.True);
-
-                var channelIndex = m_Skeleton.QueryGenericPropertyIndex(newLabel, (uint)genericBindings.Length);
-                Assert.That(channelIndex, Is.GreaterThanOrEqualTo(0));
-
-                for (int i = 0; i < genericBindings.Length; ++i)
-                {
-                    AssertThatGenericChannelAtIndexMatchesGenericBindingID(m_Skeleton, genericBindings[i], channelIndex + i);
-                }
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(newLabel);
-            }
-        }
-
         // Skeleton Conversion
         [Test]
         public void Skeleton_ToRigBuilderData_MatchTransformChannels()
@@ -1302,7 +983,7 @@ namespace Unity.Animation.Tests
                 AssumeThatTransformChannelExistsAndIsActive(m_Skeleton, property.ID, property.Properties);
             }
 
-            var hasher = new BindingHashGenerator();
+            var hasher = Hybrid.BindingHashGlobals.DefaultHashGenerator;
             using (var rigBuilderData = m_Skeleton.ToRigBuilderData(hasher, Allocator.Temp))
             {
                 Assert.That(rigBuilderData.SkeletonNodes, Has.Length.EqualTo(s_TransformProperties.Length));
@@ -1330,7 +1011,7 @@ namespace Unity.Animation.Tests
                 s_TransformProperties[2]  // Root/A/B
             };
 
-            var hasher = new BindingHashGenerator();
+            var hasher = Hybrid.BindingHashGlobals.DefaultHashGenerator;
             using (var rigBuilderData = m_Skeleton.ToRigBuilderData(hasher, Allocator.Temp))
             {
                 Assert.That(rigBuilderData.SkeletonNodes, Has.Length.EqualTo(transformPropertiesSubSet.Length));

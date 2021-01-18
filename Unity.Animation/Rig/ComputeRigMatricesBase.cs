@@ -40,7 +40,7 @@ namespace Unity.Animation
                     EntityLocalToWorld = entityLocalToWorldRO,
                     AnimatedData = animatedDataTypeRO,
                     AnimatedLocalToWorld = animatedLocalToWorldType,
-                }.ScheduleParallel(m_WorldSpaceOnlyQuery, Dependency);
+                }.ScheduleParallel(m_WorldSpaceOnlyQuery, 1, Dependency);
             }
 
             JobHandle rootSpaceOnlyHandle = Dependency;
@@ -51,7 +51,7 @@ namespace Unity.Animation
                     Rigs = rigTypeRO,
                     AnimatedData = animatedDataTypeRO,
                     AnimatedLocalToRoot = animatedLocalToRootType,
-                }.ScheduleParallel(m_RootSpaceOnlyQuery, Dependency);
+                }.ScheduleParallel(m_RootSpaceOnlyQuery, 1, Dependency);
             }
 
             // TODO : These jobs should ideally all run in parallel since the queries are mutually exclusive.
@@ -68,12 +68,12 @@ namespace Unity.Animation
                     EntityLocalToWorld = entityLocalToWorldRO,
                     AnimatedLocalToWorld = animatedLocalToWorldType,
                     AnimatedLocalToRoot = animatedLocalToRootType,
-                }.ScheduleParallel(m_WorldAndRootSpaceQuery, Dependency);
+                }.ScheduleParallel(m_WorldAndRootSpaceQuery, 1, Dependency);
             }
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        struct ComputeWorldSpaceJob : IJobChunk
+        struct ComputeWorldSpaceJob : IJobEntityBatch
         {
             static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
             {
@@ -97,14 +97,14 @@ namespace Unity.Animation
 
             public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var rigs = chunk.GetNativeArray(Rig);
-                var rigRoots = chunk.GetNativeArray(RigRootEntity);
-                var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
-                var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorld);
+                var rigs = batchInChunk.GetNativeArray(Rig);
+                var rigRoots = batchInChunk.GetNativeArray(RigRootEntity);
+                var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedData);
+                var animatedLocalToWorldAccessor = batchInChunk.GetBufferAccessor(AnimatedLocalToWorld);
 
-                for (int i = 0; i != chunk.Count; ++i)
+                for (int i = 0; i != batchInChunk.Count; ++i)
                 {
                     var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
                     var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());
@@ -114,7 +114,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        struct ComputeRootSpaceJob : IJobChunk
+        struct ComputeRootSpaceJob : IJobEntityBatch
         {
             static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
             {
@@ -135,13 +135,13 @@ namespace Unity.Animation
 
             public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var rigs = chunk.GetNativeArray(Rigs);
-                var data = chunk.GetBufferAccessor(AnimatedData);
-                var animatedLocalToRoot = chunk.GetBufferAccessor(AnimatedLocalToRoot);
+                var rigs = batchInChunk.GetNativeArray(Rigs);
+                var data = batchInChunk.GetBufferAccessor(AnimatedData);
+                var animatedLocalToRoot = batchInChunk.GetBufferAccessor(AnimatedLocalToRoot);
 
-                for (int i = 0; i != chunk.Count; ++i)
+                for (int i = 0; i != batchInChunk.Count; ++i)
                 {
                     var stream = AnimationStream.CreateReadOnly(rigs[i], data[i].AsNativeArray());
                     Core.ComputeLocalToRoot(ref stream, float4x4.identity, animatedLocalToRoot[i].Reinterpret<float4x4>().AsNativeArray());
@@ -150,7 +150,7 @@ namespace Unity.Animation
         }
 
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-        struct ComputeWorldAndRootSpaceJob : IJobChunk
+        struct ComputeWorldAndRootSpaceJob : IJobEntityBatch
         {
             static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
             {
@@ -173,15 +173,15 @@ namespace Unity.Animation
             public BufferTypeHandle<AnimatedLocalToWorld> AnimatedLocalToWorld;
             public BufferTypeHandle<AnimatedLocalToRoot> AnimatedLocalToRoot;
 
-            public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+            public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
             {
-                var rigs = chunk.GetNativeArray(Rig);
-                var rigRoots = chunk.GetNativeArray(RigRootEntity);
-                var animatedLocalToRootAccessor = chunk.GetBufferAccessor(AnimatedLocalToRoot);
+                var rigs = batchInChunk.GetNativeArray(Rig);
+                var rigRoots = batchInChunk.GetNativeArray(RigRootEntity);
+                var animatedLocalToRootAccessor = batchInChunk.GetBufferAccessor(AnimatedLocalToRoot);
 
-                var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
-                var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorld);
-                for (int i = 0; i != chunk.Count; ++i)
+                var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedData);
+                var animatedLocalToWorldAccessor = batchInChunk.GetBufferAccessor(AnimatedLocalToWorld);
+                for (int i = 0; i != batchInChunk.Count; ++i)
                 {
                     var rootLocalToWorld = EntityLocalToWorld[rigRoots[i].Value].Value;
                     var stream = AnimationStream.CreateReadOnly(rigs[i].Value, animatedDataAccessor[i].AsNativeArray());

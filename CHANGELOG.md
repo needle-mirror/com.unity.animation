@@ -5,10 +5,85 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-preview.6] - 2021-01-18
+
+### Added
+- Compositor package is now merged in the Animation package.
+    - All references to "Compositor" are now "Animation Graph" throughout.
+- Added EndOfAnimation condition fragment that allow a state to change when reaching a certain threshold in the source dominant animation.
+
+### Changed
+- Added dependency on com.unity.graphtools.foundation at 0.7.0-preview.2.
+- Upgraded com.unity.entities to 0.17.0-preview.41.
+- Upgraded com.unity.dataflowgraph to 0.19.0-preview.7.
+- `BlendTreeConversion` and `BakeOptions` have moved from `Unity.Animation.Editor` to `Unity.Animation.Hybrid` (they are still editor-only).
+
+## [0.9.0-preview.5] - 2020-12-16
+
+### Changed
+- Upgraded com.unity.dataflowgraph to 0.19.0-preview.5
+- Upgraded com.unity.entities to 0.17.0-preview.39
+- Fixed ArgumentException thrown when setting a generic channel with an empty path in the RigComponent.
+
+## [0.9.0-preview.4] - 2020-12-09
+
+### Changed
+- Upgraded com.unity.dataflowgraph to 0.19.0-preview.4
+- Upgraded com.unity.entities to 0.17.0-preview.38
+- Upgraded com.unity.jobs to 0.8.0-preview.23
+- Fixed a typo in TransformBindingID.IsDescendantOf.
+
+## [0.9.0-preview.3] - 2020-12-08
+
+### Added
+- Added the enum GenericChannelType used in GenericBindingID to accurately describe concrete channels in the Skeleton.
+- Added a version of RigRemapUtils.CreateRemapTable that remaps using Skeletons.
+
+### Changed
+- Updated minimum Unity Editor version to 2020.1.9f1
+- Upgraded com.unity.collections to 0.15.0-preview.21
+- Upgraded com.unity.dataflowgraph to 0.19.0-preview.3
+- Upgraded com.unity.entities to 0.17.0-preview.37
+- Upgraded com.unity.jobs to 0.8.0-preview.22
+- Upgraded com.unity.test-framework to 1.1.20
+- Upgraded com.unity.test-framework.performance to 2.3.1-preview
+- Updated RigAuthoring to map the skeleton channels unto a SkinnedMeshRenderer using automatic bone mapping with manual overrides.
+- Added functions to add, remove, clear and query bone mapping overrides in RigAuthoring.
+
+## [0.9.0-preview.2] - 2020-11-17
+
+### Changed
+- Upgraded com.unity.entities to 0.17.0-preview.34
+- Upgraded com.unity.dataflowgraph to 0.19.0-preview.1
+- Removed ActiveTransformChannels/InactiveTransformChannels from Skeleton and replaced them with GetAllTransforms. The original properties didn't take the skeleton root into account. GetAllTransforms uses an enum to determine what parts of the Skeleton to return
+- Contains has been modified to also use the TransformChannelSearchMode enum to specify if you want to check if the id is part of the active or inactive part of the Skeleton.
+- Added Skeleton.GetTransformChannelState that returns the state of a given channel, if it's active/inactive or does not exist in the Skeleton.
+- Added TransformBindingID.IsDecendantOf which can be used to check descendancy of a TransformBindingID compared to another
+- Added SkeletonBoneReference.ConvertToIndex / TransformBindingID.ConvertToIndex which return the active transform index of a bone relative to its Skeleton. It will return -1 when its not active. This index is the index that the bone will have at runtime.
+- Added Skeleton.ActiveTransformChannelCount / Skeleton.InactiveTransformChannelCount which, respectively, return the active and inactive count of all the bones in the skeleton
+
+## [0.9.0-preview.1] - 2020-11-06
+
+### Changed
+- With `com.unity.entities` v0.17.0, nested blob asset references are not supported anymore and generate a `ConstructBlobWithRefTypeViolation` error which affects how animation blend trees are stored as DOTS components. Until this becomes a supported feature by `com.unity.entities`, we had to do the following temporary changes:
+  - Field `BlendTree2DMotionData.Motion` has changed type from `Motion` to `BlobAssetReference<Clip>`.
+  - Field `BlendTree1DMotionData.Motion` has changed type from `Motion` to `BlobAssetReference<Clip>`.
+  - Struct `Motion` was rewritten.
+- Upgraded com.unity.entities to 0.17.0-preview.28
+- Upgraded com.unity.collections to 0.15.0-preview.19
+- Upgraded com.unity.jobs to 0.8.0-preview.20
+- Upgraded com.unity.burst to 1.4.1
+
+### Deprecated
+- `BindingHashDelegate` and `BindingHashUtils` have been deprecated and replaced with `BindingHashGenerator` and `BindingHashGlobals`.
+
+### Fixed
+- Fixed missing Skeleton root channel when adding a child Transform channel in Skeleton.
+
 ## [0.8.0-preview.4] - 2020-10-30
 
 ### Added
-- Added ClipBuilder as optional intermediate structure when converting UnityEngine AnimationClip to DOTs Clip, allowing to add procedurally created curves.
+- Added ClipBuilder as optional intermediate structure when converting UnityEngine AnimationClip to DOTS Clip, allowing to add procedurally created curves.
 
 ## [0.8.0-preview.3] - 2020-10-22
 

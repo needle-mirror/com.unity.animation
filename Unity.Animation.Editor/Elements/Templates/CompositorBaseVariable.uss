@@ -1,0 +1,4 @@
+.compositorVariable > #pill .port > #portIcon {
+    visibility: hidden;
+    width: 0px;
+}

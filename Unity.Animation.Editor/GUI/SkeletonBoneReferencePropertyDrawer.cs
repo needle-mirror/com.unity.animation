@@ -14,8 +14,9 @@ namespace Unity.Animation.Authoring.Editor
             try
             {
                 var showFullPath = SkeletonAttributeHelper.HasShowFullPathAttribute(fieldInfo, property);
-                EditorGUI.showMixedValue = property.hasMultipleDifferentValues;
-                AnimationGUI.BoneField(position, property, label, showFullPath);
+                var skeleton = SkeletonAttributeHelper.FindSkeleton(fieldInfo, property, out var mixed);
+                EditorGUI.showMixedValue = mixed || property.hasMultipleDifferentValues;
+                AnimationGUI.BoneField(position, property, skeleton, label, showFullPath);
             }
             finally
             {

@@ -31,7 +31,7 @@ namespace Unity.Animation
         {
             KernelData m_KernelData;
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_KernelData.RigDefinition = rig;
                 ctx.Set.SetBufferSize(
@@ -44,7 +44,7 @@ namespace Unity.Animation
                 ctx.UpdateKernelData(m_KernelData);
             }
 
-            public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+            public void HandleMessage(MessageContext ctx, in ClipConfiguration msg)
             {
                 m_KernelData.Configuration = msg;
                 SetMotionIndices(ref m_KernelData);
@@ -86,7 +86,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 if (data.RigDefinition == default)
                     return;

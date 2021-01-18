@@ -7,11 +7,12 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public static class RigRemapUtils
     {
         static int CompareRigRemapEntry(int lhsIndex, RigRemapSpace lhsSpace, int rhsIndex, RigRemapSpace rhsSpace)
         {
-            var spaceCompare = lhsSpace.CompareTo(rhsSpace);
+            var spaceCompare = math.select(math.select(1, -1, lhsSpace < rhsSpace), 0, lhsSpace == rhsSpace);
             return spaceCompare != 0 ? spaceCompare : lhsIndex.CompareTo(rhsIndex);
         }
 
@@ -46,6 +47,7 @@ namespace Unity.Animation
             All         = Translation | Rotation | Scale | Float | Int
         }
 
+        [BurstCompatible]
         public struct OffsetOverrides : System.IDisposable
         {
             internal NativeList<StringHash>           m_TranslationIds;
@@ -320,6 +322,7 @@ namespace Unity.Animation
             }
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         internal static unsafe void FillRigMapperBlobBuffer<T>(ref BlobBuilder blobBuilder, NativeList<T> data, ref BlobArray<T> blobBuffer)
             where T : struct
         {

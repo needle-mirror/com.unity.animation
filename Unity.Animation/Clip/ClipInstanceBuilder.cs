@@ -7,6 +7,7 @@ using Unity.Jobs;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public static class ClipInstanceBuilder
     {
         [BurstCompile]
@@ -165,6 +166,7 @@ namespace Unity.Animation
 
         // TODO rename to RunCreate etc
         // TODO add non jobified version
+        [BurstCompatible(RequiredUnityDefine = "UNITY_2020_2_OR_NEWER" /* Due to job scheduling on 2020.1 using statics */)]
         public static BlobAssetReference<ClipInstance> Create(
             BlobAssetReference<RigDefinition> rigDefinition,
             BlobAssetReference<Clip> sourceClip

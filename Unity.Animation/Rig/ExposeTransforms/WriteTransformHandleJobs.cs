@@ -9,7 +9,7 @@ using Unity.Burst;
 namespace Unity.Animation
 {
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct WriteTransformComponentJob<TWriteTransformHandle> : IJobChunk
+    internal struct WriteTransformComponentJob<TWriteTransformHandle> : IJobEntityBatch
         where TWriteTransformHandle : struct, IWriteTransformHandle
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
@@ -45,15 +45,15 @@ namespace Unity.Animation
         [NativeDisableContainerSafetyRestriction]
         public ComponentDataFromEntity<NonUniformScale> EntityNonUniformScale;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var rigs = chunk.GetNativeArray(Rigs);
-            var rigRoots = chunk.GetNativeArray(RigRoots);
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
-            var writeTransformAccessor = chunk.GetBufferAccessor(WriteTransforms);
-            var animatedLocalToWorldAccessor = chunk.GetBufferAccessor(AnimatedLocalToWorlds);
+            var rigs = batchInChunk.GetNativeArray(Rigs);
+            var rigRoots = batchInChunk.GetNativeArray(RigRoots);
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedData);
+            var writeTransformAccessor = batchInChunk.GetBufferAccessor(WriteTransforms);
+            var animatedLocalToWorldAccessor = batchInChunk.GetBufferAccessor(AnimatedLocalToWorlds);
 
-            for (int i = 0; i != chunk.Count; ++i)
+            for (int i = 0; i != batchInChunk.Count; ++i)
             {
                 var animatedLocalToWorlds = animatedLocalToWorldAccessor[i].Reinterpret<float4x4>().AsNativeArray();
                 var stream = AnimationStream.CreateReadOnly(rigs[i], animatedDataAccessor[i].AsNativeArray());

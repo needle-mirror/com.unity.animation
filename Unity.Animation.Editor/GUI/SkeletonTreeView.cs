@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Animation.Hybrid;
 using UnityEditor;
 using UnityEditor.IMGUI.Controls;
 using UnityEngine;
@@ -73,6 +74,8 @@ namespace Unity.Animation.Authoring.Editor
                 SetIndicesAndPositions(children[i], ref position, stepSize);
         }
 
+        static readonly List<TransformChannel> s_TransformChannels = new List<TransformChannel>();
+
         protected override TreeViewItem BuildRoot()
         {
             TreeViewItem rootTreeViewItem = null;
@@ -81,33 +84,38 @@ namespace Unity.Animation.Authoring.Editor
             if (Skeleton != null)
             {
                 // First pass - create the bones.
-                s_TreeViewItems.Clear();
-                var activeTransformChannels     = Skeleton.ActiveTransformChannels;
-                var inactiveTransformChannels   = Skeleton.InactiveTransformChannels;
                 indexToBinding.Clear();
                 bindingToTreeViewItem.Clear();
                 s_Parents.Clear();
                 activeIndices.Clear();
-                for (int i = 0; i < activeTransformChannels.Count; ++i)
-                {
-                    var transformBindingID  = activeTransformChannels[i].ID;
-                    var treeViewID          = transformBindingID.ID.GetHashCode();
-                    var treeViewItem        = new TreeViewItem(treeViewID, -1, transformBindingID.Name);
-                    indexToBinding[treeViewID] = transformBindingID;
-                    bindingToTreeViewItem[transformBindingID] = treeViewItem;
-                    activeIndices.Add(treeViewID);
-                    s_TreeViewItems.Add(treeViewItem);
-                    s_Parents[transformBindingID] = treeViewItem;
-                }
+                s_TreeViewItems.Clear();
                 if (EditMode)
                 {
-                    for (int i = 0; i < inactiveTransformChannels.Count; ++i)
+                    Skeleton.GetAllTransforms(s_TransformChannels, TransformChannelSearchMode.ActiveAndInactiveRootDescendants);
+                    for (int i = 0; i < s_TransformChannels.Count; ++i)
                     {
-                        var transformBindingID  = inactiveTransformChannels[i].ID;
-                        var treeViewID          = transformBindingID.ID.GetHashCode();
-                        var treeViewItem        = new TreeViewItem(treeViewID, -1, transformBindingID.Name);
+                        var transformBindingID = s_TransformChannels[i].ID;
+                        var treeViewID = transformBindingID.ID.GetHashCode();
+                        var treeViewItem = new TreeViewItem(treeViewID, -1, transformBindingID.Name);
                         indexToBinding[treeViewID] = transformBindingID;
                         bindingToTreeViewItem[transformBindingID] = treeViewItem;
+                        if (Skeleton.GetTransformChannelState(transformBindingID) == TransformChannelState.Active)
+                            activeIndices.Add(treeViewID);
+                        s_TreeViewItems.Add(treeViewItem);
+                        s_Parents[transformBindingID] = treeViewItem;
+                    }
+                }
+                else
+                {
+                    Skeleton.GetAllTransforms(s_TransformChannels, TransformChannelSearchMode.ActiveRootDescendants);
+                    for (int i = 0; i < s_TransformChannels.Count; ++i)
+                    {
+                        var transformBindingID = s_TransformChannels[i].ID;
+                        var treeViewID = transformBindingID.ID.GetHashCode();
+                        var treeViewItem = new TreeViewItem(treeViewID, -1, transformBindingID.Name);
+                        indexToBinding[treeViewID] = transformBindingID;
+                        bindingToTreeViewItem[transformBindingID] = treeViewItem;
+                        activeIndices.Add(treeViewID);
                         s_TreeViewItems.Add(treeViewItem);
                         s_Parents[transformBindingID] = treeViewItem;
                     }
@@ -192,7 +200,7 @@ namespace Unity.Animation.Authoring.Editor
             if (!indexToBinding.TryGetValue(treeViewID, out var transformBindingID) ||
                 transformBindingID == TransformBindingID.Invalid)
                 return;
-            if (!Skeleton.Contains(transformBindingID))
+            if (!Skeleton.Contains(transformBindingID, TransformChannelSearchMode.ActiveAndInactiveAll))
                 return;
 
             if (EditMode)

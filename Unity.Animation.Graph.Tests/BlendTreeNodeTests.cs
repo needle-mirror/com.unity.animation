@@ -122,7 +122,7 @@ namespace Unity.Animation.Tests
             for (int i = 0; i < blobPath.Length; i++)
             {
                 m_Clips.Add(BlobFile.ReadBlobAsset<Clip>(blobPath[i]));
-                motionData[i].Motion.Clip = m_Clips[i];
+                motionData[i].Motion = m_Clips[i];
             }
 
             m_BlendTree = BlendTreeBuilder.CreateBlendTree(motionData);
@@ -181,10 +181,8 @@ namespace Unity.Animation.Tests
 
             Set.SendMessage(blendTree, BlendTree1DNode.SimulationPorts.Rig, m_Rig);
 
-            Set.SendTest(blendTree, (BlendTree1DNode.Data data) =>
-            {
-                Assert.That(data.m_RigDefinition.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode()));
-            });
+            Set.SendTest<BlendTree1DNode.Data>(blendTree, data =>
+                Assert.That(data.m_RigDefinition.Value.GetHashCode(), Is.EqualTo(m_Rig.Value.Value.GetHashCode())));
         }
 
         [Test]
@@ -195,18 +193,17 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.Rig, m_Rig);
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, m_BlendTree);
 
-            Set.SendTest(blendTreeNode, (BlendTree1DNode.Data blendTreeData) =>
+            Set.SendTest(blendTreeNode, (SimulationTestContext<BlendTree1DNode.Data> blendTreeTestCtx) =>
             {
+                var blendTreeData = blendTreeTestCtx.NodeData;
                 Assert.That(blendTreeData.m_Motions.Count, Is.EqualTo(5));
                 Assert.That(blendTreeData.m_Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
 
                 for (int i = 0; i < blendTreeData.m_Motions.Count; ++i)
                 {
+                    // TODO: Set.CastHandle is temporary until SimulationTestContext.CastHandle is available
                     var handle = Set.CastHandle<UberClipNode>(blendTreeData.m_Motions[i]);
-                    Set.SendTest(handle, (UberClipNode.Data clipNodeData) =>
-                    {
-                        Assert.That(clipNodeData.m_Clip, Is.Not.Null);
-                    });
+                    blendTreeTestCtx.SendTest<UberClipNode.Data>(handle, clipNodeData => Assert.That(clipNodeData.m_Clip, Is.Not.Null));
                 }
             });
         }
@@ -219,55 +216,54 @@ namespace Unity.Animation.Tests
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.BlendTree, m_BlendTree);
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.Rig, m_Rig);
 
-            Set.SendTest(blendTreeNode, (BlendTree1DNode.Data blendTreeData) =>
+            Set.SendTest(blendTreeNode, (SimulationTestContext<BlendTree1DNode.Data> blendTreeTestCtx) =>
             {
+                var blendTreeData = blendTreeTestCtx.NodeData;
+
                 Assert.That(blendTreeData.m_Motions.Count, Is.EqualTo(5));
                 Assert.That(blendTreeData.m_Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
 
                 for (int i = 0; i < blendTreeData.m_Motions.Count; ++i)
                 {
+                    // TODO: Set.CastHandle is temporary until SimulationTestContext.CastHandle is available
                     var handle = Set.CastHandle<UberClipNode>(blendTreeData.m_Motions[i]);
-                    Set.SendTest(handle, (UberClipNode.Data clipNodeData) =>
-                    {
-                        Assert.That(clipNodeData.m_Clip, Is.Not.Null);
-                    });
+                    blendTreeTestCtx.SendTest<UberClipNode.Data>(handle, clipNodeData => Assert.That(clipNodeData.m_Clip, Is.Not.Null));
                 }
             });
         }
 
-        List<BlobAssetReference<ClipInstance>> GetBlendTreeNodeClipInstances(NodeSet set, NodeHandle<BlendTree1DNode> nodeHandle)
+        void TestBlendTreeNodeClipInstances(NodeSet set, NodeHandle<BlendTree1DNode> nodeHandle, List<BlobAssetReference<ClipInstance>> expectedClipInstances)
         {
-            var list = new List<BlobAssetReference<ClipInstance>>();
-
-            set.SendTest(nodeHandle, (BlendTree1DNode.Data blendTreeNodeData) =>
+            set.SendTest(nodeHandle, (SimulationTestContext<BlendTree1DNode.Data> blendTreeTestCtx) =>
             {
-                for (int i = 0; i < blendTreeNodeData.m_Motions.Count; i++)
+                var blendTreeNodeData = blendTreeTestCtx.NodeData;
+                Assert.That(blendTreeNodeData.m_Motions.Count, Is.EqualTo(expectedClipInstances.Count));
+
+                for (int i = 0; i < blendTreeNodeData.m_Motions.Count; ++i)
                 {
-                    var uberClipNode = Set.CastHandle<UberClipNode>(blendTreeNodeData.m_Motions[i]);
+                    // TODO: set.CastHandle is temporary until SimulationTestContext.CastHandle is available
+                    var uberClipNode = set.CastHandle<UberClipNode>(blendTreeNodeData.m_Motions[i]);
                     Assert.AreNotEqual(default(NodeHandle<UberClipNode>), uberClipNode);
 
-                    set.SendTest(uberClipNode, (UberClipNode.Data uberClipNodeData) =>
+                    blendTreeTestCtx.SendTest(uberClipNode, (SimulationTestContext<UberClipNode.Data> uberClipTestCtx) =>
                     {
-                        var configurableClipNode = uberClipNodeData.m_ClipNode;
+                        var configurableClipNode = uberClipTestCtx.NodeData.m_ClipNode;
                         Assert.AreNotEqual(default(NodeHandle<ConfigurableClipNode>), configurableClipNode);
 
-                        set.SendTest(configurableClipNode, (ConfigurableClipNode.Data configurableClipNodeData) =>
+                        uberClipTestCtx.SendTest(configurableClipNode, (SimulationTestContext<ConfigurableClipNode.Data> configurableClipCtx) =>
                         {
-                            var clipNode = configurableClipNodeData.m_ClipNode;
+                            var clipNode = configurableClipCtx.NodeData.m_ClipNode;
                             Assert.AreNotEqual(default(NodeHandle<ClipNode>), clipNode);
 
-                            set.SendTest(clipNode, (ClipNode.Data clipNodeData) =>
+                            configurableClipCtx.SendTest(clipNode, (ClipNode.Data clipNodeData) =>
                             {
                                 Assert.AreNotEqual(BlobAssetReference<ClipInstance>.Null, clipNodeData.m_KernelData.ClipInstance);
-                                list.Add(clipNodeData.m_KernelData.ClipInstance);
+                                Assert.That(clipNodeData.m_KernelData.ClipInstance, Is.EqualTo(expectedClipInstances[i]));
                             });
                         });
                     });
                 }
-                ;
             });
-
-            return list;
         }
 
         [Test]
@@ -307,23 +303,10 @@ namespace Unity.Animation.Tests
                 Assert.That(nodeData.m_Motions.Count, Is.EqualTo(5));
                 Assert.That(nodeData.m_Motions.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
             });
-
-            var clipInstances = GetBlendTreeNodeClipInstances(Set, blendTreeNode);
-            Assert.That(clipInstances.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
-
-            for (int i = 0; i < m_Clips.Count; i++)
-            {
-                Assert.That(clipInstances[i], Is.EqualTo(expectedRig1ClipInstances[i]));
-            }
+            TestBlendTreeNodeClipInstances(Set, blendTreeNode, expectedRig1ClipInstances);
 
             Set.SendMessage(blendTreeNode, BlendTree1DNode.SimulationPorts.Rig, rig2);
-            clipInstances = GetBlendTreeNodeClipInstances(Set, blendTreeNode);
-            Assert.That(clipInstances.Count, Is.EqualTo(m_BlendTree.Value.Motions.Length));
-
-            for (int i = 0; i < m_Clips.Count; i++)
-            {
-                Assert.That(clipInstances[i], Is.EqualTo(expectedRig2ClipInstances[i]));
-            }
+            TestBlendTreeNodeClipInstances(Set, blendTreeNode, expectedRig2ClipInstances);
         }
 
         [TestCase(-10.0f)]

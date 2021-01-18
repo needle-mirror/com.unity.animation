@@ -24,7 +24,7 @@ namespace Unity.Animation
 
         struct Data : INodeData, IMsgHandler<float>
         {
-            public void HandleMessage(in MessageContext ctx, in float msg)
+            public void HandleMessage(MessageContext ctx, in float msg)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -41,7 +41,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 context.Resolve(ref ports.OutputTime) = context.Resolve(ports.InputTime) * data.Duration;
             }

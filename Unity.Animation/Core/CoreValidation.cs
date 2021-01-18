@@ -5,8 +5,10 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     static public partial class Core
     {
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal static void ValidateIsCreated<T>(BlobAssetReference<T> blob) where T : struct
         {
@@ -14,6 +16,7 @@ namespace Unity.Animation
                 throw new System.NullReferenceException($"BlobAssetReference of {typeof(T).Name} is not created.");
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal static void ValidateArgumentIsCreated<T>(BlobAssetReference<T> blob) where T : struct
         {
@@ -21,6 +24,7 @@ namespace Unity.Animation
                 throw new System.ArgumentNullException($"BlobAssetReference of {typeof(T).Name} is not created.");
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal static void ValidateIsCreated<T>(NativeList<T> list) where T : struct
         {
@@ -28,6 +32,7 @@ namespace Unity.Animation
                 throw new System.NullReferenceException($"List of {typeof(T).Name} is not created.");
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal static void ValidateArgumentIsCreated<T>(NativeList<T> list) where T : struct
         {

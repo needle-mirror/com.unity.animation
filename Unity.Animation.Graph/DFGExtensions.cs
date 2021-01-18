@@ -7,7 +7,7 @@ namespace Unity.Animation
     public static class ResolvedPortArrayExt
     {
         public static void CopyTo<TDefinition, TType>(
-            this RenderContext.ResolvedPortArray<TDefinition, TType> src,
+            this RenderContext.ResolvedInputPortArray<TDefinition, TType> src,
             NativeArray<TType> dst
         )
             where TType : struct

@@ -1,11 +1,12 @@
-using System;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using System.Runtime.CompilerServices;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public struct BindingSet
     {
         public BlobArray<StringHash> TranslationBindings;
@@ -19,11 +20,11 @@ namespace Unity.Animation
         internal static readonly int k_InterpolatedDataChunkSize = UnsafeUtility.SizeOf<float4>() / UnsafeUtility.SizeOf<AnimatedData>();
 
         // Key type float count
-        public static readonly int TranslationKeyFloatCount = 3;
-        public static readonly int RotationKeyFloatCount = 4;
-        public static readonly int ScaleKeyFloatCount = 3;
-        public static readonly int FloatKeyFloatCount = 1;
-        public static readonly int IntKeyFloatCount = 1;
+        public const int TranslationKeyFloatCount = 3;
+        public const int RotationKeyFloatCount = 4;
+        public const int ScaleKeyFloatCount = 3;
+        public const int FloatKeyFloatCount = 1;
+        public const int IntKeyFloatCount = 1;
 
         // Binding count
         public int RotationBindingIndex { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
@@ -49,10 +50,6 @@ namespace Unity.Animation
         public int IntSamplesOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int ChannelMaskOffset { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
 
-        [Obsolete("RotationChunkCount has been renamed to RotationDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> RotationDataChunkCount", false)]
-        public int RotationChunkCount => RotationDataChunkCount;
-        [Obsolete("DataChunkCount has been renamed to InterpolatedDataChunkCount (RemovedAfter 2020-11-04). (UnityUpgradable) -> InterpolatedDataChunkCount", false)]
-        public int DataChunkCount => InterpolatedDataChunkCount;
         public int RotationDataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int DiscreteDataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
         public int InterpolatedDataChunkCount { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
@@ -60,6 +57,7 @@ namespace Unity.Animation
         public int StreamSize { [MethodImpl(MethodImplOptions.AggressiveInlining)] get; internal set; }
     }
 
+    [BurstCompatible]
     public static class ClipExt
     {
         public static BindingSet CreateBindingSet(this in Clip _, int translationCount, int rotationCount, int scaleCount, int floatCount, int intCount)
@@ -99,6 +97,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public static class RigDefinitionExt
     {
         public static BindingSet CreateBindingSet(this in RigDefinition _, int translationCount, int rotationCount, int scaleCount, int floatCount, int intCount)

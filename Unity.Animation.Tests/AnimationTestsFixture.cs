@@ -651,5 +651,23 @@ namespace Unity.Animation.Tests
         }
 
 #endif
+        protected static uint TransformChannelID(string path) =>
+            BindingHashGlobals.DefaultHashGenerator.ToHash(new TransformBindingID { Path = path });
+
+        protected static uint GenericChannelID(string name, string path, Type componentType) =>
+            BindingHashGlobals.DefaultHashGenerator.ToHash(new GenericBindingID
+            {
+                AttributeName = name, Path = path, ComponentType = componentType
+            });
+
+        // Use this function to define rig float channel ids when bindings need to be associated with curves
+        // created using CreateConstantDenseClip, AddFloatConstantCurves or AddFloatLinearCurves
+        protected static uint FloatChannelID(string path) =>
+            GenericChannelID("", path, typeof(UnityEngine.Animator));
+
+        // Use this function to define rig int channel ids when bindings need to be associated with curves
+        // created using CreateConstantDenseClip, AddIntegerConstantCurves or AddIntegerLinearCurves
+        protected static uint IntegerChannelID(string path) =>
+            GenericChannelID("", path, typeof(UnityEngine.Animation));
     }
 }

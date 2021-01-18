@@ -193,7 +193,7 @@ namespace Unity.Animation
             {
                 ReadTransforms = GetBufferTypeHandle<TReadTransformHandle>(),
                 LastSystemVersion = LastSystemVersion
-            }.ScheduleParallel(m_SortReadComponentDataQuery, inputDeps);
+            }.ScheduleParallel(m_SortReadComponentDataQuery, 1, inputDeps);
 
             var readJob = new ReadTransformComponentJob<TReadTransformHandle>
             {
@@ -202,7 +202,7 @@ namespace Unity.Animation
                 ReadTransforms = GetBufferTypeHandle<TReadTransformHandle>(true),
                 EntityLocalToWorld = GetComponentDataFromEntity<LocalToWorld>(true),
                 AnimatedData = GetBufferTypeHandle<AnimatedData>()
-            }.ScheduleParallel(m_ReadComponentDataQuery, sortJob);
+            }.ScheduleParallel(m_ReadComponentDataQuery, 1, sortJob);
 
             var readRootJob = new ReadRootTransformJob<TAnimatedRootMotion>
             {
@@ -213,13 +213,13 @@ namespace Unity.Animation
                 RigType = GetComponentTypeHandle<Rig>(true),
                 RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
-            }.ScheduleParallel(m_ReadRootTransformQuery, readJob);
+            }.ScheduleParallel(m_ReadRootTransformQuery, 1, readJob);
 
             var clearPassMaskJob = new ClearPassMaskJob
             {
                 RigType = GetComponentTypeHandle<Rig>(true),
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
-            }.ScheduleParallel(m_ClearPassMaskQuery, readRootJob);
+            }.ScheduleParallel(m_ClearPassMaskQuery, 1, readRootJob);
 
             var updateRigRemapJob = new UpdateRootRemapMatrixJob<TAnimatedRootMotion>
             {
@@ -228,7 +228,7 @@ namespace Unity.Animation
                 DisableRootTransformType = GetComponentTypeHandle<DisableRootTransformReadWriteTag>(true),
                 AnimatedRootMotionType = GetComponentTypeHandle<TAnimatedRootMotion>(true),
                 RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(),
-            }.ScheduleParallel(m_UpdateRootRemapJobDataQuery, readRootJob);
+            }.ScheduleParallel(m_UpdateRootRemapJobDataQuery, 1, readRootJob);
 
             return JobHandle.CombineDependencies(updateRigRemapJob, clearPassMaskJob);
         }
@@ -246,7 +246,7 @@ namespace Unity.Animation
                 RigType = GetComponentTypeHandle<Rig>(true),
                 RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>(),
-            }.ScheduleParallel(m_WriteRootTransformQuery, inputDeps);
+            }.ScheduleParallel(m_WriteRootTransformQuery, 1, inputDeps);
 
             var accumulateRootJob = new AccumulateRootTransformJob<TAnimatedRootMotion>
             {
@@ -261,7 +261,7 @@ namespace Unity.Animation
                 RigType = GetComponentTypeHandle<Rig>(true),
                 RigRootEntityType = GetComponentTypeHandle<RigRootEntity>(true),
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
-            }.ScheduleParallel(m_AccumulateRootTransformQuery, writeRootJob);
+            }.ScheduleParallel(m_AccumulateRootTransformQuery, 1, writeRootJob);
 
             var writeComponentJob = new WriteTransformComponentJob<TWriteTransformHandle>
             {
@@ -276,7 +276,7 @@ namespace Unity.Animation
                 EntityRotation = GetComponentDataFromEntity<Rotation>(),
                 EntityScale = GetComponentDataFromEntity<Scale>(),
                 EntityNonUniformScale = GetComponentDataFromEntity<NonUniformScale>()
-            }.ScheduleParallel(m_WriteComponentDataQuery, accumulateRootJob);
+            }.ScheduleParallel(m_WriteComponentDataQuery, 1, accumulateRootJob);
 
             return writeComponentJob;
         }

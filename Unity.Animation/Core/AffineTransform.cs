@@ -1,9 +1,11 @@
-using Unity.Mathematics;
 using System;
 using System.Runtime.CompilerServices;
+using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public struct AffineTransform : IEquatable<AffineTransform>, IFormattable
     {
         public float3x3 rs;
@@ -76,11 +78,13 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Equals(AffineTransform x) => rs.Equals(x.rs) && t.Equals(x.t);
 
+        [NotBurstCompatible]
         public override bool Equals(object x) => Equals((AffineTransform)x);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() => (int)mathex.hash(this);
 
+        [NotBurstCompatible]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override string ToString()
         {
@@ -89,6 +93,7 @@ namespace Unity.Animation
             );
         }
 
+        [NotBurstCompatible]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string ToString(string format, IFormatProvider formatProvider)
         {
@@ -101,6 +106,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public static partial class mathex
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

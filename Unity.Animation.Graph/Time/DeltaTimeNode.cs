@@ -25,7 +25,7 @@ namespace Unity.Animation
                 ctx.RegisterForUpdate();
             }
 
-            public void Update(in UpdateContext ctx)
+            public void Update(UpdateContext ctx)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -42,7 +42,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports) =>
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports) =>
                 context.Resolve(ref ports.DeltaTime) = data.DeltaTime;
         }
     }

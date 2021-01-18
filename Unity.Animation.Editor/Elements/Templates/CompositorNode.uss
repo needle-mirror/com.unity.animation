@@ -1,0 +1,15 @@
+
+
+.singleOutput > #node-border > #title > #single-output-container {
+    flex-direction: row;
+    justify-content: center;
+}
+
+.singleOutput > #node-border > #title > #single-output-container > .output.port.compositorPort.portConnectorOnly {
+    height: auto;
+}
+
+.compositorNode > #node-border > #title > #titleContainer > #nodeIcon {
+    visibility: hidden;
+    width: 0px;
+}

@@ -70,7 +70,7 @@ namespace Unity.Animation
 
             ClipConfiguration m_Configuration;
 
-            void BuildNodes(in MessageContext ctx)
+            void BuildNodes(MessageContext ctx)
             {
                 if (m_Clip == BlobAssetReference<Clip>.Null || m_RigDefinition == BlobAssetReference<RigDefinition>.Null)
                     return;
@@ -344,7 +344,7 @@ namespace Unity.Animation
                 ClearNodes(ctx.Set);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_RigDefinition = rig;
 
@@ -358,7 +358,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+            public void HandleMessage(MessageContext ctx, in BlobAssetReference<Clip> clip)
             {
                 m_Clip = clip;
 
@@ -366,7 +366,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+            public void HandleMessage(MessageContext ctx, in ClipConfiguration msg)
             {
                 m_Configuration = msg;
 
@@ -374,7 +374,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            public void HandleMessage(in MessageContext ctx, in bool msg)
+            public void HandleMessage(MessageContext ctx, in bool msg)
             {
                 m_IsAdditive = msg;
 
@@ -388,7 +388,7 @@ namespace Unity.Animation
         [BurstCompile]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
             }
         }

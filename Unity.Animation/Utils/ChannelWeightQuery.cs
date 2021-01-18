@@ -5,6 +5,7 @@ using Unity.Entities;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public struct ChannelWeightMap
     {
         public StringHash Id;

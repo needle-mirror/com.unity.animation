@@ -11,6 +11,7 @@ namespace Unity.Animation
     /// or built manually. All animated curve stored inside ClipBuilder are sampled at the same fixed sample rate and have the same
     /// number of samples (as a consequence, they all have the same duration).
     /// </summary>
+    [BurstCompatible]
     public struct ClipBuilder : IDisposable
     {
         /// <summary>
@@ -230,6 +231,7 @@ namespace Unity.Animation
             RemoveCurve(propertyHash, ref m_IntCurves);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         internal void AddCurve<T>(UnsafeList<T> samples, StringHash propertyHash, ref NativeHashMap<StringHash, UnsafeList<T>> curveMap) where T : unmanaged
         {
             Core.ValidateAreEqual(SampleCount, samples.Length);
@@ -242,6 +244,7 @@ namespace Unity.Animation
             curveMap[propertyHash] = samples;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         void AddCurve<T>(NativeArray<T> samples, StringHash propertyHash, ref NativeHashMap<StringHash, UnsafeList<T>> curveMap) where T : unmanaged
         {
             Core.ValidateAreEqual(SampleCount, samples.Length);
@@ -261,6 +264,7 @@ namespace Unity.Animation
             curveMap[propertyHash] = curve;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         void RemoveCurve<T>(StringHash propertyHash, ref NativeHashMap<StringHash, UnsafeList<T>> curveMap) where T : unmanaged
         {
             if (curveMap.TryGetValue(propertyHash, out var curve))
@@ -270,6 +274,7 @@ namespace Unity.Animation
             }
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         void DisposeCurveMapAndElements<T>(ref NativeHashMap<StringHash, UnsafeList<T>> curveMap) where T : unmanaged
         {
             foreach (var pair in curveMap)

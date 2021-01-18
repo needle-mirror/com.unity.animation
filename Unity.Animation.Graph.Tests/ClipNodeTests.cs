@@ -36,17 +36,17 @@ namespace Unity.Animation.Tests
         {
             var skeletonNodes = new[]
             {
-                new SkeletonNode { ParentIndex = -1, Id = "Root", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 0, Id = "Child1", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 1, Id = "Child2", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 2, Id = "Child3", AxisIndex = -1 },
-                new SkeletonNode { ParentIndex = 3, Id = "Child4", AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = -1, Id = TransformChannelID("Root"), AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 0, Id = TransformChannelID("Child1"), AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 1, Id = TransformChannelID("Child2"), AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 2, Id = TransformChannelID("Child3"), AxisIndex = -1 },
+                new SkeletonNode { ParentIndex = 3, Id = TransformChannelID("Child4"), AxisIndex = -1 },
             };
 
             var channels = new IAnimationChannel[]
             {
-                new FloatChannel { Id = "IKWeight", DefaultValue = 0.0f },
-                new IntChannel { Id = "Type", DefaultValue = 10 }
+                new FloatChannel { Id = FloatChannelID("IKWeight"), DefaultValue = 0.0f },
+                new IntChannel { Id = IntegerChannelID("Type"), DefaultValue = 10 }
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, channels);
@@ -80,7 +80,7 @@ namespace Unity.Animation.Tests
                 clip.SetCurve("Root", typeof(Transform), "m_LocalPosition.x", GetConstantCurve(m_ClipRootLocalTranslation.x));
                 clip.SetCurve("Root", typeof(Transform), "m_LocalScale.x", GetConstantCurve(m_ClipRootLocalScale.x));
 
-                clip.SetCurve("", typeof(Animator), "IKWeight", GetConstantCurve(m_IKWeight));
+                clip.SetCurve("IKWeight", typeof(Animator), "", GetConstantCurve(m_IKWeight));
 
                 var denseClip = clip.ToDenseClip();
                 var blobPath = "ClipNodeTestsConstantPartial.blob";

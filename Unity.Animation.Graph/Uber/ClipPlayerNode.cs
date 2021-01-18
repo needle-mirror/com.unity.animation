@@ -71,23 +71,23 @@ namespace Unity.Animation
                 ctx.Set.Destroy(m_ClipNode);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
             }
 
-            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+            public void HandleMessage(MessageContext ctx, in BlobAssetReference<Clip> clip)
             {
             }
 
-            public void HandleMessage(in MessageContext ctx, in float msg)
+            public void HandleMessage(MessageContext ctx, in float msg)
             {
             }
 
-            public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+            public void HandleMessage(MessageContext ctx, in ClipConfiguration msg)
             {
             }
 
-            public void HandleMessage(in MessageContext ctx, in bool msg)
+            public void HandleMessage(MessageContext ctx, in bool msg)
             {
             }
         }
@@ -99,7 +99,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
             }
         }

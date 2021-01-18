@@ -7,6 +7,7 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public struct ChannelMap
     {
         public StringHash SourceId;

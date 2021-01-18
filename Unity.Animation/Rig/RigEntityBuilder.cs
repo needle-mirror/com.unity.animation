@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Transforms;
 using Unity.Mathematics;
@@ -7,23 +8,36 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Animation
 {
+    internal struct BurstCompatibleTransformHandle : IReadTransformHandle, IWriteTransformHandle
+    {
+        public Entity Entity { get; set; }
+        public int Index { get; set; }
+    }
+
     public static class RigEntityBuilder
     {
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleTransformHandle) })]
         internal struct TransformHandleComparer<T> : IComparer<T> where T : ITransformHandle
         {
             public int Compare(T x, T y) => x.Index.CompareTo(y.Index);
         }
 
-        public static readonly ComponentType[] RigComponentTypes =
-        {
+        public static readonly ComponentTypes RigComponentTypes = new ComponentTypes(
             typeof(Rig),
             typeof(SharedRigHash),
             typeof(AnimatedData),
             typeof(AnimatedLocalToWorld)
-        };
+        );
 
-        public static readonly ComponentType[] RigPrefabComponentTypes = ConcatComponentTypeArrays(new ComponentType[] { typeof(Prefab) }, RigComponentTypes);
+        public static readonly ComponentTypes RigPrefabComponentTypes = new ComponentTypes(
+            typeof(Rig),
+            typeof(SharedRigHash),
+            typeof(AnimatedData),
+            typeof(AnimatedLocalToWorld),
+            typeof(Prefab)
+        );
 
+        [BurstCompatible]
         public struct RigBuffers
         {
             public DynamicBuffer<AnimatedData>         Data;
@@ -64,7 +78,8 @@ namespace Unity.Animation
 
         public static Entity CreatePrefabEntity(EntityManager entityManager, BlobAssetReference<RigDefinition> rigDefinition)
         {
-            var prefab = entityManager.CreateEntity(RigPrefabComponentTypes);
+            var prefab = entityManager.CreateEntity();
+            entityManager.AddComponents(prefab, RigPrefabComponentTypes);
 
             InitializeComponentsData(prefab, entityManager, rigDefinition);
 
@@ -76,21 +91,12 @@ namespace Unity.Animation
 
         public static void SetupRigEntity(Entity entity, EntityManager entityManager, BlobAssetReference<RigDefinition> rigDefinition)
         {
-            var componentTypes = new ComponentTypes(RigComponentTypes);
-            entityManager.AddComponents(entity, componentTypes);
+            entityManager.AddComponents(entity, RigComponentTypes);
 
             InitializeComponentsData(entity, entityManager, rigDefinition);
 
             if (!entityManager.HasComponent<LocalToWorld>(entity))
                 entityManager.AddComponentData(entity, new LocalToWorld { Value = float4x4.identity });
-        }
-
-        private static ComponentType[] ConcatComponentTypeArrays(ComponentType[] a1, ComponentType[] a2)
-        {
-            var res = new ComponentType[a1.Length + a2.Length];
-            a1.CopyTo(res, 0);
-            a2.CopyTo(res, a1.Length);
-            return res;
         }
 
         private static void AddTransformHandle<T>(EntityManager entityManager, Entity rig, Entity transform, int index)
@@ -100,12 +106,14 @@ namespace Unity.Animation
             buffer.Add(new T { Entity = transform, Index = index });
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleTransformHandle) })]
         public static void AddReadTransformHandle<T>(EntityManager entityManager, Entity rig, Entity transform, int index)
             where T : struct, IReadTransformHandle
         {
             AddTransformHandle<T>(entityManager, rig, transform, index);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(BurstCompatibleTransformHandle) })]
         public static void AddWriteTransformHandle<T>(EntityManager entityManager, Entity rig, Entity transform, int index)
             where T : struct, IWriteTransformHandle
         {

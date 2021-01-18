@@ -8,7 +8,7 @@ using UnityEditor;
 
 namespace Unity.Animation.Hybrid
 {
-    public static class ClipConversion
+    public static partial class ClipConversion
     {
         /// <summary>
         /// Converts a UnityEngine AnimationClip to a DOTS dense clip.
@@ -16,12 +16,15 @@ namespace Unity.Animation.Hybrid
         /// NOTE: This extension is not supported in the Player.
         /// </summary>
         /// <param name="sourceClip">The UnityEngine.AnimationClip to convert to a DOTS dense clip format.</param>
-        /// <param name="bindingHash">Optional parameter to override the way binding hashes are generated. When no binding hash deletegate is specified, the system wide BindingHashUtils.DefaultBindingHash is used.</param>
+        /// <param name="hasher">An optional BindingHashGenerator can be specified to compute unique animation binding IDs. When not specified the <see cref="BindingHashGlobals.DefaultHashGenerator"/> is used.</param>
         /// <returns>Returns a dense clip BlobAssetReference</returns>
-        public static BlobAssetReference<Clip> ToDenseClip(this AnimationClip sourceClip, BindingHashDelegate bindingHash = null)
+        public static BlobAssetReference<Clip> ToDenseClip(this AnimationClip sourceClip, BindingHashGenerator hasher = default)
         {
             if (sourceClip == null)
                 return default;
+
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
 
             var srcBindings = AnimationUtility.GetCurveBindings(sourceClip);
 
@@ -65,7 +68,7 @@ namespace Unity.Animation.Hybrid
             var blobBuilder = new BlobBuilder(Allocator.Temp);
             ref var clip = ref blobBuilder.ConstructRoot<Clip>();
 
-            CreateBindings(translationBindings, rotationBindings, scaleBindings, floatBindings, intBindings, ref blobBuilder, ref clip, bindingHash ?? BindingHashUtils.DefaultBindingHash);
+            CreateBindings(translationBindings, rotationBindings, scaleBindings, floatBindings, intBindings, ref blobBuilder, ref clip, hasher);
             FillCurves(sourceClip, translationBindings, rotationBindings, scaleBindings, floatBindings, intBindings, ref blobBuilder, ref clip);
             FillSynchronizationTag(syncTags, ref blobBuilder, ref clip);
 
@@ -117,35 +120,35 @@ namespace Unity.Animation.Hybrid
         private static void CreateBindings(IReadOnlyList<EditorCurveBinding> translationBindings,
             IReadOnlyList<EditorCurveBinding> rotationBindings, IReadOnlyList<EditorCurveBinding> scaleBindings,
             IReadOnlyList<EditorCurveBinding> floatBindings, IReadOnlyList<EditorCurveBinding> intBindings,
-            ref BlobBuilder blobBuilder, ref Clip clip, BindingHashDelegate bindingHash)
+            ref BlobBuilder blobBuilder, ref Clip clip, BindingHashGenerator hasher)
         {
             clip.Bindings = clip.CreateBindingSet(translationBindings.Count, rotationBindings.Count, scaleBindings.Count, floatBindings.Count, intBindings.Count);
 
-            FillBlobTransformBindingBuffer(translationBindings, ref blobBuilder, ref clip.Bindings.TranslationBindings, bindingHash);
-            FillBlobTransformBindingBuffer(rotationBindings, ref blobBuilder, ref clip.Bindings.RotationBindings, bindingHash);
-            FillBlobTransformBindingBuffer(scaleBindings, ref blobBuilder, ref clip.Bindings.ScaleBindings, bindingHash);
-            FillBlobBindingBuffer(floatBindings, ref blobBuilder, ref clip.Bindings.FloatBindings, bindingHash);
-            FillBlobBindingBuffer(intBindings, ref blobBuilder, ref clip.Bindings.IntBindings, bindingHash);
+            FillBlobTransformBindingBuffer(translationBindings, ref blobBuilder, ref clip.Bindings.TranslationBindings, hasher);
+            FillBlobTransformBindingBuffer(rotationBindings, ref blobBuilder, ref clip.Bindings.RotationBindings, hasher);
+            FillBlobTransformBindingBuffer(scaleBindings, ref blobBuilder, ref clip.Bindings.ScaleBindings, hasher);
+            FillBlobBindingBuffer(floatBindings, ref blobBuilder, ref clip.Bindings.FloatBindings, hasher);
+            FillBlobBindingBuffer(intBindings, ref blobBuilder, ref clip.Bindings.IntBindings, hasher);
         }
 
-        private static void FillBlobTransformBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer, BindingHashDelegate bindingHash)
+        private static void FillBlobTransformBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer, BindingHashGenerator hasher)
         {
             if (bindings == null || bindings.Count == 0)
                 return;
 
             var arrayBuilder = blobBuilder.Allocate(ref blobBuffer, bindings.Count);
             for (var i = 0; i != bindings.Count; ++i)
-                arrayBuilder[i] = bindingHash(bindings[i].path);
+                arrayBuilder[i] = hasher.ToHash(ClipBuilderUtils.ToTransformBindingID(bindings[i]));
         }
 
-        private static void FillBlobBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer, BindingHashDelegate bindingHash)
+        private static void FillBlobBindingBuffer(IReadOnlyList<EditorCurveBinding> bindings, ref BlobBuilder blobBuilder, ref BlobArray<StringHash> blobBuffer, BindingHashGenerator hasher)
         {
             if (bindings == null || bindings.Count == 0)
                 return;
 
             var arrayBuilder = blobBuilder.Allocate(ref blobBuffer, bindings.Count);
             for (var i = 0; i != bindings.Count; ++i)
-                arrayBuilder[i] = bindingHash(BindingHashUtils.BuildPath(bindings[i].path, bindings[i].propertyName));
+                arrayBuilder[i] = hasher.ToHash(ClipBuilderUtils.ToGenericBindingID(bindings[i]));
         }
 
         private static void FillCurves(AnimationClip sourceClip, IReadOnlyList<EditorCurveBinding> translationBindings,

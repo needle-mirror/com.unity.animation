@@ -53,6 +53,13 @@ namespace Unity.Animation.Tests
                 Array.Empty<(string, int)>()
             );
 
+            var clip = new AnimationClip();
+            clip.SetCurve("", typeof(SkinnedMeshRenderer), "blendShape.shape1", GetConstantCurve(m_BlendShapeConstantClip_Value1));
+            clip.SetCurve("", typeof(SkinnedMeshRenderer), "blendShape.shape2", GetConstantCurve(m_BlendShapeConstantClip_Value2));
+            clip.SetCurve("", typeof(SkinnedMeshRenderer), "blendShape.shape3", GetConstantCurve(m_BlendShapeConstantClip_Value3));
+            clip.SetCurve("", typeof(SkinnedMeshRenderer), "blendShape.shape4", GetConstantCurve(m_BlendShapeConstantClip_Value4));
+            m_BlendshapeClip = clip.ToDenseClip();
+
             m_BlendShapeGO = GameObject.Instantiate(AssetDatabase.LoadAssetAtPath(k_BlendshapePrefabPath, typeof(GameObject)), Vector3.zero, Quaternion.identity) as GameObject;
             m_BlendShapeGO.AddComponent<RigComponent>();
         }

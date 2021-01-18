@@ -1,5 +1,6 @@
-using Unity.Mathematics;
 using UnityEngine;
+using Unity.Mathematics;
+using Unity.Collections;
 
 namespace Unity.Animation
 {
@@ -27,8 +28,8 @@ namespace Unity.Animation
 
         const float k_Epsilon = 1e-5f;
         const float k_BoneBaseSize = 0.05f;
-        const float k_BoneTipSize = 0.5f;
 
+        [BurstCompatible]
         public static float4x4 ComputeBoneMatrix(float3 start, float3 end, float size = 1.0f)
         {
             var lengthsq = math.distancesq(start, end);
@@ -41,7 +42,7 @@ namespace Unity.Animation
             var tangent = math.cross(direction, math.up());
             if (math.lengthsq(tangent) < 0.1f)
             {
-                tangent = math.cross(direction, mathex.right());
+                tangent = math.cross(direction, math.right());
             }
             tangent = math.normalize(tangent);
 

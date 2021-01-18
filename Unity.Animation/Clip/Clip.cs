@@ -1,4 +1,5 @@
 using Unity.Entities;
+using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Unity.Animation
@@ -6,6 +7,7 @@ namespace Unity.Animation
     /// <summary>
     /// DOTS dense clip representation of an AnimationClip
     /// </summary>
+    [BurstCompatible]
     public struct Clip
     {
         public BlobArray<float> Samples;
@@ -26,6 +28,7 @@ namespace Unity.Animation
     /// Clip instance is a filtered version of the dense clip holding only relevant sorted curves
     /// given a specific rig definition
     /// </summary>
+    [BurstCompatible]
     public struct ClipInstance
     {
         public Clip Clip;

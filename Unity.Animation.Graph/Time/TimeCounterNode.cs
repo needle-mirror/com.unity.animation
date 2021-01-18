@@ -36,7 +36,7 @@ namespace Unity.Animation
             public void Init(InitContext ctx) =>
                 ctx.RegisterForUpdate();
 
-            public void Update(in UpdateContext ctx)
+            public void Update(UpdateContext ctx)
             {
                 if (m_SetTime != 0)
                 {
@@ -49,7 +49,7 @@ namespace Unity.Animation
                 }
             }
 
-            public void HandleMessage(in MessageContext ctx, in float msg)
+            public void HandleMessage(MessageContext ctx, in float msg)
             {
                 if (ctx.Port == SimulationPorts.Time)
                 {
@@ -72,7 +72,7 @@ namespace Unity.Animation
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
             float m_Time;
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 var deltaTime = context.Resolve(ports.DeltaTime) * context.Resolve(ports.Speed);
                 m_Time = math.select(m_Time + deltaTime, data.Time, data.SetTime != 0);

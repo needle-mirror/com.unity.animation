@@ -17,14 +17,14 @@ namespace Unity.Animation.Tests
                 new GameObject("root"),
                 new GameObject("object"),
                 new GameObject("child"),
-                new GameObject("sibling"),
                 new GameObject("grandchild"),
+                new GameObject("sibling"),
             };
 
             objects[1].transform.parent = objects[0].transform;
             objects[2].transform.parent = objects[1].transform;
-            objects[3].transform.parent = objects[0].transform;
-            objects[4].transform.parent = objects[2].transform;
+            objects[3].transform.parent = objects[2].transform;
+            objects[4].transform.parent = objects[0].transform;
 
             return objects;
         }
@@ -208,8 +208,17 @@ namespace Unity.Animation.Tests
             var objects = CreateTestHirearchy();
             objects[0].AddComponent<Animator>();
 
-            var expected = new Transform[] { objects[0].transform, objects[1].transform, objects[2].transform, objects[3].transform, objects[4].transform };
-            var actual = objects[0].GetComponent<Animator>().ExtractBoneTransforms();
+            var expected = new List<RigIndexToBone>(new[]
+            {
+                new RigIndexToBone {Index = 0, Bone = objects[0].transform},
+                new RigIndexToBone {Index = 1, Bone = objects[1].transform},
+                new RigIndexToBone {Index = 2, Bone = objects[2].transform},
+                new RigIndexToBone {Index = 3, Bone = objects[3].transform},
+                new RigIndexToBone {Index = 4, Bone = objects[4].transform}
+            });
+
+            var actual = new List<RigIndexToBone>();
+            objects[0].GetComponent<Animator>().ExtractBoneTransforms(actual);
             Assert.AreEqual(expected, actual);
         }
 
@@ -220,8 +229,17 @@ namespace Unity.Animation.Tests
             objects[0].AddComponent<Animator>();
             objects[0].GetComponent<Animator>().avatar = AvatarBuilder.BuildGenericAvatar(objects[0], "root");
 
-            var expected = new Transform[] { objects[0].transform, objects[1].transform, objects[2].transform, objects[3].transform, objects[4].transform };
-            var actual = objects[0].GetComponent<Animator>().ExtractBoneTransforms();
+            var expected = new List<RigIndexToBone>(new[]
+            {
+                new RigIndexToBone {Index = 0, Bone = objects[0].transform},
+                new RigIndexToBone {Index = 1, Bone = objects[1].transform},
+                new RigIndexToBone {Index = 2, Bone = objects[2].transform},
+                new RigIndexToBone {Index = 3, Bone = objects[3].transform},
+                new RigIndexToBone {Index = 4, Bone = objects[4].transform}
+            });
+
+            var actual = new List<RigIndexToBone>();
+            objects[0].GetComponent<Animator>().ExtractBoneTransforms(actual);
             Assert.AreEqual(expected, actual);
         }
 
@@ -229,8 +247,11 @@ namespace Unity.Animation.Tests
         public void ExtractBonesFromAnimatorHumanoidAvatar()
         {
             (var objects, var expectedNames) = CreateHumanTestHirearchy();
-            var expected = new List<string>(expectedNames).Select((n) => objects[n].transform).ToArray();
-            var actual = objects["Root"].GetComponent<Animator>().ExtractBoneTransforms();
+
+            var expected = new List<RigIndexToBone>(new List<string>(expectedNames).Select((n, i) => new RigIndexToBone {Index = i, Bone = objects[n].transform}));
+
+            var actual = new List<RigIndexToBone>();
+            objects["Root"].GetComponent<Animator>().ExtractBoneTransforms(actual);
             Assert.AreEqual(expected, actual);
         }
     }

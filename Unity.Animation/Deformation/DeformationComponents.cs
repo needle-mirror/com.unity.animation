@@ -8,8 +8,15 @@ namespace Unity.Animation
         public Entity Value;
     }
 
-    public struct SkinnedMeshToRigIndexMapping : IBufferElementData
+    internal struct SkinnedMeshToRigIndexMapping : IBufferElementData
     {
+        public int RigIndex;
+        public int SkinMeshIndex;
+    }
+
+    internal struct SkinnedMeshToRigIndexIndirectMapping : IBufferElementData
+    {
+        public AffineTransform Offset;
         public int RigIndex;
         public int SkinMeshIndex;
     }
@@ -19,7 +26,7 @@ namespace Unity.Animation
         public Entity Value;
     }
 
-    public struct BindPose : IBufferElementData
+    internal struct BindPose : IBufferElementData
     {
         public float4x4 Value;
     }

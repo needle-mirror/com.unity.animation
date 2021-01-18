@@ -1,3 +1,4 @@
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -11,6 +12,7 @@ namespace Unity.Animation
         LocalToRoot   = 1
     }
 
+    [BurstCompatible]
     public struct RigRemapEntry
     {
         public int SourceIndex;
@@ -18,6 +20,7 @@ namespace Unity.Animation
         public int OffsetIndex;
     }
 
+    [BurstCompatible]
     public struct RigTranslationOffset
     {
         public float Scale;
@@ -25,6 +28,7 @@ namespace Unity.Animation
         public RigRemapSpace Space;
     }
 
+    [BurstCompatible]
     public struct RigRotationOffset
     {
         public quaternion PreRotation;
@@ -32,6 +36,7 @@ namespace Unity.Animation
         public RigRemapSpace Space;
     }
 
+    [BurstCompatible]
     public struct RigRemapTable
     {
         public BlobArray<RigRemapEntry>        TranslationMappings;

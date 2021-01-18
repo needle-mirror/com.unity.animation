@@ -1,23 +1,21 @@
-using Unity.Mathematics;
-using System.Runtime.CompilerServices;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using Unity.Collections;
+using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public static partial class mathex
     {
         const float k_2PI = math.PI * 2f;
         const float k_EpsilonDeterminant = 1e-6f;
-        const float k_EpsilonSq = 1e-9f;
         const float k_EpsilonRCP = 1e-9f;
         const float k_EpsilonNormal = 1e-30f;
         const float k_EpsilonNormalSqrt = 1e-15f;
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float3 one() => new float3(1f);
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static float3 right() => new float3(1f, 0f, 0f);
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static float3 rcpsafe(float3 x) =>

@@ -1,0 +1,25 @@
+{
+    "name": "Unity.Animation.Editor.Nodes.Tests",
+    "references": [
+        "Unity.Animation",
+        "Unity.DataFlowGraph",
+        "Unity.Entities",
+        "Unity.Animation.Graph",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": true,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

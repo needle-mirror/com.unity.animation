@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities;
@@ -24,6 +23,7 @@ namespace Unity.Animation
     /// as long as you hav a method to convert this representation to a RigBuilderData,
     /// we can build a RigDefinition from it.
     /// </remarks>
+    [BurstCompatible]
     public struct RigBuilderData : IDisposable
     {
         public NativeList<SkeletonNode> SkeletonNodes;
@@ -389,6 +389,7 @@ namespace Unity.Animation
         /// </remarks>
         /// <param name="rigBuilderData">The RigBuilderData containing the skeleton, the axes and the custom animation channels.</param>
         /// <returns>The BlobAssetReference of the RigDefinition.</returns>
+        [BurstCompile]
         public static BlobAssetReference<RigDefinition> CreateRigDefinition(RigBuilderData rigBuilderData)
         {
 #if UNITY_ENABLE_ANIMATION_PROFILING

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<engine:UXML
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:engine="UnityEngine.UIElements"
+    xmlns:editor="UnityEditor.UIElements"
+    xsi:noNamespaceSchemaLocation="../../../UIElementsSchema/UIElements.xsd"
+>
+    <engine:VisualElement name="root" class="condition-editor" pickingMode="Ignore">
+        <engine:VisualElement name="toolbar" class="condition-editor__toolbar" pickingMode="Ignore">
+            <engine:VisualElement name="groupOrElement" class="condition-editor__toolbar-group-or-element">
+                <engine:Label text="Group OR" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="groupAndElement" class="condition-editor__toolbar-group-and-element">
+                <engine:Label text="Group AND" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="blackboardValueElement" class="condition-editor__toolbar-blackboard-value-element">
+                <engine:Label text="Blackboard Value" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="markupElement" class="condition-editor__toolbar-markup-element">
+                <engine:Label text="Markup" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="elapsedElement" class="condition-editor__toolbar-elapsed-time-element">
+                <engine:Label text="Elapsed" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="endOfAnimElement" class="condition-editor__toolbar-end-of-animation-element">
+                <engine:Label text="EndOfAnim" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="evalRatioElement" class="condition-editor__toolbar-evaluation-ratio-element">
+                <engine:Label text="Evaluation Ratio" pickingMode="Ignore" />
+            </engine:VisualElement>
+            <engine:VisualElement name="stateTagElement" class="condition-editor__toolbar-state-tag-element">
+                <engine:Label text="State Tag" pickingMode="Ignore" />
+            </engine:VisualElement>
+        </engine:VisualElement>
+        <engine:VisualElement name="content" class="condition-editor__content">
+            <engine:VisualElement name="surface" class="condition-editor__surface" />
+        </engine:VisualElement>
+        <engine:VisualElement name="properties" class="condition-editor__properties" />
+    </engine:VisualElement>
+</engine:UXML>

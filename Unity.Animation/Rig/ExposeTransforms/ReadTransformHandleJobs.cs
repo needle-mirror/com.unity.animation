@@ -11,7 +11,7 @@ using Unity.Burst;
 namespace Unity.Animation
 {
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct SortReadTransformComponentJob<TReadTransformHandle> : IJobChunk
+    internal struct SortReadTransformComponentJob<TReadTransformHandle> : IJobEntityBatch
         where TReadTransformHandle : struct, IReadTransformHandle
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
@@ -35,15 +35,15 @@ namespace Unity.Animation
             }
         }
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var didChange = chunk.DidChange(ReadTransforms, LastSystemVersion);
+            var didChange = batchInChunk.DidChange(ReadTransforms, LastSystemVersion);
             if (!didChange)
                 return;
 
-            var readTransformAccessor = chunk.GetBufferAccessor(ReadTransforms);
+            var readTransformAccessor = batchInChunk.GetBufferAccessor(ReadTransforms);
 
-            for (int i = 0; i < chunk.Count; ++i)
+            for (int i = 0; i < batchInChunk.Count; ++i)
             {
                 var readTransforms = readTransformAccessor[i].AsNativeArray();
                 readTransforms.Sort(new RigEntityBuilder.TransformHandleComparer<TReadTransformHandle>());
@@ -54,7 +54,7 @@ namespace Unity.Animation
     }
 
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct ReadTransformComponentJob<TReadTransformHandle> : IJobChunk
+    internal struct ReadTransformComponentJob<TReadTransformHandle> : IJobEntityBatch
         where TReadTransformHandle : struct, IReadTransformHandle
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
@@ -75,14 +75,14 @@ namespace Unity.Animation
 
         public BufferTypeHandle<AnimatedData> AnimatedData;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var rigs = chunk.GetNativeArray(Rigs);
-            var rigRoots = chunk.GetNativeArray(RigRoots);
-            var readTransformAccessor = chunk.GetBufferAccessor(ReadTransforms);
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedData);
+            var rigs = batchInChunk.GetNativeArray(Rigs);
+            var rigRoots = batchInChunk.GetNativeArray(RigRoots);
+            var readTransformAccessor = batchInChunk.GetBufferAccessor(ReadTransforms);
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedData);
 
-            for (int i = 0; i < chunk.Count; ++i)
+            for (int i = 0; i < batchInChunk.Count; ++i)
             {
                 var readTransformArray = readTransformAccessor[i].AsNativeArray();
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());

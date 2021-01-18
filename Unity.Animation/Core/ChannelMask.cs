@@ -9,8 +9,8 @@ namespace Unity.Animation
     /// <summary>
     /// Used by the <see cref="AnimationStream"/> to reference the masks within a stream.
     /// </summary>
-    /// <remarks>Use this reference to manipulate the AnimationStream masks. Since this struct reference a memory block
-    /// in ECS compoenent store the life cycle of this struct is limited to local scope hence why it's a ref struct.</remarks>
+    /// <remarks>Use this reference to manipulate the AnimationStream masks. Since this struct references a memory block
+    /// in the ECS component store, it's life cycle is limited to a local scope.</remarks>
     public unsafe ref struct ChannelMask
     {
         internal UnsafeBitArray   m_Masks;

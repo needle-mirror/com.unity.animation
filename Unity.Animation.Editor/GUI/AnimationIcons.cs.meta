@@ -4,7 +4,8 @@ MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
-  - Bone_Icon: {fileID: 2800000, guid: 16d3340d8b9c2084797342a2274dedd9, type: 3}
+  - m_BoneIcon: {fileID: 2800000, guid: 16d3340d8b9c2084797342a2274dedd9, type: 3}
+  - m_SkeletonIcon: {fileID: 2800000, guid: fa0610251ed9647b9875f45088d2daba, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 

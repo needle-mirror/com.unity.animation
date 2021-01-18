@@ -64,7 +64,7 @@ namespace Unity.Animation
                 ctx.Set.Destroy(m_InverseNode);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 ctx.EmitMessage(SimulationPorts.m_OutRig, rig);
             }
@@ -77,7 +77,7 @@ namespace Unity.Animation
         [BurstCompile]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
             }
         }

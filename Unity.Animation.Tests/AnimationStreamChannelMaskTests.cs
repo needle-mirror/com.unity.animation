@@ -54,12 +54,12 @@ namespace Unity.Animation.Tests
 
             var animationChannel = new IAnimationChannel[]
             {
-                new FloatChannel {Id = "PropertyA"},
-                new FloatChannel {Id = "PropertyB"},
-                new FloatChannel {Id = "PropertyC"},
-                new IntChannel {Id = "PropertyD"},
-                new IntChannel {Id = "PropertyE"},
-                new IntChannel {Id = "PropertyF"},
+                new FloatChannel {Id = FloatChannelID("PropertyA") },
+                new FloatChannel {Id = FloatChannelID("PropertyB") },
+                new FloatChannel {Id = FloatChannelID("PropertyC") },
+                new IntChannel {Id = IntegerChannelID("PropertyD") },
+                new IntChannel {Id = IntegerChannelID("PropertyE") },
+                new IntChannel {Id = IntegerChannelID("PropertyF") },
                 new LocalScaleChannel {Id = "CustomScale"},
                 new LocalRotationChannel {Id = "CustomRotation"},
                 new LocalTranslationChannel {Id = "CustomTranslation"}

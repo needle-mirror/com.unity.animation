@@ -5,6 +5,7 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     static public partial class Core
     {
         public static int WeightDataSize(BlobAssetReference<RigDefinition> rig)

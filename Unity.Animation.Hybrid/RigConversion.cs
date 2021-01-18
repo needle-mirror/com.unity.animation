@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Entities;
 
@@ -16,13 +17,16 @@ namespace Unity.Animation.Hybrid
 
                 RigEntityBuilder.SetupRigEntity(rigEntity, DstEntityManager, rigDefinition);
 
-                ExposeTransforms(rigComponent, rigComponent.Bones, this, DstEntityManager, rigEntity);
+                ExposeTransforms(rigComponent, this, DstEntityManager, rigEntity);
             });
         }
 
-        internal static void ExposeTransforms(Component component, Transform[] bones, GameObjectConversionSystem system, EntityManager entityManager, Entity rigEntity)
+        internal static void ExposeTransforms(IRigAuthoring rigAuthoring, GameObjectConversionSystem system, EntityManager entityManager, Entity rigEntity)
         {
-            var boneCount = bones?.Length ?? 0;
+            var bones = new List<RigIndexToBone>();
+            rigAuthoring.GetBones(bones);
+
+            var boneCount = bones.Count;
             if (boneCount == 0)
             {
                 // Don't perform any read/write back of the root transform entity values to the animation stream
@@ -31,26 +35,41 @@ namespace Unity.Animation.Hybrid
                 return;
             }
 
-            // Warn that any exposed transform on the root bone are ignored. The root bone is always exposed.
-            var exposedTransforms = bones[0].GetComponents(typeof(IExposeTransform));
-            if (exposedTransforms?.Length > 0)
-                Debug.LogWarning($"Root transform [{bones[0].name}] cannot have IExposeTransform components and will be ignored");
-
-            entityManager.AddComponentData(rigEntity,
-                new RigRootEntity
-                {
-                    Value = system.TryGetPrimaryEntity(bones[0]),
-                    RemapToRootMatrix = AffineTransform.identity
-                });
-
-            for (int boneIndex = 1; boneIndex < boneCount; ++boneIndex)
+            var rootBoneIndex = bones.FindIndex((bone) => bone.Index == 0);
+            if (rootBoneIndex != -1)
             {
-                var transform = bones[boneIndex];
+                var rootBone = bones[rootBoneIndex].Bone;
+                if (rootBone != null)
+                {
+                    // Warn that any exposed transform on the root bone are ignored. The root bone is always exposed.
+                    var exposedTransforms = rootBone.GetComponents(typeof(IExposeTransform));
+                    if (exposedTransforms?.Length > 0)
+                        Debug.LogWarning($"Root transform [{rootBone.name}] cannot have IExposeTransform components and will be ignored");
+
+                    entityManager.AddComponentData(rigEntity,
+                        new RigRootEntity
+                        {
+                            Value = system.TryGetPrimaryEntity(rootBone),
+                            RemapToRootMatrix = AffineTransform.identity
+                        });
+                }
+                else
+                {
+                    Debug.LogWarning($"No bone associated with root index");
+                }
+
+                bones.RemoveAt(rootBoneIndex);
+            }
+
+            for (int i = 0; i < bones.Count; ++i)
+            {
+                var transform = bones[i].Bone;
+                if (transform == null)
+                    continue;
 
                 Component[] exposeTransformComponents = transform.GetComponents(typeof(IExposeTransform));
                 if (exposeTransformComponents?.Length > 0)
                 {
-                    int idx = RigGenerator.FindTransformIndex(transform, bones);
                     foreach (var exposeTransformComponent in exposeTransformComponents)
                     {
                         var entity = system.GetPrimaryEntity(transform);
@@ -60,7 +79,7 @@ namespace Unity.Animation.Hybrid
                             var exposeTransform = exposeTransformComponent as IExposeTransform;
                             if (exposeTransform != null)
                             {
-                                exposeTransform.AddExposeTransform(entityManager, rigEntity, bone, idx);
+                                exposeTransform.AddExposeTransform(entityManager, rigEntity, bone, bones[i].Index);
                             }
                         }
                     }

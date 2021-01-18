@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.Mathematics;
 using Unity.Entities;
 using Unity.Collections;
@@ -36,14 +37,30 @@ namespace Unity.Animation.Hybrid
             return true;
         }
 
-        internal static void ValidateSkinnedMeshRendererRootBoneIsExposed(SkinnedMeshRenderer skinnedMeshRenderer, Transform rigComponent, Transform[] bones)
+        static int FindBoneIndex(Transform bone, IReadOnlyList<RigIndexToBone> bones)
+        {
+            int idx = -1;
+            for (int i = 0; i < bones.Count; ++i)
+            {
+                if (bones[i].Bone == bone)
+                {
+                    idx = bones[i].Index;
+                    break;
+                }
+            }
+
+            return idx;
+        }
+
+        internal static void ValidateSkinnedMeshRendererRootBoneIsExposed(SkinnedMeshRenderer skinnedMeshRenderer, Transform rigComponent, IReadOnlyList<RigIndexToBone> bones)
         {
             var smrRootBone = skinnedMeshRenderer.rootBone;
             if (smrRootBone == null)
                 return;
 
             // Root is always exposed
-            var idx = RigGenerator.FindTransformIndex(smrRootBone, bones);
+            int idx = FindBoneIndex(smrRootBone, bones);
+
             if (idx == 0)
                 return;
 
@@ -64,7 +81,8 @@ namespace Unity.Animation.Hybrid
                 var parent = smrRootBone.parent;
                 while (parent != null && parent != rigComponent)
                 {
-                    idx = RigGenerator.FindTransformIndex(parent, bones);
+                    idx = FindBoneIndex(parent, bones);
+
                     if (idx != -1)
                     {
                         if (!(parent.GetComponents(typeof(IWriteExposeTransform))?.Length > 0))
@@ -101,25 +119,47 @@ namespace Unity.Animation.Hybrid
                 }
 
                 var rigEntity = rigAuthoringComponent != null ? GetPrimaryEntity(rigAuthoringComponent) : GetPrimaryEntity(animatorComponent);
-                var skBones = rigAuthoring != null ? rigAuthoring.Bones : animatorComponent.ExtractBoneTransforms();
-                using (var skinnedMeshToRigIndexMappings = new NativeList<SkinnedMeshToRigIndexMapping>(Allocator.Temp))
+
+                var bones = new List<RigIndexToBone>();
+                if (rigAuthoring != null)
+                    rigAuthoring.GetBones(bones);
+                else
+                    animatorComponent.ExtractBoneTransforms(bones);
+
+                if (bones == null || bones.Count == 0)
                 {
-                    var boneMatchCount = meshRenderer.ExtractMatchingBoneBindings(skBones, skinnedMeshToRigIndexMappings);
+                    return;
+                }
+
+                using (var smrMappings = new NativeList<SkinnedMeshToRigIndexMapping>(Allocator.Temp))
+                using (var smrIndirectMappings = new NativeList<SkinnedMeshToRigIndexIndirectMapping>(Allocator.Temp))
+                {
+                    var boneMatchCount = meshRenderer.ExtractMatchingBoneBindings(
+                        bones,
+                        smrMappings,
+                        smrIndirectMappings
+                    );
+
                     if (boneMatchCount > 0)
                     {
                         ValidateSkinnedMeshRendererRootBoneIsExposed(
                             meshRenderer,
                             rigAuthoringComponent != null ? rigAuthoringComponent.transform : animatorComponent.transform,
-                            skBones
+                            bones
                         );
 
                         var entity = GetPrimaryEntity(meshRenderer);
                         var animatedSkinMatricesArray = DstEntityManager.AddBuffer<AnimatedLocalToRoot>(rigEntity);
-                        animatedSkinMatricesArray.ResizeUninitialized(skBones.Length);
+                        animatedSkinMatricesArray.ResizeUninitialized(bones.Count);
 
                         DstEntityManager.AddComponentData(entity, new RigEntity { Value = rigEntity });
-                        DstEntityManager.AddBuffer<SkinnedMeshToRigIndexMapping>(entity);
                         DstEntityManager.AddBuffer<BindPose>(entity);
+
+                        var smrMappingBuffer = DstEntityManager.AddBuffer<SkinnedMeshToRigIndexMapping>(entity);
+                        smrMappingBuffer.CopyFrom(smrMappings);
+
+                        var smrIndirectMappingBuffer = DstEntityManager.AddBuffer<SkinnedMeshToRigIndexIndirectMapping>(entity);
+                        smrIndirectMappingBuffer.CopyFrom(smrIndirectMappings);
 
                         var smrRootBone = meshRenderer.rootBone != null ? meshRenderer.rootBone : meshRenderer.transform;
                         DstEntityManager.AddComponentData(entity, new SkinnedMeshRootEntity { Value = GetPrimaryEntity(smrRootBone) });
@@ -127,11 +167,8 @@ namespace Unity.Animation.Hybrid
                         if (!DstEntityManager.HasComponent<Deformations.SkinMatrix>(entity))
                             DstEntityManager.AddBuffer<Deformations.SkinMatrix>(entity);
 
-                        var skinMeshMappingArray = DstEntityManager.GetBuffer<SkinnedMeshToRigIndexMapping>(entity);
                         var bindPoseArray = DstEntityManager.GetBuffer<BindPose>(entity);
                         var skinMatrices = DstEntityManager.GetBuffer<Deformations.SkinMatrix>(entity);
-
-                        skinMeshMappingArray.CopyFrom(skinnedMeshToRigIndexMappings.AsArray());
 
                         var skinBones = meshRenderer.bones;
                         bindPoseArray.ResizeUninitialized(skinBones.Length);

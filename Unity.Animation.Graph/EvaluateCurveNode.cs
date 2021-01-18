@@ -27,7 +27,7 @@ namespace Unity.Animation
 
         struct Data : INodeData, IMsgHandler<AnimationCurve>
         {
-            public void HandleMessage(in MessageContext ctx, in AnimationCurve curve)
+            public void HandleMessage(MessageContext ctx, in AnimationCurve curve)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -51,7 +51,7 @@ namespace Unity.Animation
                     throw new System.ArgumentNullException("AnimationCurve is null.");
             }
 
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 ref var output = ref context.Resolve(ref ports.Output);
 
@@ -59,7 +59,8 @@ namespace Unity.Animation
 
                 var time = context.Resolve(ports.Time);
 
-                output = AnimationCurveEvaluator.Evaluate(time, ref data.AnimationCurve);
+                var curve = data.AnimationCurve;
+                output = AnimationCurveEvaluator.Evaluate(time, ref curve);
             }
         }
     }

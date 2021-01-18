@@ -6,6 +6,7 @@ using Unity.Collections;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public struct BoneRendererProperties
     {
         public float4 Color;
@@ -25,21 +26,19 @@ namespace Unity.Animation
             public int parent;
         }
 
-        static ComponentType[] s_BoneMatrixComponentTypes =
-        {
+        static readonly ComponentTypes s_BoneMatrixComponentTypes = new ComponentTypes(
             typeof(RigEntity),
             typeof(BoneRenderer.BoneSize),
             typeof(BoneRenderer.RigIndex),
             typeof(BoneRenderer.RigParentIndex),
-            typeof(BoneRenderer.BoneWorldMatrix),
-        };
+            typeof(BoneRenderer.BoneWorldMatrix)
+        );
 
-        static ComponentType[] s_BoneRenderingComponentTypes =
-        {
+        static readonly ComponentTypes s_BoneRenderingComponentTypes = new ComponentTypes(
             typeof(BoneRenderer.BoneShape),
             typeof(BoneRenderer.BoneColor),
-            typeof(BoneRenderer.BoneRendererEntity),
-        };
+            typeof(BoneRenderer.BoneRendererEntity)
+        );
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         static void ValidateTransformIndices(NativeList<int> transformIndices, int max)
@@ -95,7 +94,7 @@ namespace Unity.Animation
             Core.ValidateArgumentIsCreated(rigDefinition);
             ValidateTransformIndices(transformIndices, rigDefinition.Value.Skeleton.BoneCount);
 
-            entityManager.AddComponents(boneDataEntity, new ComponentTypes(s_BoneMatrixComponentTypes));
+            entityManager.AddComponents(boneDataEntity, s_BoneMatrixComponentTypes);
             entityManager.SetComponentData(boneDataEntity, new RigEntity { Value = rigEntity });
             entityManager.SetComponentData(boneDataEntity, new BoneRenderer.BoneSize { Value = properties.Size });
 
@@ -118,7 +117,7 @@ namespace Unity.Animation
                 boneParentIndicesBuffer[i] = new BoneRenderer.RigParentIndex { Value = bones[i].parent };
             }
 
-            entityManager.AddComponents(boneRenderEntity, new ComponentTypes(s_BoneRenderingComponentTypes));
+            entityManager.AddComponents(boneRenderEntity, s_BoneRenderingComponentTypes);
             entityManager.SetSharedComponentData(boneRenderEntity, new BoneRenderer.BoneShape { Value = properties.BoneShape });
             entityManager.SetComponentData(boneRenderEntity, new BoneRenderer.BoneColor { Value = properties.Color });
             entityManager.SetComponentData(boneRenderEntity, new BoneRenderer.BoneRendererEntity { Value = boneDataEntity });

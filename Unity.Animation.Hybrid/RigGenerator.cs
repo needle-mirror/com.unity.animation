@@ -1,20 +1,19 @@
-using System;
 using System.Collections.Generic;
-using Unity.Collections;
 using UnityEngine;
 
 namespace Unity.Animation.Hybrid
 {
-    public static class RigGenerator
+    public static partial class RigGenerator
     {
         public static int FindTransformIndex(Transform transform, Transform[] transforms)
         {
             if (transform == null || transforms == null)
                 return -1;
 
+            var instanceID = transform.GetInstanceID();
             for (int i = 0; i < transforms.Length; i++)
             {
-                if (transforms[i].GetInstanceID() == transform.GetInstanceID())
+                if (transforms[i].GetInstanceID() == instanceID)
                     return i;
             }
 
@@ -22,22 +21,22 @@ namespace Unity.Animation.Hybrid
         }
 
         /// <summary>
-        /// Calculates path from an ancestor transform to a target transform.
+        /// Calculates path from a root transform to a target transform.
         /// </summary>
         /// <param name="target">The leaf transform of the path</param>
-        /// <param name="ancestor">The root transform of the path.</param>
+        /// <param name="root">The root transform of the path.</param>
         /// <returns>Returns a string representing the path in a transform hierarchy from a given root transform down to a given target transform.</returns>
         /// <remarks>
-        /// The ancestor transform must be higher in the hierarchy than the target transform.
-        /// The target and ancestor may also be the same transform.
+        /// The root transform must be higher in the hierarchy than the target transform.
+        /// The target and root may also be the same transform.
         ///
         /// This is the same function as AnimationUtility.CalculateTransformPath, except that it also works at runtime.
         /// </remarks>
-        public static string ComputeRelativePath(Transform target, Transform ancestor)
+        public static string ComputeRelativePath(Transform target, Transform root)
         {
             var stack = new List<Transform>(10);
             var cur = target;
-            while (cur != ancestor && cur != null)
+            while (cur != root && cur != null)
             {
                 stack.Add(cur);
                 cur = cur.parent;
@@ -54,16 +53,25 @@ namespace Unity.Animation.Hybrid
             return res;
         }
 
-        public static SkeletonNode[] ExtractSkeletonNodesFromTransforms(Transform root, Transform[] transforms, BindingHashDelegate bindingHash = null)
+        /// <summary>
+        /// Extracts the SkeletonNodes given a root and an array of transforms.
+        /// </summary>
+        /// <param name="root">The root transform of the hierarchy.</param>
+        /// <param name="transforms">The list of transforms part of the hierarchy.</param>
+        /// <param name="hasher">An optional BindingHashGenerator can be specified to compute unique animation binding IDs. When not specified the <see cref="BindingHashGlobals.DefaultHashGenerator"/> is used.</param>
+        /// <returns>SkeletonNode array</returns>
+        public static SkeletonNode[] ExtractSkeletonNodesFromTransforms(Transform root, Transform[] transforms, BindingHashGenerator hasher = default)
         {
             var skeletonNodes = new List<SkeletonNode>();
 
-            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
+
             for (int i = 0; i < transforms.Length; i++)
             {
                 var skeletonNode = new SkeletonNode
                 {
-                    Id = hasher(ComputeRelativePath(transforms[i], root)),
+                    Id = hasher.ToHash(ToTransformBindingID(transforms[i], root)),
                     AxisIndex = -1,
                     LocalTranslationDefaultValue = transforms[i].localPosition,
                     LocalRotationDefaultValue = transforms[i].localRotation,
@@ -76,55 +84,20 @@ namespace Unity.Animation.Hybrid
             return skeletonNodes.ToArray();
         }
 
-        public static SkeletonNode[] ExtractSkeletonNodesFromGameObject(GameObject root, BindingHashDelegate bindingHash = null)
+        /// <summary>
+        /// Extracts the SkeletonNodes of a transform hierarchy given a root GameObject.
+        /// </summary>
+        /// <param name="root">The root GameObject.</param>
+        /// <param name="hasher">An optional BindingHashGenerator can be specified to compute unique animation binding IDs. When not specified the <see cref="BindingHashGlobals.DefaultHashGenerator"/> is used.</param>
+        /// <returns>SkeletonNode array</returns>
+        public static SkeletonNode[] ExtractSkeletonNodesFromGameObject(GameObject root, BindingHashGenerator hasher = default)
         {
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
+
             var transforms = root.GetComponentsInChildren<Transform>();
 
-            return ExtractSkeletonNodesFromTransforms(root.transform, transforms, bindingHash);
-        }
-
-        [System.Obsolete("ExtractSkeletonNodesFromRigComponent has been deprecated. Use RigComponent.ExtractRigBuilderData. (RemovedAfter 2020-12-01).", false)]
-        public static SkeletonNode[] ExtractSkeletonNodesFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)
-        {
-            return ExtractSkeletonNodesFromTransforms(rigComponent.transform, rigComponent.Bones, bindingHash);
-        }
-
-        [System.Obsolete("ExtractAnimationChannelFromRigComponent has been deprecated. Use RigComponent.ExtractRigBuilderData. (RemovedAfter 2020-12-01).", false)]
-        public static IAnimationChannel[] ExtractAnimationChannelFromRigComponent(RigComponent rigComponent, BindingHashDelegate bindingHash = null)
-        {
-            var channels = new List<IAnimationChannel>();
-            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
-            for (int i = 0; i < rigComponent.TranslationChannels.Length; i++)
-            {
-                var channel = new LocalTranslationChannel { Id = hasher(rigComponent.TranslationChannels[i].Id), DefaultValue = rigComponent.TranslationChannels[i].DefaultValue };
-                channels.Add(channel);
-            }
-
-            for (int i = 0; i < rigComponent.RotationChannels.Length; i++)
-            {
-                var channel = new LocalRotationChannel { Id = hasher(rigComponent.RotationChannels[i].Id), DefaultValue = rigComponent.RotationChannels[i].DefaultValue };
-                channels.Add(channel);
-            }
-
-            for (int i = 0; i < rigComponent.ScaleChannels.Length; i++)
-            {
-                var channel = new LocalScaleChannel { Id = hasher(rigComponent.ScaleChannels[i].Id), DefaultValue = rigComponent.ScaleChannels[i].DefaultValue };
-                channels.Add(channel);
-            }
-
-            for (int i = 0; i < rigComponent.FloatChannels.Length; i++)
-            {
-                var channel = new Unity.Animation.FloatChannel { Id = hasher(rigComponent.FloatChannels[i].Id), DefaultValue = rigComponent.FloatChannels[i].DefaultValue };
-                channels.Add(channel);
-            }
-
-            for (int i = 0; i < rigComponent.IntChannels.Length; i++)
-            {
-                var channel = new Unity.Animation.IntChannel { Id = hasher(rigComponent.IntChannels[i].Id), DefaultValue = rigComponent.IntChannels[i].DefaultValue };
-                channels.Add(channel);
-            }
-
-            return channels.ToArray();
+            return ExtractSkeletonNodesFromTransforms(root.transform, transforms, hasher);
         }
 
         /// <summary>
@@ -156,5 +129,11 @@ namespace Unity.Animation.Hybrid
 
             return queryComponent;
         }
+
+        static internal TransformBindingID ToTransformBindingID(Transform target, Transform root) =>
+            new TransformBindingID { Path = ComputeRelativePath(target, root) };
+
+        static internal GenericBindingID ToGenericBindingID(string id) =>
+            new GenericBindingID { Path = string.IsNullOrEmpty(id) ? string.Empty : System.IO.Path.GetDirectoryName(id), AttributeName = System.IO.Path.GetFileName(id) };
     }
 }

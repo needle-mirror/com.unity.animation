@@ -6,6 +6,7 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     public partial struct AnimationStream
     {
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]

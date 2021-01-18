@@ -2,6 +2,7 @@ using UnityEngine;
 using Unity.Collections;
 using Unity.Entities;
 using System;
+using System.Collections.Generic;
 
 namespace Unity.Animation.Hybrid
 {
@@ -11,43 +12,76 @@ namespace Unity.Animation.Hybrid
 
         internal static int ExtractMatchingBoneBindings(
             this SkinnedMeshRenderer skinnedMeshRenderer,
-            Transform[] skeletonBones,
-            NativeList<SkinnedMeshToRigIndexMapping> outSkinnedMeshToRigIndexMappings
+            List<RigIndexToBone> skeletonBones,
+            NativeList<SkinnedMeshToRigIndexMapping> outSMRMappings,
+            NativeList<SkinnedMeshToRigIndexIndirectMapping> outSMRIndirectMappings
         )
         {
+            outSMRMappings.Clear();
+            outSMRIndirectMappings.Clear();
+
             if (skinnedMeshRenderer == null)
                 throw new ArgumentNullException("Invalid SkinnedMeshRenderer.");
             if (skeletonBones == null)
                 throw new ArgumentNullException($"Invalid ${nameof(skeletonBones)}.");
-            if (!outSkinnedMeshToRigIndexMappings.IsCreated)
-                throw new ArgumentNullException($"Invalid ${nameof(outSkinnedMeshToRigIndexMappings)}");
+            if (!outSMRMappings.IsCreated)
+                throw new ArgumentException($"Invalid ${nameof(outSMRMappings)}");
+            if (!outSMRIndirectMappings.IsCreated)
+                throw new ArgumentException($"Invalid ${nameof(outSMRIndirectMappings)}");
 
             var skinBones = skinnedMeshRenderer.bones;
             if (skinBones == null)
                 return 0;
 
-            var matchCount = 0;
-            for (int i = 0; i != skinBones.Length; ++i)
+            int matchCount = 0;
+            using (var skeletonMap = new NativeHashMap<int, int>(skeletonBones.Count, Allocator.Temp))
             {
-                int j = 0;
-                for (; j != skeletonBones.Length; ++j)
+                for (int i = 0; i < skeletonBones.Count; ++i)
                 {
-                    if (skinBones[i] == skeletonBones[j])
+                    if (skeletonBones[i].Bone != null)
+                        skeletonMap.Add(skeletonBones[i].Bone.GetInstanceID(), skeletonBones[i].Index);
+                }
+
+                int boneIdx;
+                for (int i = 0; i < skinBones.Length; ++i)
+                {
+                    var smrBone = skinBones[i];
+                    if (skeletonMap.TryGetValue(smrBone.GetInstanceID(), out boneIdx))
                     {
-                        outSkinnedMeshToRigIndexMappings.Add(new SkinnedMeshToRigIndexMapping
+                        outSMRMappings.Add(new SkinnedMeshToRigIndexMapping
                         {
                             SkinMeshIndex = i,
-                            RigIndex = j
+                            RigIndex = boneIdx
                         });
 
                         matchCount++;
-                        break;
                     }
-                }
+                    else
+                    {
+                        // Immediate SMR to skeleton mapping not found, walk the hierarchy to find possible parent
+                        // and compute static offset
+                        var parent = smrBone.parent;
+                        while (parent != null)
+                        {
+                            if (skeletonMap.TryGetValue(parent.GetInstanceID(), out boneIdx))
+                            {
+                                outSMRIndirectMappings.Add(new SkinnedMeshToRigIndexIndirectMapping
+                                {
+                                    Offset = mathex.AffineTransform(parent.worldToLocalMatrix * smrBone.localToWorldMatrix),
+                                    RigIndex = boneIdx,
+                                    SkinMeshIndex = i
+                                });
 
-                if (j == skeletonBones.Length)
-                {
-                    Debug.LogWarning($"{skinnedMeshRenderer.ToString()} references bone '{skinBones[i].name}' that cannot be found.");
+                                matchCount++;
+                                break;
+                            }
+                            else
+                                parent = parent.parent;
+                        }
+
+                        if (parent == null)
+                            Debug.LogWarning($"{skinnedMeshRenderer.ToString()} references bone '{skinBones[i].name}' that cannot be found.");
+                    }
                 }
             }
 
@@ -84,11 +118,14 @@ namespace Unity.Animation.Hybrid
             ref var rigFloatBindings = ref rigDefinition.Value.Bindings.FloatBindings;
             for (int i = 0; i < count; ++i)
             {
-                int idx = Core.FindBindingIndex(
-                    ref rigFloatBindings,
-                    BindingHashUtils.BuildPath(relativePath, k_BlendShapeBindingPrefix + sharedMesh.GetBlendShapeName(i))
-                );
+                var id = new GenericBindingID
+                {
+                    AttributeName = $"{k_BlendShapeBindingPrefix}{sharedMesh.GetBlendShapeName(i)}",
+                    ComponentType = typeof(SkinnedMeshRenderer),
+                    Path = relativePath
+                };
 
+                int idx = Core.FindBindingIndex(ref rigFloatBindings, BindingHashGlobals.DefaultHashGenerator.ToHash(id));
                 if (idx != -1)
                 {
                     outBlendShapeToRigIndexMapping.Add(new BlendShapeToRigIndexMapping

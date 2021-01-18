@@ -15,6 +15,7 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="source"></param>
         /// <returns></returns>
+        [NotBurstCompatible]
         public static unsafe BlobAssetReference<T> Clone<T>(this BlobAssetReference<T> source) where T : struct
         {
             if (source == BlobAssetReference<T>.Null)
@@ -36,6 +37,7 @@ namespace Unity.Animation
         /// <param name="source"></param>
         /// <param name="frame"></param>
         /// <returns></returns>
+        [BurstCompatible]
         public static unsafe BlobAssetReference<Clip> CreatePose(BlobAssetReference<Clip> source, int frame = 0)
         {
             if (source == BlobAssetReference<Clip>.Null)
@@ -83,6 +85,7 @@ namespace Unity.Animation
         /// </summary>
         /// <param name="source"></param>
         /// <returns></returns>
+        [BurstCompatible]
         public static unsafe BlobAssetReference<Clip> Reverse(BlobAssetReference<Clip> source)
         {
             if (source == BlobAssetReference<Clip>.Null)
@@ -167,6 +170,7 @@ namespace Unity.Animation
         /// <param name="source"></param>
         /// <param name="filter"></param>
         /// <returns></returns>
+        [NotBurstCompatible]
         public static unsafe BlobAssetReference<Clip> FilterBindings(BlobAssetReference<Clip> source, ref BindingSet filter)
         {
             if (source == BlobAssetReference<Clip>.Null || filter.BindingCount == 0)
@@ -248,18 +252,21 @@ namespace Unity.Animation
             return outputClip;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         private static unsafe void CopyArray<T>(ref BlobBuilder builder, ref BlobArray<T> dest, ref BlobArray<T> src) where T : struct
         {
             var bindings = builder.Allocate(ref dest, src.Length);
             UnsafeUtility.MemCpy(bindings.GetUnsafePtr(), src.GetUnsafePtr(), src.Length * UnsafeUtility.SizeOf<T>());
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         private static unsafe bool ArrayEqual<T>(ref BlobArray<T> a, ref BlobArray<T> b) where T : struct
         {
             return (a.Length == b.Length) &&
                 ((a.Length == 0) || (UnsafeUtility.MemCmp(a.GetUnsafePtr(), b.GetUnsafePtr(), a.Length * UnsafeUtility.SizeOf<T>()) == 0));
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         private static void Intersection<T>(ref BlobArray<T> a, ref BlobArray<T> b, ref NativeList<T> result) where T : struct, IEquatable<T>
         {
             result.Clear();
@@ -277,12 +284,14 @@ namespace Unity.Animation
             }
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         private static unsafe void SetBlobArray<T>(ref BlobBuilder builder, ref BlobArray<T> a, ref NativeList<T> result, out BlobBuilderArray<T> blobArray) where T : struct
         {
             blobArray = builder.Allocate(ref a, result.Length);
             UnsafeUtility.MemCpy(blobArray.GetUnsafePtr(), result.GetUnsafePtr(), result.Length * UnsafeUtility.SizeOf<T>());
         }
 
+        [BurstCompatible]
         private static unsafe void InterleavedBlit(ref BlobBuilderArray<StringHash> destBindings, ref BlobArray<StringHash> sourceBindings, float* dest, float* src, int dataItemCount, int destStride, int sourceStride, int samples)
         {
             int dataStride = dataItemCount * UnsafeUtility.SizeOf<float>();

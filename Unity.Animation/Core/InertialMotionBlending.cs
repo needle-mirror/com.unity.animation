@@ -4,6 +4,7 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     static public partial class mathex
     {
         /// <summary>
@@ -27,6 +28,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     static public partial class Core
     {
         internal static void InertializeVector(

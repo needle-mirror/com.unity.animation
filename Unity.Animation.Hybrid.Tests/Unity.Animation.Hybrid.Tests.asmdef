@@ -17,9 +17,7 @@
         "UnityEditor.TestRunner",
         "Unity.Animation.Editor",
         "Unity.Animation.Hybrid",
-        "Unity.Animation.Authoring",
-        "Unity.Deformations",
-        "Unity.Animation.Curves"
+        "Unity.Deformations"
     ],
     "includePlatforms": [
         "Editor"

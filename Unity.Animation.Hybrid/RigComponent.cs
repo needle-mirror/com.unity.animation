@@ -43,16 +43,21 @@ namespace Unity.Animation.Hybrid
     }
 
     // TODO: figure out a better name for RigComponent
-    public class RigComponent : MonoBehaviour, IRigAuthoring
+    public partial class RigComponent : MonoBehaviour, IRigAuthoring
     {
         internal const int LatestVersion = 1;
         [HideInInspector][SerializeField] int m_Version;
         internal int Version { get => m_Version; set { m_Version = value; } }
         public Transform[] Bones = Array.Empty<Transform>();
 
-        Transform[] IRigAuthoring.Bones
+        void IRigAuthoring.GetBones(List<RigIndexToBone> bones)
         {
-            get => Bones;
+            bones.Clear();
+
+            for (int i = 0; i < Bones.Length; ++i)
+            {
+                bones.Add(new RigIndexToBone {Bone = Bones[i], Index = i});
+            }
         }
 
         internal IReadOnlyList<Transform> ExcludeBones => m_ExcludeBones;
@@ -105,9 +110,12 @@ namespace Unity.Animation.Hybrid
         /// Creates the DOTS representation of a rig.
         /// </summary>
         /// <returns>The blob asset reference of a RigDefinition.</returns>
-        public BlobAssetReference<RigDefinition> ToRigDefinition(BindingHashDelegate bindingHash = null)
+        public BlobAssetReference<RigDefinition> ToRigDefinition(BindingHashGenerator hasher = default)
         {
-            var rigBuilderData = ExtractRigBuilderData(bindingHash);
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
+
+            var rigBuilderData = ExtractRigBuilderData(hasher);
             InjectDynamicRigChannels(ref rigBuilderData);
 
             var rigDefinition = RigBuilder.CreateRigDefinition(rigBuilderData);
@@ -124,8 +132,8 @@ namespace Unity.Animation.Hybrid
         /// enumeration.
         /// It is used to allocate all the NativeLists inside the RigBuilderData.
         /// </param>
-        /// <param name="bindingHash">
-        /// The hash function used to generate the ID of the rig channels.
+        /// <param name="bindingGenerator">
+        /// The hash strategy to use to generate the ID of the rig channels.
         /// </param>
         /// <returns>
         /// The RigBuilderData with all its lists filled with the corresponding rig channels.
@@ -134,8 +142,11 @@ namespace Unity.Animation.Hybrid
         /// If you have your own rig representation, you just need to create a function like this one that fills
         /// a <see cref="RigBuilderData"/> and use it with <see cref="RigBuilder.CreateRigDefinition"/>.
         /// </remarks>
-        public RigBuilderData ExtractRigBuilderData(BindingHashDelegate bindingHash = null)
+        public RigBuilderData ExtractRigBuilderData(BindingHashGenerator hasher = default)
         {
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
+
             var skeletonNodesCount = Bones.Length;
             var translationChannelsCount = TranslationChannels.Length;
             var rotationChannelsCount = RotationChannels.Length;
@@ -151,11 +162,9 @@ namespace Unity.Animation.Hybrid
             rigBuilderData.FloatChannels.Capacity = floatChannelsCount;
             rigBuilderData.IntChannels.Capacity = intChannelsCount;
 
-            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
-
             for (int i = 0; i < skeletonNodesCount; i++)
             {
-                var id = hasher(RigGenerator.ComputeRelativePath(Bones[i], transform));
+                var id = hasher.ToHash(RigGenerator.ToTransformBindingID(Bones[i], transform));
 
                 rigBuilderData.SkeletonNodes.Add(new SkeletonNode
                 {
@@ -172,7 +181,7 @@ namespace Unity.Animation.Hybrid
             {
                 rigBuilderData.TranslationChannels.Add(new LocalTranslationChannel
                 {
-                    Id = hasher(TranslationChannels[i].Id),
+                    Id = hasher.ToHash(RigGenerator.ToGenericBindingID(TranslationChannels[i].Id)),
                     DefaultValue = TranslationChannels[i].DefaultValue
                 });
             }
@@ -181,7 +190,7 @@ namespace Unity.Animation.Hybrid
             {
                 rigBuilderData.RotationChannels.Add(new LocalRotationChannel
                 {
-                    Id = hasher(RotationChannels[i].Id),
+                    Id = hasher.ToHash(RigGenerator.ToGenericBindingID(RotationChannels[i].Id)),
                     DefaultValue = RotationChannels[i].DefaultValue
                 });
             }
@@ -190,7 +199,7 @@ namespace Unity.Animation.Hybrid
             {
                 rigBuilderData.ScaleChannels.Add(new LocalScaleChannel
                 {
-                    Id = hasher(ScaleChannels[i].Id),
+                    Id = hasher.ToHash(RigGenerator.ToGenericBindingID(ScaleChannels[i].Id)),
                     DefaultValue = ScaleChannels[i].DefaultValue
                 });
             }
@@ -199,7 +208,7 @@ namespace Unity.Animation.Hybrid
             {
                 rigBuilderData.FloatChannels.Add(new Unity.Animation.FloatChannel
                 {
-                    Id = hasher(FloatChannels[i].Id),
+                    Id = hasher.ToHash(RigGenerator.ToGenericBindingID(FloatChannels[i].Id)),
                     DefaultValue = FloatChannels[i].DefaultValue
                 });
             }
@@ -208,7 +217,7 @@ namespace Unity.Animation.Hybrid
             {
                 rigBuilderData.IntChannels.Add(new Unity.Animation.IntChannel
                 {
-                    Id = hasher(IntChannels[i].Id),
+                    Id = hasher.ToHash(RigGenerator.ToGenericBindingID(IntChannels[i].Id)),
                     DefaultValue = IntChannels[i].DefaultValue
                 });
             }

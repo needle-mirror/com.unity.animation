@@ -1,5 +1,8 @@
 using Unity.Animation;
 using Unity.Entities;
+using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("Unity.Animation.Tests")]
 
 [assembly: RegisterGenericJobType(typeof(SortReadTransformComponentJob<ProcessDefaultAnimationGraph.ReadTransformHandle>))]
 [assembly: RegisterGenericJobType(typeof(ReadTransformComponentJob<ProcessDefaultAnimationGraph.ReadTransformHandle>))]

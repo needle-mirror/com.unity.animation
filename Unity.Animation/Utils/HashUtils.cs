@@ -1,11 +1,15 @@
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Mathematics;
-using Unity.Collections.LowLevel.Unsafe;
+
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     internal static class HashUtils
     {
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         internal static unsafe uint ComputeHash<T>(ref BlobArray<T> array, uint seed = 0)
             where T : struct
         {

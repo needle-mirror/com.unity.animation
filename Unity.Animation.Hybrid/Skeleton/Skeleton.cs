@@ -4,263 +4,36 @@ using System.Diagnostics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
+using Unity.Animation.Hybrid;
 using UnityEngine;
 
 namespace Unity.Animation.Authoring
 {
     /// <summary>
-    /// Interface to cover all channel bindings.
-    /// </summary>
-    public interface IBindingID
-    {
-        string ID { get; }
-    }
-
-    /// <summary>
     /// This enum represents the current state of a <see cref="TransformChannel"/>
     /// </summary>
-    enum TransformChannelState
+    public enum TransformChannelState
     {
         DoesNotExist,
         Active,
         Inactive
     }
 
-    /// <summary>
-    /// Binding for transform channels.
-    /// Translation, Rotation and Scale channels only need a path
-    /// as unique identifier.
-    /// Q. Should we instead commit to use a generic binding like other channels?
-    /// See also <seealso cref="SkeletonBoneReference"/>, <seealso cref="SkeletonReferenceAttribute"/> and <seealso cref="ShowFullPathAttribute"/>
-    /// </summary>
-    [Serializable]
-    [DebuggerDisplay("id = {ID}")]
-    public struct TransformBindingID : IBindingID, IEquatable<TransformBindingID>, IComparable<TransformBindingID>
+    [Flags]
+    public enum TransformChannelSearchMode
     {
-        /// <summary>
-        /// Path as it's set in the hierarchy.
-        /// </summary>
-        public string Path;
-        /// <summary>
-        /// Retrieves a unique ID for the transform channel.
-        /// </summary>
-        public string ID { get => Path; }
-
-        /// <summary>
-        /// Parent TransformBindingID if it can extracted from path. Invalid TransformBindingID otherwise.
-        /// </summary>
-        public TransformBindingID GetParent()
-        {
-            if (this.Equals(Root))
-                return Invalid;
-
-            int index = Path.LastIndexOf(Skeleton.k_PathSeparator);
-            if (index == -1)
-                return Root;
-
-            return new TransformBindingID
-            {
-                Path = Path.Substring(0, index)
-            };
-        }
-
-        /// <summary>
-        /// Invalid TransformBindingID.
-        /// </summary>
-        public static TransformBindingID Invalid
-        {
-            get => new TransformBindingID {Path = null};
-        }
-
-        /// <summary>
-        /// TransformBindingID describing the root node of the animated hierarchy.
-        /// </summary>
-        public static TransformBindingID Root
-        {
-            get => new TransformBindingID {Path = ""};
-        }
-
-        /// <summary>
-        /// Name of the node described by the TransformBindingID.
-        /// </summary>
-        public string Name
-        {
-            get => System.IO.Path.GetFileName(Path);
-        }
-
-        /// <inheritdoc/>
-        public bool Equals(TransformBindingID other)
-        {
-            return Path == other.Path;
-        }
-
-        /// <inheritdoc/>
-        public int CompareTo(TransformBindingID other)
-        {
-            return ID.CompareTo(other.ID);
-        }
-
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            return obj is TransformBindingID other && Equals(other);
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return (Path != null ? Path.GetHashCode() : 0);
-        }
-
-        public override string ToString() => Path;
-
-        public static bool operator==(TransformBindingID left, TransformBindingID right) => left.Equals(right);
-        public static bool operator!=(TransformBindingID left, TransformBindingID right) => !left.Equals(right);
-    }
-
-    /// <summary>
-    /// Binding for generic channels.
-    /// </summary>
-    [Serializable]
-    public struct GenericBindingID : IBindingID, IEquatable<GenericBindingID>, IComparable<GenericBindingID>
-    {
-        /// <summary>
-        /// Path as it's set in the hierarchy.
-        /// </summary>
-        public string Path;
-        /// <summary>
-        /// Name of the attribute.
-        /// </summary>
-        public string AttributeName;
-        /// <summary>
-        /// Type of value.
-        /// </summary>
-        public GenericPropertyType ValueType;
-
-        /// <summary>
-        /// Type of component.
-        /// </summary>
-        [SerializeField]
-        private string m_ComponentName;
-
-        private static readonly string[] k_Suffixes = new[] {"x", "y", "z", "w"};
-
-        /// <summary>
-        /// Type of component.
-        /// </summary>
-        public Type ComponentType
-        {
-            get => m_ComponentName != null ? Type.GetType(m_ComponentName) : null;
-            set => m_ComponentName = value != null ? value.AssemblyQualifiedName : null;
-        }
-
-        /// <summary>
-        /// Retrieves a sub-id in a GenericBindingID that contain multiple channels.
-        /// </summary>
-        /// <param name="index">Index of the sub-channel.</param>
-        /// <exception cref="ArgumentException">Index must be between [0...3]</exception>
-        public GenericBindingID this[int index]
-        {
-            get
-            {
-                if ((uint)index >= 4)
-                    throw new System.ArgumentException("index must be between[0...3]");
-
-                return new GenericBindingID
-                {
-                    Path = Path,
-                    AttributeName = $"{AttributeName}.{k_Suffixes[index]}",
-                    ComponentType = ComponentType,
-                    ValueType = ValueType.GetGenericChannelType()
-                };
-            }
-        }
-
-        /// <summary>
-        /// Retrieves x channel sub-id.
-        /// </summary>
-        public GenericBindingID x { get => this[0]; }
-        /// <summary>
-        /// Retrieves y channel sub-id.
-        /// </summary>
-        public GenericBindingID y { get => this[1]; }
-        /// <summary>
-        /// Retrieves z channel sub-id.
-        /// </summary>
-        public GenericBindingID z { get => this[2]; }
-        /// <summary>
-        /// Retrieves w channel sub-id.
-        /// </summary>
-        public GenericBindingID w { get => this[3]; }
-
-        /// <summary>
-        /// Retrieves r channel sub-id. This is the same as <see cref="x"/>.
-        /// </summary>
-        public GenericBindingID r { get => this[0]; }
-        /// <summary>
-        /// Retrieves r channel sub-id. This is the same as <see cref="y"/>.
-        /// </summary>
-        public GenericBindingID g { get => this[1]; }
-        /// <summary>
-        /// Retrieves r channel sub-id. This is the same as <see cref="z"/>.
-        /// </summary>
-        public GenericBindingID b { get => this[2]; }
-        /// <summary>
-        /// Retrieves r channel sub-id. This is the same as <see cref="w"/>.
-        /// </summary>
-        public GenericBindingID a { get => this[3]; }
-
-        /// <summary>
-        /// Invalid GenericBindingID.
-        /// </summary>
-        public static GenericBindingID Invalid
-        {
-            get => new GenericBindingID {AttributeName = null, Path = null, ComponentType = null};
-        }
-
-        /// <summary>
-        /// Retrieves the unique ID for the generic property channel.
-        /// </summary>
-        public string ID
-        {
-            get => this.Equals(Invalid) ? null : $"{Path}:{AttributeName}:{m_ComponentName}";
-        }
-
-        /// <inheritdoc/>
-        public bool Equals(GenericBindingID other)
-        {
-            return Path == other.Path && AttributeName == other.AttributeName && Equals(m_ComponentName, other.m_ComponentName);
-        }
-
-        /// <inheritdoc/>
-        public int CompareTo(GenericBindingID other)
-        {
-            var result = Path.CompareTo(other.Path);
-            if (result == 0)
-            {
-                return AttributeName.CompareTo(other.AttributeName);
-            }
-
-            return result;
-        }
-
-        /// <inheritdoc/>
-        public override bool Equals(object obj)
-        {
-            return obj is GenericBindingID other && Equals(other);
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                var hashCode = (Path != null ? Path.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (AttributeName != null ? AttributeName.GetHashCode() : 0);
-                hashCode = (hashCode * 397) ^ (m_ComponentName != null ? m_ComponentName.GetHashCode() : 0);
-                return hashCode;
-            }
-        }
+        /// <summary>The default search mode. It will return all active transforms, which are always descendants of the root.</summary>
+        Default = ActiveRootDescendants,
+        /// <summary>All inactive transforms which are also descendants of the root</summary>
+        InactiveRootDescendants = 1,
+        /// <summary>All inactive transforms, including those that are not descendants of the root</summary>
+        InactiveAll = 3,
+        /// <summary>All active transforms which are also descendants of the root</summary>
+        ActiveRootDescendants = 4,
+        /// <summary>All transforms that are descendants of the root</summary>
+        ActiveAndInactiveRootDescendants = ActiveRootDescendants | InactiveRootDescendants,
+        /// <summary>All transforms, including those that are not descendants of the root</summary>
+        ActiveAndInactiveAll = ActiveRootDescendants | InactiveAll,
     }
 
     /// <summary>
@@ -405,66 +178,6 @@ namespace Unity.Animation.Authoring
     }
 
     /// <summary>
-    /// This is the base interface that represents label reference.
-    /// A label reference is the association of a PropertyLabel to a
-    /// specific channel binding.
-    /// </summary>
-    interface ILabelReference
-    {
-        /// <summary>
-        /// Label.
-        /// </summary>
-        PropertyLabelBase Label { get; }
-        /// <summary>
-        /// Unique ID.
-        /// </summary>
-        IBindingID ID { get; }
-    }
-
-    /// <summary>
-    /// Property label reference for Transform channels.
-    /// </summary>
-    [Serializable]
-    struct TransformLabelReference : ILabelReference
-    {
-        /// <summary>
-        /// Transform label.
-        /// </summary>
-        public TransformLabel Label;
-        /// <summary>
-        /// Unique ID.
-        /// </summary>
-        public TransformBindingID ID;
-
-        /// <inheritdoc/>
-        PropertyLabelBase ILabelReference.Label { get => Label; }
-        /// <inheritdoc/>
-        IBindingID ILabelReference.ID { get => ID; }
-    }
-
-    /// <summary>
-    /// Property label reference for generic channels.
-    /// </summary>
-    [Serializable]
-    struct GenericPropertyLabelReference : ILabelReference
-    {
-        /// <summary>
-        /// Generic property label.
-        /// </summary>
-        public GenericPropertyLabel Label;
-        /// <summary>
-        /// Unique ID.
-        /// </summary>
-        public GenericBindingID ID;
-
-        /// <inheritdoc/>
-        PropertyLabelBase ILabelReference.Label { get => Label; }
-        /// <inheritdoc/>
-        IBindingID ILabelReference.ID { get => ID; }
-    }
-
-
-    /// <summary>
     /// A reference to a specific bone in a skeleton
     /// See also <seealso cref="TransformBindingID"/>, <seealso cref="SkeletonReferenceAttribute"/> and <seealso cref="ShowFullPathAttribute"/>
     /// </summary>
@@ -489,7 +202,16 @@ namespace Unity.Animation.Authoring
         {
             if (m_Skeleton == null)
                 return false;
-            return m_Skeleton.Contains(ID);
+            return m_Skeleton.GetTransformChannelState(ID) == TransformChannelState.Active;
+        }
+
+        /// <summary>
+        /// Returns the runtime channel index that is identified by the specified id.
+        /// </summary>
+        /// <returns>Returns the index if a channel matching the id was found. -1 otherwise.</returns>
+        public int ConvertToIndex()
+        {
+            return m_Skeleton.QueryTransformIndex(m_ID);
         }
     }
 
@@ -502,9 +224,6 @@ namespace Unity.Animation.Authoring
     {
         internal const char k_PathSeparator = '/';
 
-        [SerializeField] private List<TransformLabelReference> m_TransformLabels = new List<TransformLabelReference>();
-        [SerializeField] private List<GenericPropertyLabelReference> m_GenericPropertyLabels = new List<GenericPropertyLabelReference>();
-
         // Channels are kept separately in similar data structures to RigComponent
         // to ensure a tight conversion loop.
         // Quaternion needs to remain as interpolation is done separately.
@@ -515,6 +234,8 @@ namespace Unity.Animation.Authoring
         [SerializeField] private List<GenericChannel<quaternion>> m_QuaternionChannels = new List<GenericChannel<quaternion>>();
 
         [SerializeField] private TransformBindingID m_Root = TransformBindingID.Invalid;
+        static readonly RangeInt s_InvalidRange = new RangeInt(-1, -1);
+        private RangeInt m_RootRange = s_InvalidRange;
 
         /// <summary>
         /// Delegate function that is called whenever a new transform channel is added.
@@ -544,27 +265,114 @@ namespace Unity.Animation.Authoring
         /// <summary>
         /// The root node of this skeleton.
         /// </summary>
-        public TransformBindingID Root { get { return m_Root; } set { m_Root = value; } }
+        public TransformBindingID Root { get { return m_Root; } set { m_Root = value; InvalidateActiveTransformChannelsRange(); } }
 
         /// <summary>
-        /// Retrieves Transform Labels.
+        /// Retrieves all the Transform channels in this skeleton, both inactive and active, including those outside of the root.
+        /// The transform channels will be returned sorted by path
         /// </summary>
-        internal IReadOnlyList<TransformLabelReference> TransformLabels => m_TransformLabels;
+        /// <param name="destination">The list the transform channels will be copied into</param>
+        /// <param name="searchMode">Flags that determine which transforms to return.</param>
+        public void GetAllTransforms(List<TransformChannel> destination, TransformChannelSearchMode searchMode = TransformChannelSearchMode.Default)
+        {
+            destination.Clear();
+
+            bool invertActive = false;
+            RangeInt activeRange = default;
+            RangeInt inactiveRange = default;
+            int count;
+
+            // We have two lists, the "active list" and the "inactive list".
+            // We also have a root that's set in the skeleton, which is one of its bones.
+            // The "inactive list" is always _completely_ inactive.
+            // However, outside the skeleton, we only treat the part of the "active list" that's a descendant of the root, as active.
+            // So the part of the "active list" that is NOT a descendant of the root, can actually be considered inactive.
+            // (We retain explicit active/inactive state in this way to preserve history in the Inspector-based workflow)
+
+            if ((searchMode & TransformChannelSearchMode.InactiveAll) != 0)
+            {
+                // Add the complete contents of the inactive list
+                inactiveRange = new RangeInt(0, m_InactiveTransformChannels.Count);
+                count = inactiveRange.length;
+
+                // We also need to add the part of the active list that's outside the root (we treat it as inactive)
+                if ((searchMode & TransformChannelSearchMode.ActiveRootDescendants) == 0)
+                {
+                    // If we don't want to add the active part, we get the range of the part of the active list
+                    // that's a descendant of the root (the only part we _actually_ treat as active) and
+                    // invert the output (only add what's NOT in this range)
+                    activeRange = GetActiveTransformChannelsRange();
+                    count += m_TransformChannels.Count - activeRange.length;
+                    invertActive = true;
+                }
+                else
+                {
+                    // If we also add the active part that's a descendent of the root, we essentially add the entire "active" list
+                    activeRange = new RangeInt(0, m_TransformChannels.Count);
+                    count += activeRange.length;
+                }
+            }
+            else if ((searchMode & TransformChannelSearchMode.InactiveRootDescendants) != 0)
+            {
+                // Add the part of the inactive list which is a descendant of the root
+                inactiveRange = GetImplicitlyInactiveTransformChannelsRange();
+                count = inactiveRange.length;
+                if ((searchMode & TransformChannelSearchMode.ActiveRootDescendants) != 0)
+                {
+                    // Add the part of the active list which is a descendant of the root
+                    activeRange = GetActiveTransformChannelsRange();
+                    count += activeRange.length;
+                }
+            }
+            else if ((searchMode & TransformChannelSearchMode.ActiveRootDescendants) != 0)
+            {
+                // Only add the part of the active list which is a descendant of the root
+                activeRange = GetActiveTransformChannelsRange();
+                count = activeRange.length;
+            }
+            else
+                // none of the flags has been set, so we've been asked to return ... nothing
+                return;
+
+            if (destination.Capacity < count)
+                destination.Capacity = count;
+
+            for (int i = inactiveRange.start; i < inactiveRange.end; i++)
+                destination.Add(m_InactiveTransformChannels[i]);
+
+            if (invertActive)
+            {
+                for (int i = 0; i < activeRange.start; i++) destination.Add(m_TransformChannels[i]);
+                for (int i = activeRange.end; i < m_TransformChannels.Count; i++) destination.Add(m_TransformChannels[i]);
+            }
+            else
+            {
+                for (int i = activeRange.start; i < activeRange.end; i++) destination.Add(m_TransformChannels[i]);
+            }
+            destination.Sort();
+        }
 
         /// <summary>
-        /// Retrieves Generic Property Labels.
+        /// Returns the number of active transform channels
         /// </summary>
-        internal IReadOnlyList<GenericPropertyLabelReference> GenericPropertyLabels => m_GenericPropertyLabels;
+        public int ActiveTransformChannelCount
+        {
+            get
+            {
+                return GetActiveTransformChannelsRange().length;
+            }
+        }
 
         /// <summary>
-        /// Retrieves the Transform channels that are active.
+        /// Returns the number of inactive transform channels
         /// </summary>
-        public IReadOnlyList<TransformChannel> ActiveTransformChannels => m_TransformChannels;
-
-        /// <summary>
-        /// Retrieves the Transform channels that are currently inactive.
-        /// </summary>
-        public IReadOnlyList<TransformChannel> InactiveTransformChannels => m_InactiveTransformChannels;
+        public int InactiveTransformChannelCount
+        {
+            get
+            {
+                return (m_TransformChannels.Count + m_InactiveTransformChannels.Count) - ActiveTransformChannelCount;
+            }
+        }
 
         /// <summary>
         /// Retrieves the Integer channels.
@@ -605,19 +413,26 @@ namespace Unity.Animation.Authoring
         {
         }
 
+        private void OnValidate()
+        {
+            // This ensures the range, which is not serialized, is updated on Undo
+            InvalidateActiveTransformChannelsRange();
+        }
+
         /// <summary>
         /// Clears all channels and labels.
         /// </summary>
         public void Clear()
         {
+            m_RootRange = s_InvalidRange;
+
             m_TransformChannels.Clear();
             m_InactiveTransformChannels.Clear();
             m_IntChannels.Clear();
             m_FloatChannels.Clear();
             m_QuaternionChannels.Clear();
 
-            m_TransformLabels.Clear();
-            m_GenericPropertyLabels.Clear();
+            InvalidateActiveTransformChannelsRange();
         }
 
         /// <summary>
@@ -673,8 +488,10 @@ namespace Unity.Animation.Authoring
 
                         // if parent exists in active list, insert as normal
                         if (m_TransformChannels.BinarySearch(comparableParentChannel) >= 0)
+                        {
                             insertIndex = m_TransformChannels.BinarySearch(channel);
-
+                            InvalidateActiveTransformChannelsRange();
+                        }
                         // otherwise, see if parent exists in inactive list
                         else if (m_InactiveTransformChannels.BinarySearch(comparableParentChannel) >= 0)
                         {
@@ -692,10 +509,12 @@ namespace Unity.Animation.Authoring
                         channel.ID = parentID;
                         channel.Properties = TransformChannelProperties.Default;
                     }
-                    while (parentID != TransformBindingID.Invalid && parentID != TransformBindingID.Root && !Contains(parentID));
+                    while (parentID != TransformBindingID.Invalid && !Contains(parentID, TransformChannelSearchMode.ActiveAndInactiveAll));
 
                     foreach (var ch in m_ModifiedChannels)
                         BoneAdded?.Invoke(ch);
+
+                    InvalidateActiveTransformChannelsRange();
                 }
                 else
                 {
@@ -707,6 +526,7 @@ namespace Unity.Animation.Authoring
             else
             {
                 m_TransformChannels[activeIndex] = channel;
+                InvalidateActiveTransformChannelsRange();
 
                 BoneModified?.Invoke(channel.ID);
             }
@@ -745,75 +565,17 @@ namespace Unity.Animation.Authoring
             // Remove transform channel associated with binding id and descendants
             m_ModifiedChannels.Clear();
             bool hasRemovedBone = RemoveTransformChannelAndDescendants(m_TransformChannels, id, m_ModifiedChannels);
-            hasRemovedBone |= RemoveTransformChannelAndDescendants(m_InactiveTransformChannels, id, m_ModifiedChannels);
+            if (hasRemovedBone)
+                InvalidateActiveTransformChannelsRange();
 
-            // Remove all transform labels associated with binding ids
-            foreach (var ch in m_ModifiedChannels)
-                for (int index = m_TransformLabels.Count - 1; index >= 0; --index)
-                {
-                    if (m_TransformLabels[index].ID.Equals(ch))
-                    {
-                        m_TransformLabels.RemoveAt(index);
-                    }
-                }
+            hasRemovedBone |= RemoveTransformChannelAndDescendants(m_InactiveTransformChannels, id, m_ModifiedChannels);
 
             foreach (var ch in m_ModifiedChannels)
                 BoneRemoved?.Invoke(ch);
 
+            InvalidateActiveTransformChannelsRange();
+
             return hasRemovedBone;
-        }
-
-        /// <summary>
-        /// Appends the Transform label unto a channel identified by specified transform binding.
-        /// </summary>
-        /// <param name="id">The Transform binding ID.</param>
-        /// <param name="label">The Transform property label.</param>
-        /// <returns>Returns True if label has been added to channel. False otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal bool AddTransformLabel(TransformBindingID id, TransformLabel label)
-        {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
-
-            // TransformLabel is already associated to a transform. Cannot add the same transform label twice.
-            if (m_TransformLabels.FindIndex(labelReference => labelReference.Label == label) != -1)
-                return false;
-
-            // Shouldn't be able to add a label if property doesn't exist in bindings.
-            if (m_TransformChannels.FindIndex(channel => channel.ID.Equals(id)) == -1)
-            {
-                if (m_InactiveTransformChannels.FindIndex(channel => channel.ID.Equals(id)) == -1)
-                    return false;
-            }
-
-            m_TransformLabels.Add(new TransformLabelReference
-            {
-                ID = id,
-                Label = label
-            });
-
-            return true;
-        }
-
-        /// <summary>
-        /// Removes the Transform label from channel it has been appended to.
-        /// </summary>
-        /// <param name="label">The Transform property label.</param>
-        /// <returns>Returns True if label has been removed from channel. False otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal bool RemoveTransformLabel(TransformLabel label)
-        {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
-
-            int index = m_TransformLabels.FindIndex(labelReference => labelReference.Label == label);
-            if (index != -1)
-            {
-                m_TransformLabels.RemoveAt(index);
-                return true;
-            }
-
-            return false;
         }
 
         /// <summary>
@@ -854,14 +616,6 @@ namespace Unity.Animation.Authoring
         private void AddOrSetGenericTupleProperty<T>(GenericBindingID id, List<GenericChannel<T>> channels, T[] defaultValues)
             where T : struct
         {
-            var genericPropertyLabel = GenericPropertyLabel.Create(id.AttributeName);
-
-            m_GenericPropertyLabels.Add(new GenericPropertyLabelReference
-            {
-                ID = id,
-                Label = genericPropertyLabel
-            });
-
             for (int i = 0; i < defaultValues.Length; ++i)
             {
                 AddOrSetGenericProperty(id[i], channels, defaultValues[i]);
@@ -927,15 +681,6 @@ namespace Unity.Animation.Authoring
         private bool RemoveGenericTupleProperty<T>(GenericBindingID id, List<GenericChannel<T>> channels)
             where T : struct
         {
-            // Remove all generic labels associated to binding id.
-            for (int index = m_GenericPropertyLabels.Count - 1; index >= 0; --index)
-            {
-                if (m_GenericPropertyLabels[index].ID.Equals(id))
-                {
-                    m_GenericPropertyLabels.RemoveAt(index);
-                }
-            }
-
             bool hasRemovedProperty = false;
             for (int i = 0; i < id.ValueType.GetNumberOfChannels(); ++i)
             {
@@ -959,120 +704,34 @@ namespace Unity.Animation.Authoring
                 hasRemovedProperty = true;
             }
 
-            // Remove all generic labels associated to binding id.
-            for (index = m_GenericPropertyLabels.Count - 1; index >= 0; --index)
-            {
-                if (m_GenericPropertyLabels[index].ID.Equals(id))
-                {
-                    m_GenericPropertyLabels.RemoveAt(index);
-                }
-            }
-
             return hasRemovedProperty;
         }
 
         /// <summary>
-        /// Appends the property label unto a channel identified by specified generic binding.
+        /// Invalidates the range of the active transform channels.
         /// </summary>
-        /// <param name="id">The generic binding ID.</param>
-        /// <param name="label">The generic property label.</param>
-        /// <returns>Returns True if label was successfully appended to channel. False otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal bool AddGenericPropertyLabel(GenericBindingID id, GenericPropertyLabel label)
+        void InvalidateActiveTransformChannelsRange()
         {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
-
-            switch (id.ValueType.GetGenericChannelType())
-            {
-                case GenericPropertyType.Float:
-                    return AddGenericPropertyLabel(id, m_FloatChannels, label);
-                case GenericPropertyType.Int:
-                    return AddGenericPropertyLabel(id, m_IntChannels, label);
-                case GenericPropertyType.Quaternion:
-                    return AddGenericPropertyLabel(id, m_QuaternionChannels, label);
-            }
-
-            return false;
+            m_RootRange = s_InvalidRange;
         }
 
-        private bool AddGenericPropertyLabel<T>(GenericBindingID id, List<GenericChannel<T>> channels, GenericPropertyLabel label)
-            where T : struct
+        void UpdateActiveTransformChannelsRange()
         {
-            // GenericLabel is already associated to a property. Cannot add the same property label twice.
-            if (m_GenericPropertyLabels.FindIndex(labelReference => labelReference.Label == label) != -1)
-                return false;
-
-            // Shouldn't be able to add a label if property doesn't exist in bindings.
-            if (id.ValueType.GetNumberOfChannels() > 1)
+            if (m_Root.Equals(TransformBindingID.Invalid))
             {
-                // To define a label on a tuple property, all channels must be defined for property.
-                for (int i = 0; i < id.ValueType.GetNumberOfChannels(); ++i)
-                {
-                    if (channels.FindIndex(channel => channel.ID.Equals(id[i])) == -1)
-                        return false;
-                }
-            }
-            else
-            {
-                if (channels.FindIndex(channel => channel.ID.Equals(id)) == -1)
-                    return false;
+                m_RootRange = new RangeInt(0, m_TransformChannels.Count);
+                return;
             }
 
-            // Label ValueType must match associated ID
-            if (id.ValueType != label.ValueType)
-                return false;
-
-            m_GenericPropertyLabels.Add(new GenericPropertyLabelReference
+            int index = m_TransformChannels.FindIndex((channel) => channel.ID.Equals(m_Root));
+            if (index == -1)
             {
-                ID = id,
-                Label = label
-            });
-
-            return true;
-        }
-
-        /// <summary>
-        /// Removes the property label from channel it has been appended to.
-        /// </summary>
-        /// <param name="label">The generic property label.</param>
-        /// <returns>Returns True if label has been removed from channel. False otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal bool RemoveGenericPropertyLabel(GenericPropertyLabel label)
-        {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
-
-            int index = m_GenericPropertyLabels.FindIndex(labelReference => labelReference.Label == label);
-            if (index != -1)
-            {
-                m_GenericPropertyLabels.RemoveAt(index);
-                return true;
+                m_RootRange = new RangeInt(0, m_TransformChannels.Count);
+                return;
             }
 
-            return false;
-        }
-
-        /// <summary>
-        /// Queries whether the skeleton definition implements all the labels of a label set.
-        /// </summary>
-        /// <param name="labelSet">The label set.</param>
-        /// <returns>Returns True if all labels are referenced in the skeleton definition. False otherwise.</returns>
-        /// <exception cref="ArgumentNullException">labelSet is null.</exception>
-        internal bool ImplementsLabelSet(SkeletonLabelSet labelSet)
-        {
-            if (labelSet == null)
-                throw new ArgumentNullException($"The Argument {nameof(labelSet)} cannot be null");
-
-            bool allLabelsAreSet = labelSet.TransformLabels.Find(label => QueryTransformIndex(label) == -1);
-            if (!allLabelsAreSet)
-                return false;
-
-            allLabelsAreSet = labelSet.GenericPropertyLabels.Find(label => QueryGenericPropertyIndex(label) == -1);
-            if (!allLabelsAreSet)
-                return false;
-
-            return true;
+            int lastIndex = m_TransformChannels.FindLastIndex((channel) => channel.ID.Path.StartsWith(m_Root.Path));
+            m_RootRange = new RangeInt(index, lastIndex - index + 1);
         }
 
         /// <summary>
@@ -1081,37 +740,31 @@ namespace Unity.Animation.Authoring
         /// <returns>Returns the range based on the skeleton root node.</returns>
         RangeInt GetActiveTransformChannelsRange()
         {
-            if (m_Root.Equals(TransformBindingID.Invalid))
-                return new RangeInt(0, m_TransformChannels.Count);
+            if (m_RootRange.start == s_InvalidRange.start &&
+                m_RootRange.length == s_InvalidRange.length)
+            {
+                UpdateActiveTransformChannelsRange();
+            }
 
-            int index = m_TransformChannels.FindIndex((channel) => channel.ID.Equals(m_Root));
-            if (index == -1)
-                return new RangeInt(0, m_TransformChannels.Count);
-
-            int lastIndex = m_TransformChannels.FindLastIndex((channel) => channel.ID.Path.StartsWith(m_Root.Path));
-
-            return new RangeInt(index, lastIndex - index + 1);
+            return m_RootRange;
         }
 
         /// <summary>
-        /// Queries the channel index that is identified by the specified label.
-        /// Optionally, continuous channels can be queried by specifying a size.
+        /// Retrieves the range in the inactive transform channels based on the skeleton root node if set.
         /// </summary>
-        /// <param name="label">The transform property label.</param>
-        /// <param name="size">The continuous size of channels to query.</param>
-        /// <returns>Returns the index if channels matching the query were found. -1 otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal int QueryTransformIndex(TransformLabel label, uint size = 1)
+        /// <returns>Returns the range based on the skeleton root node.</returns>
+        RangeInt GetImplicitlyInactiveTransformChannelsRange()
         {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
+            if (m_Root.Equals(TransformBindingID.Invalid))
+                return new RangeInt(0, m_InactiveTransformChannels.Count);
 
-            var index = m_TransformLabels.FindIndex(labelReference => labelReference.Label == label);
+            int index = m_InactiveTransformChannels.FindIndex((channel) => channel.ID.Equals(m_Root));
             if (index == -1)
-                return -1;
+                return new RangeInt(0, m_InactiveTransformChannels.Count);
 
-            var id = m_TransformLabels[index].ID;
-            return QueryTransformIndex(id, size);
+            int lastIndex = m_InactiveTransformChannels.FindLastIndex((channel) => channel.ID.Path.StartsWith(m_Root.Path));
+
+            return new RangeInt(index, lastIndex - index + 1);
         }
 
         /// <summary>
@@ -1139,94 +792,70 @@ namespace Unity.Animation.Authoring
         /// Determines if the channel that is identified by the specified id is part of this skeleton.
         /// </summary>
         /// <param name="id">The transform binding id.</param>
+        /// <param name="searchMode">Flags that determine which channels to check.</param>
         /// <returns>Returns the true if the id exists in this skeleton, false otherwise.</returns>
         /// <exception cref="ArgumentException">id is invalid</exception>
-        public bool Contains(TransformBindingID id)
+        public bool Contains(TransformBindingID id, TransformChannelSearchMode searchMode = TransformChannelSearchMode.Default)
         {
             if (id.Equals(TransformBindingID.Invalid))
                 throw new ArgumentException("Invalid identifier", nameof(id));
 
-            return m_TransformChannels.FindIndex(channel => channel.ID.Equals(id)) != -1
-                || m_InactiveTransformChannels.FindIndex(channel => channel.ID.Equals(id)) != -1;
-        }
-
-        /// <summary>
-        /// Queries the transform labels that are associated with a channel ID.
-        /// </summary>
-        /// <param name="id">Channel ID</param>
-        /// <param name="labels">List of transform labels.</param>
-        /// <exception cref="ArgumentException">id is invalid</exception>
-        internal void QueryTransformLabels(TransformBindingID id, List<TransformLabel> labels)
-        {
-            if (id.Equals(TransformBindingID.Invalid))
-                throw new ArgumentException($"The Argument {nameof(id)} is not valid");
-
-            for (int i = 0; i < m_TransformLabels.Count; ++i)
+            if ((searchMode & TransformChannelSearchMode.InactiveAll) != 0)
             {
-                if (m_TransformLabels[i].ID.Equals(id))
-                    labels.Add(m_TransformLabels[i].Label);
+                // The complete inactive list needs to be checked
+                if (m_InactiveTransformChannels.FindIndex(channel => channel.ID.Equals(id)) != -1)
+                    return true;
+
+                // We also need to check the part of the active list that's outside the root (we treat it as inactive)
+                if ((searchMode & TransformChannelSearchMode.ActiveRootDescendants) == 0)
+                {
+                    // If we don't want to check the active part, we get the range of the part of the "active list"
+                    // that's a descendant of the root (the only part we _actually_ treat as active) and
+                    // invert it (only check what's NOT in this range)
+                    var activeRange = GetActiveTransformChannelsRange();
+                    var index = m_TransformChannels.FindIndex(channel => channel.ID.Equals(id));
+                    return (index != -1 &&
+                        (index < activeRange.start || index > activeRange.end));
+                }
+                else
+                {
+                    // If we also check the active part that's a descendent of the root, we essentially
+                    // need to check the entire "active list"
+                    return (m_TransformChannels.FindIndex(channel => channel.ID.Equals(id)) != -1);
+                }
             }
-        }
+            else if ((searchMode & TransformChannelSearchMode.InactiveRootDescendants) != 0)
+            {
+                // Check the part of the inactive list which is a descendant of the root
+                var inactiveRange = GetImplicitlyInactiveTransformChannelsRange();
+                var index = m_InactiveTransformChannels.FindIndex(channel => channel.ID.Equals(id));
+                if (index != -1 &&
+                    index >= inactiveRange.start && index <= inactiveRange.end)
+                    return true;
+            }
 
-        /// <summary>
-        /// Queries the channel index that is identified by the specified label.
-        /// Optionally, continuous channels can be queried by specifying a size.
-        /// </summary>
-        /// <param name="label">The generic property label.</param>
-        /// <param name="size">The continuous size of channels to query.</param>
-        /// <returns>Returns the index if channels matching the query were found. -1 otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal int QueryGenericPropertyIndex(GenericPropertyLabel label, uint size)
-        {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
-
-            var index = m_GenericPropertyLabels.FindIndex(labelReference => labelReference.Label == label);
-            if (index == -1)
-                return -1;
-
-            var id = m_GenericPropertyLabels[index].ID;
-
-            // Label does not match binding ID.
-            if (label.ValueType != id.ValueType)
-                return -1;
-
-            return QueryGenericPropertyIndex(id, size);
-        }
-
-        /// <summary>
-        /// Queries the channel index that is identified by the specified label.
-        /// Optionally, continuous channels can be queried by specifying a size.
-        /// </summary>
-        /// <param name="label">The generic property label.</param>
-        /// <returns>Returns the index if channels matching the query were found. -1 otherwise.</returns>
-        /// <exception cref="ArgumentNullException">label is null.</exception>
-        internal int QueryGenericPropertyIndex(GenericPropertyLabel label)
-        {
-            if (label == null)
-                throw new ArgumentNullException($"The Argument {nameof(label)} cannot be null");
-
-            var index = m_GenericPropertyLabels.FindIndex(labelReference => labelReference.Label == label);
-            if (index == -1)
-                return -1;
-
-            var id = m_GenericPropertyLabels[index].ID;
-
-            // Label does not match binding ID.
-            if (label.ValueType != id.ValueType)
-                return -1;
-
-            return QueryGenericPropertyIndex(id, id.ValueType.GetNumberOfChannels());
+            if ((searchMode & TransformChannelSearchMode.ActiveRootDescendants) != 0)
+            {
+                // Only check the part of the "active list" which is a descendant of the root
+                var activeRange = GetActiveTransformChannelsRange();
+                var index = m_TransformChannels.FindIndex(channel => channel.ID.Equals(id));
+                if (index != -1 &&
+                    index >= activeRange.start &&
+                    index <= activeRange.end)
+                    return true;
+            }
+            // else: none of the flags has been set, so we've been asked to return ... nothing
+            return false;
         }
 
         /// <summary>
         /// Queries the channel index that is identified by the specified binding id.
         /// </summary>
         /// <param name="id">The generic binding id.</param>
-        /// <returns>Returns the index if channels matching the query were found. -1 otherwise.</returns>
+        /// <returns>Returns a tuple combining the channel index and the channel type matching the query if successful. (-1, GenericChannelType.Invalid) otherwise.</returns>
         /// <exception cref="ArgumentException">id is invalid</exception>
         /// <exception cref="InvalidOperationException">Type must be a recognized animatable type.</exception>
-        internal int QueryGenericPropertyIndex(GenericBindingID id)
+        internal (int, GenericChannelType) QueryGenericPropertyIndex(GenericBindingID id)
         {
             return QueryGenericPropertyIndex(id, id.ValueType.GetNumberOfChannels());
         }
@@ -1237,10 +866,10 @@ namespace Unity.Animation.Authoring
         /// </summary>
         /// <param name="id">The generic binding id.</param>
         /// <param name="size">The continuous size of channels to query.</param>
-        /// <returns>Returns the index if channels matching the query were found. -1 otherwise.</returns>
+        /// <returns>Returns a tuple combining the channel index and the channel type matching the query if successful. (-1, GenericChannelType.Invalid) otherwise.</returns>
         /// <exception cref="ArgumentException">id is invalid</exception>
         /// <exception cref="InvalidOperationException">Type must be a recognized animatable type.</exception>
-        internal int QueryGenericPropertyIndex(GenericBindingID id, uint size = 1)
+        internal (int, GenericChannelType) QueryGenericPropertyIndex(GenericBindingID id, uint size = 1)
         {
             if (id.Equals(GenericBindingID.Invalid))
                 throw new ArgumentException($"The Argument {nameof(id)} is not valid");
@@ -1263,14 +892,14 @@ namespace Unity.Animation.Authoring
             }
         }
 
-        private int QueryGenericPropertyIndex<T>(List<GenericChannel<T>> channels, GenericBindingID id, uint size)
+        private (int, GenericChannelType) QueryGenericPropertyIndex<T>(List<GenericChannel<T>> channels, GenericBindingID id, uint size)
             where T : struct
         {
             var index = channels.FindIndex(channel => channel.ID.Equals(id));
             if (index != -1)
-                return ((index + size) <= channels.Count) ? index : -1;
+                return (((index + size) <= channels.Count) ? index : -1, id.ChannelType);
 
-            return -1;
+            return (-1, id.ChannelType);
         }
 
         /// <summary>
@@ -1285,26 +914,26 @@ namespace Unity.Animation.Authoring
             if (id.Equals(GenericBindingID.Invalid))
                 throw new ArgumentException($"The Argument {nameof(id)} is not valid");
 
-            var index = QueryGenericPropertyIndex(id);
+            var index = QueryGenericPropertyIndex(id).Item1;
             if (index != -1)
             {
                 uint numberOfChannels = id.ValueType.GetNumberOfChannels();
 
-                switch (id.ValueType.GetGenericChannelType())
+                switch (id.ChannelType)
                 {
-                    case GenericPropertyType.Float:
+                    case GenericChannelType.Float:
                         for (int i = 0; i < numberOfChannels; ++i)
                         {
                             channels.Add(m_FloatChannels[index + i]);
                         }
                         break;
-                    case GenericPropertyType.Int:
+                    case GenericChannelType.Int:
                         for (int i = 0; i < numberOfChannels; ++i)
                         {
                             channels.Add(m_IntChannels[index + i]);
                         }
                         break;
-                    case GenericPropertyType.Quaternion:
+                    case GenericChannelType.Quaternion:
                         for (int i = 0; i < numberOfChannels; ++i)
                         {
                             channels.Add(m_QuaternionChannels[index + i]);
@@ -1317,47 +946,13 @@ namespace Unity.Animation.Authoring
         }
 
         /// <summary>
-        /// Queries Property Labels associated to a specific channel.
-        /// </summary>
-        /// <param name="id">Channel ID</param>
-        /// <param name="labels">List of property labels.</param>
-        /// <exception cref="ArgumentException">id is invalid</exception>
-        internal void QueryGenericPropertyLabels(GenericBindingID id, List<GenericPropertyLabel> labels)
-        {
-            if (id.Equals(GenericBindingID.Invalid))
-                throw new ArgumentException($"The Argument {nameof(id)} is not valid");
-
-            for (int i = 0; i < m_GenericPropertyLabels.Count; ++i)
-            {
-                if (m_GenericPropertyLabels[i].ID.Equals(id))
-                {
-                    labels.Add(m_GenericPropertyLabels[i].Label);
-                }
-            }
-
-            if (id.ValueType.GetNumberOfChannels() > 1)
-            {
-                for (int i = 0; i < id.ValueType.GetNumberOfChannels(); ++i)
-                {
-                    for (int j = 0; j < m_GenericPropertyLabels.Count; ++j)
-                    {
-                        if (m_GenericPropertyLabels[j].ID.Equals(id[i]))
-                        {
-                            labels.Add(m_GenericPropertyLabels[j].Label);
-                        }
-                    }
-                }
-            }
-        }
-
-        /// <summary>
         /// Creates the DOTS representation of a rig.
         /// </summary>
         /// <param name="hasher">
         /// The hash function used to generate the ID of the rig channels.
         /// </param>
         /// <returns>The blob asset reference of a RigDefinition.</returns>
-        public BlobAssetReference<RigDefinition> ToRigDefinition(IBindingHashGenerator hasher = null)
+        public BlobAssetReference<RigDefinition> ToRigDefinition(BindingHashGenerator hasher = default)
         {
             BlobAssetReference<RigDefinition> rigDefinition;
             using (var rigBuilderData = ToRigBuilderData(hasher, Allocator.Temp))
@@ -1386,9 +981,10 @@ namespace Unity.Animation.Authoring
         /// If you have your own rig representation, you just need to create a function like this one that fills
         /// a <see cref="RigBuilderData"/> and use it with <see cref="RigBuilder.CreateRigDefinition"/>.
         /// </remarks>
-        public RigBuilderData ToRigBuilderData(IBindingHashGenerator hasher = null, Allocator allocator = Allocator.Persistent)
+        public RigBuilderData ToRigBuilderData(BindingHashGenerator hasher = default, Allocator allocator = Allocator.Persistent)
         {
-            hasher = hasher ?? new BindingHashGenerator();
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
 
             var transformChannelsRange = GetActiveTransformChannelsRange();
 
@@ -1403,17 +999,33 @@ namespace Unity.Animation.Authoring
             rigBuilderData.FloatChannels.Capacity = floatChannelsCount;
             rigBuilderData.IntChannels.Capacity = intChannelsCount;
 
-            for (int i = transformChannelsRange.start; i < transformChannelsRange.end; i++)
+            if (transformChannelsRange.length > 0)
             {
-                rigBuilderData.SkeletonNodes.Add(new SkeletonNode
+                for (int i = transformChannelsRange.start; i < transformChannelsRange.end; i++)
                 {
-                    Id = hasher.ToHash(m_TransformChannels[i].ID),
-                    AxisIndex = -1,
-                    LocalTranslationDefaultValue = m_TransformChannels[i].Properties.DefaultTranslationValue,
-                    LocalRotationDefaultValue = m_TransformChannels[i].Properties.DefaultRotationValue,
-                    LocalScaleDefaultValue = m_TransformChannels[i].Properties.DefaultScaleValue,
-                    ParentIndex = m_TransformChannels.FindIndex(channel => channel.ID.Equals(m_TransformChannels[i].ID.GetParent()))
-                });
+                    var id = m_TransformChannels[i].ID;
+                    var parentID = id.GetParent();
+
+                    var parentIndex = -1;
+                    for (int j = transformChannelsRange.start; j < i; ++j)
+                    {
+                        if (m_TransformChannels[j].ID.Equals(parentID))
+                        {
+                            parentIndex = j - transformChannelsRange.start;
+                            break;
+                        }
+                    }
+
+                    rigBuilderData.SkeletonNodes.Add(new SkeletonNode
+                    {
+                        Id = hasher.ToHash(id),
+                        AxisIndex = -1,
+                        LocalTranslationDefaultValue = m_TransformChannels[i].Properties.DefaultTranslationValue,
+                        LocalRotationDefaultValue = m_TransformChannels[i].Properties.DefaultRotationValue,
+                        LocalScaleDefaultValue = m_TransformChannels[i].Properties.DefaultScaleValue,
+                        ParentIndex = parentIndex
+                    });
+                }
             }
 
             for (int i = 0; i < m_QuaternionChannels.Count; i++)
@@ -1474,6 +1086,7 @@ namespace Unity.Animation.Authoring
             }
             m_TransformChannels.Sort();
             m_InactiveTransformChannels.Sort();
+            InvalidateActiveTransformChannelsRange();
         }
 
         [Flags]
@@ -1520,7 +1133,7 @@ namespace Unity.Animation.Authoring
                     throw new ArgumentException($"The Argument {nameof(ids)} contains an id that is not valid.", nameof(ids));
 
                 // We need to check if our id exists in our skeleton
-                if (!skeleton.Contains(id))
+                if (!skeleton.Contains(id, TransformChannelSearchMode.ActiveAndInactiveAll))
                     throw new ArgumentException($"The Argument {nameof(ids)} contains an id that is not part of this {nameof(Skeleton)}.", nameof(ids));
 
                 var path = id.Path;
@@ -1590,6 +1203,8 @@ namespace Unity.Animation.Authoring
             if (s_FoundPaths.Count == 0)
                 return;
 
+            InvalidateActiveTransformChannelsRange();
+
             // If the array contains the root, then ALL channels need to be set to active
             if (containsRoot) { m_TransformChannels.AddRange(m_InactiveTransformChannels); m_InactiveTransformChannels.Clear(); m_TransformChannels.Sort(); return; }
 
@@ -1626,6 +1241,8 @@ namespace Unity.Animation.Authoring
             bool containsRoot = GetPathsFromIDs(this, ids, s_FoundPaths);
             if (s_FoundPaths.Count == 0)
                 return;
+
+            InvalidateActiveTransformChannelsRange();
 
             // If the array contains the root, then ALL channels need to be set to inactive
             if (containsRoot) { m_InactiveTransformChannels.AddRange(m_TransformChannels); m_TransformChannels.Clear(); m_InactiveTransformChannels.Sort(); return; }
@@ -1666,6 +1283,8 @@ namespace Unity.Animation.Authoring
             if (s_FoundPaths.Count == 0)
                 return;
 
+            InvalidateActiveTransformChannelsRange();
+
             var pathRelationship = includeSelf ? (BoneRelationship.Ancestor | BoneRelationship.Self) : BoneRelationship.Ancestor;
 
             // We want to move active transform channels to inactive transform channels, based on their path relationship
@@ -1687,17 +1306,85 @@ namespace Unity.Animation.Authoring
         /// <summary>
         /// Queries a given transform channel/bone to see if it's active, inactive or does not exist in this skeleton
         /// </summary>
-        internal TransformChannelState GetTransformChannelState(TransformBindingID id)
+        public TransformChannelState GetTransformChannelState(TransformBindingID id)
         {
             if (id.Equals(TransformBindingID.Invalid))
                 throw new ArgumentException($"The Argument {nameof(id)} is not valid");
             var channelIndex = m_TransformChannels.FindIndex(channel => channel.ID.Equals(id));
             if (channelIndex != -1)
-                return TransformChannelState.Active;
+            {
+                var range = GetActiveTransformChannelsRange();
+                if (channelIndex >= range.start && channelIndex <= range.end)
+                    return TransformChannelState.Active;
+                return TransformChannelState.Inactive;
+            }
             channelIndex = m_InactiveTransformChannels.FindIndex(channel => channel.ID.Equals(id));
             if (channelIndex != -1)
                 return TransformChannelState.Inactive;
             return TransformChannelState.DoesNotExist;
+        }
+
+        internal TransformBindingID GetPrecedingBindingID(TransformBindingID bindingID)
+        {
+            var range = GetActiveTransformChannelsRange();
+            var channelIndex = m_TransformChannels.FindIndex((channel) => channel.ID.Equals(bindingID)) - 1;
+            if (channelIndex >= range.start && channelIndex <= range.end)
+                return m_TransformChannels[channelIndex].ID;
+            return TransformBindingID.Invalid;
+        }
+
+        internal TransformBindingID GetParentBindingID(TransformBindingID bindingID)
+        {
+            if (bindingID == TransformBindingID.Root)
+                return TransformBindingID.Invalid;
+
+            var range = GetActiveTransformChannelsRange();
+            var channelIndex = m_TransformChannels.FindIndex((channel) => channel.ID.Equals(bindingID));
+            if (channelIndex < range.start || channelIndex > range.end)
+                return TransformBindingID.Invalid;
+
+            var desiredChannelPath = bindingID.Path;
+            var desiredChannelPathLength = desiredChannelPath.LastIndexOf(k_PathSeparator);
+            if (desiredChannelPathLength == -1)
+                return TransformBindingID.Root;
+
+            do
+            {
+                channelIndex--;
+                if (channelIndex < range.start)
+                    return TransformBindingID.Invalid;
+
+                var channelPath = m_TransformChannels[channelIndex].ID.Path;
+                if (channelPath.Length > desiredChannelPathLength)
+                    continue;
+
+                if (channelPath.Length < desiredChannelPathLength)
+                    return TransformBindingID.Invalid;
+
+                if (string.Compare(desiredChannelPath, 0, channelPath, 0, desiredChannelPathLength) == 0)
+                    return m_TransformChannels[channelIndex].ID;
+            }
+            while (true);
+        }
+
+        internal TransformBindingID GetNextBindingID(TransformBindingID bindingID)
+        {
+            var range = GetActiveTransformChannelsRange();
+            var channelIndex = m_TransformChannels.FindIndex((channel) => channel.ID.Equals(bindingID)) + 1;
+            if (channelIndex >= range.start && channelIndex <= range.end)
+                return m_TransformChannels[channelIndex].ID;
+            return TransformBindingID.Invalid;
+        }
+
+        internal TransformBindingID GetBindingIDByRuntimeIndex(int runtimeIndex)
+        {
+            if (runtimeIndex < 0)
+                return TransformBindingID.Invalid;
+            var range = GetActiveTransformChannelsRange();
+            if (runtimeIndex >= range.length)
+                return TransformBindingID.Invalid;
+            var channelIndex = runtimeIndex + range.start;
+            return m_TransformChannels[channelIndex].ID;
         }
     }
 }

@@ -9,6 +9,7 @@ namespace Unity.Animation.Authoring
     /// </summary>
     public enum GenericPropertyType : byte
     {
+        Invalid,
         Float,
         Float2,
         Float3,
@@ -20,8 +21,29 @@ namespace Unity.Animation.Authoring
         Quaternion
     }
 
+    /// <summary>
+    /// This enum defines animatable generic channel types.
+    /// </summary>
+    public enum GenericChannelType : byte
+    {
+        Invalid      = GenericPropertyType.Invalid,
+        Float        = GenericPropertyType.Float,
+        Int          = GenericPropertyType.Int,
+        Quaternion   = GenericPropertyType.Quaternion
+    }
+
+    /// <summary>
+    /// Extension methods for GenericPropertyType.
+    /// </summary>
     public static class GenericPropertyTypeExtensions
     {
+        /// <summary>
+        /// Retrieves the number of channels that are required by the specified
+        /// generic property type.
+        /// </summary>
+        /// <param name="type">Type of generic property.</param>
+        /// <returns>Number of channels.</returns>
+        /// <exception cref="InvalidOperationException">Type is invalid.</exception>
         public static uint GetNumberOfChannels(this GenericPropertyType type)
         {
             switch (type)
@@ -44,7 +66,13 @@ namespace Unity.Animation.Authoring
             }
         }
 
-        public static GenericPropertyType GetGenericChannelType(this GenericPropertyType type)
+        /// <summary>
+        /// Retrieves the concrete channel type for the specified generic property type.
+        /// </summary>
+        /// <param name="type">Type of generic property.</param>
+        /// <returns>Type of channel.</returns>
+        /// <exception cref="InvalidOperationException">Type is invalid.</exception>
+        public static GenericChannelType GetGenericChannelType(this GenericPropertyType type)
         {
             switch (type)
             {
@@ -52,14 +80,14 @@ namespace Unity.Animation.Authoring
                 case GenericPropertyType.Float2:
                 case GenericPropertyType.Float3:
                 case GenericPropertyType.Float4:
-                    return GenericPropertyType.Float;
+                    return GenericChannelType.Float;
                 case GenericPropertyType.Int:
                 case GenericPropertyType.Int2:
                 case GenericPropertyType.Int3:
                 case GenericPropertyType.Int4:
-                    return GenericPropertyType.Int;
+                    return GenericChannelType.Int;
                 case GenericPropertyType.Quaternion:
-                    return GenericPropertyType.Quaternion;
+                    return GenericChannelType.Quaternion;
                 default:
                     throw new InvalidOperationException($"Invalid Type {type}");
             }

@@ -12,21 +12,21 @@ namespace Unity.Animation.Tests
         [Test]
         public void RigComponent_Upgrade_VersionIsUpdated()
         {
-            rigComponent.Version = 0;
+            Component.Version = 0;
 
-            rigComponent.UpgradeWhenNecessary();
+            Component.UpgradeWhenNecessary();
 
-            Assert.AreEqual(RigComponent.LatestVersion, rigComponent.Version);
+            Assert.AreEqual(RigComponent.LatestVersion, Component.Version);
         }
 
         [Test]
         public void RigComponent_WhenInvalidBonesSerialized_UpgradeWhenNecessary_RemovesInvalidBones()
         {
             var boneNotInHierarchy  = CreateBoneNotInHierarchy();
-            var boneInHierarchy     = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy     = CreateBoneInHierarchy(Component);
             var destroyedBone       = CreateDestroyedBone();
-            rigComponent.Version  = 0;
-            rigComponent.Bones = new[]
+            Component.Version  = 0;
+            Component.Bones = new[]
             {
                 null,               // not a bone
                 boneInHierarchy,    // part of the hierarchy, valid
@@ -34,39 +34,39 @@ namespace Unity.Animation.Tests
                 destroyedBone       // destroyed, invalid
             };
 
-            rigComponent.UpgradeWhenNecessary();
+            Component.UpgradeWhenNecessary();
 
             // No bone got added to the excludeBones list
-            Assert.That(rigComponent.ExcludeBones, Is.Empty);
+            Assert.That(Component.ExcludeBones, Is.Empty);
             // Check if all bones, except null and boneInHierarchy, have been added to invalidBones
             // Note that a destroyed transform is still added b/c it might become valid
             // again if a change is reverted. This allows the user to still find the bone
             // in the RigComponent invalid bones list in the inspector.
-            Assert.IsTrue(rigComponent.InvalidBones.Contains(boneNotInHierarchy));
-            Assert.IsTrue(rigComponent.InvalidBones.Contains(destroyedBone));
-            Assert.IsFalse(rigComponent.InvalidBones.Contains(boneInHierarchy));
-            Assert.IsFalse(rigComponent.InvalidBones.Contains(null));
+            Assert.IsTrue(Component.InvalidBones.Contains(boneNotInHierarchy));
+            Assert.IsTrue(Component.InvalidBones.Contains(destroyedBone));
+            Assert.IsFalse(Component.InvalidBones.Contains(boneInHierarchy));
+            Assert.IsFalse(Component.InvalidBones.Contains(null));
             // Check if all bones, except boneInHierarchy, have been removed from Bones
-            Assert.That(rigComponent.Bones, Is.EquivalentTo(new[] { boneInHierarchy }));
+            Assert.That(Component.Bones, Is.EquivalentTo(new[] { boneInHierarchy }));
         }
 
         [Test]
         public void RigComponent_WithChildBoneNotInChildListAndUpgrade_IsPartOfExcludeAndNotBones()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
-            var boneInHierarchyButNotPartOfBonesList = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
+            var boneInHierarchyButNotPartOfBonesList = CreateBoneInHierarchy(Component);
             boneInHierarchyButNotPartOfBonesList.transform.parent = boneInHierarchy.transform;
-            rigComponent.Version = 0;
-            rigComponent.Bones = new[] { boneInHierarchy };
+            Component.Version = 0;
+            Component.Bones = new[] { boneInHierarchy };
 
-            rigComponent.UpgradeWhenNecessary();
+            Component.UpgradeWhenNecessary();
 
             // neither bone is part of invalid bones
-            Assume.That(rigComponent.InvalidBones, Is.Empty);
+            Assume.That(Component.InvalidBones, Is.Empty);
             // only boneInHierarchyButNotPartOfBonesList is part of excludedBones
-            Assert.That(rigComponent.ExcludeBones, Is.EquivalentTo(new[] { boneInHierarchyButNotPartOfBonesList }));
+            Assert.That(Component.ExcludeBones, Is.EquivalentTo(new[] { boneInHierarchyButNotPartOfBonesList }));
             // only boneInHierarchy is part of bones
-            Assert.That(rigComponent.Bones, Is.EquivalentTo(new[] { boneInHierarchy }));
+            Assert.That(Component.Bones, Is.EquivalentTo(new[] { boneInHierarchy }));
         }
     }
 }

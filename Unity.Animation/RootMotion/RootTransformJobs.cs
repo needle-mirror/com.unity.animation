@@ -12,7 +12,7 @@ namespace Unity.Animation
     /// root motion component and the disable root transform R/W tag are not present.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct ReadRootTransformJob<TAnimatedRootMotion> : IJobChunk
+    internal struct ReadRootTransformJob<TAnimatedRootMotion> : IJobEntityBatch
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
@@ -39,13 +39,13 @@ namespace Unity.Animation
         [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntityType;
         public BufferTypeHandle<AnimatedData>                AnimatedDataType;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedDataType);
-            var rigs = chunk.GetNativeArray(RigType);
-            var rigRoots = chunk.GetNativeArray(RigRootEntityType);
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedDataType);
+            var rigs = batchInChunk.GetNativeArray(RigType);
+            var rigRoots = batchInChunk.GetNativeArray(RigRootEntityType);
 
-            for (int i = 0; i != chunk.Count; ++i)
+            for (int i = 0; i != batchInChunk.Count; ++i)
             {
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());
                 var rigRoot = rigRoots[i].Value;
@@ -68,7 +68,7 @@ namespace Unity.Animation
     /// world space to root space.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct UpdateRootRemapMatrixJob<TAnimatedRootMotion> : IJobChunk
+    internal struct UpdateRootRemapMatrixJob<TAnimatedRootMotion> : IJobEntityBatch
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
@@ -90,12 +90,12 @@ namespace Unity.Animation
 
         public ComponentTypeHandle<RigRootEntity> RigRootEntityType;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var rigRoots = chunk.GetNativeArray(RigRootEntityType);
+            var rigRoots = batchInChunk.GetNativeArray(RigRootEntityType);
 
-            var isRootDisabled = chunk.Has(DisableRootTransformType);
-            var isAnimatedRootMotion = chunk.Has(AnimatedRootMotionType);
+            var isRootDisabled = batchInChunk.Has(DisableRootTransformType);
+            var isAnimatedRootMotion = batchInChunk.Has(AnimatedRootMotionType);
 
             // Those bools are valid for the whole chunk, so check only once before loop.
             if (isRootDisabled || isAnimatedRootMotion)
@@ -107,7 +107,7 @@ namespace Unity.Animation
                 /// When root motion is enabled, the index 0 of the stream contains the delta
                 /// of the motion. This delta is then accumulated in the LocalToWorld of the rig entity.
                 /// We store the LocalToWorld of the rig entity, that will get multiplied with the root motion delta.
-                for (int i = 0; i != chunk.Count; ++i)
+                for (int i = 0; i != batchInChunk.Count; ++i)
                 {
                     rigRoots[i] = new RigRootEntity
                     {
@@ -129,7 +129,7 @@ namespace Unity.Animation
                 /// If the root entity has a parent, it's akin to the root motion: the index 0 contains an offset
                 /// between the rig and the root bone (that is, it contains the root to rig transform). We store the rig's
                 /// LocalToWorld, that will get multiplied with this offset during the remapping.
-                for (int i = 0; i != chunk.Count; ++i)
+                for (int i = 0; i != batchInChunk.Count; ++i)
                 {
                     var rootEntity = rigRoots[i].Value;
                     var rootTransform = mathex.AffineTransform(EntityLocalToWorld[rootEntity].Value);
@@ -151,7 +151,7 @@ namespace Unity.Animation
     /// disable root transform R/W tag are not present.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct WriteRootTransformJob<TAnimatedRootMotion> : IJobChunk
+    internal struct WriteRootTransformJob<TAnimatedRootMotion> : IJobEntityBatch
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static readonly Translation k_DefaultTranslation = new Translation { Value = float3.zero };
@@ -190,13 +190,13 @@ namespace Unity.Animation
         [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntityType;
         public BufferTypeHandle<AnimatedData>                AnimatedDataType;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedDataType);
-            var rigs = chunk.GetNativeArray(RigType);
-            var rigRoots = chunk.GetNativeArray(RigRootEntityType);
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedDataType);
+            var rigs = batchInChunk.GetNativeArray(RigType);
+            var rigRoots = batchInChunk.GetNativeArray(RigRootEntityType);
 
-            for (int i = 0; i != chunk.Count; ++i)
+            for (int i = 0; i != batchInChunk.Count; ++i)
             {
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());
 
@@ -250,7 +250,7 @@ namespace Unity.Animation
     /// are stored in the system specific IAnimatedRootMotion components.
     /// </summary>
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct AccumulateRootTransformJob<TAnimatedRootMotion> : IJobChunk
+    internal struct AccumulateRootTransformJob<TAnimatedRootMotion> : IJobEntityBatch
         where TAnimatedRootMotion : struct, IAnimatedRootMotion
     {
         static public EntityQueryDesc QueryDesc => new EntityQueryDesc()
@@ -294,15 +294,15 @@ namespace Unity.Animation
         [ReadOnly] public ComponentTypeHandle<RigRootEntity> RigRootEntityType;
         public BufferTypeHandle<AnimatedData>                AnimatedDataType;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var rootMotionOffsets = chunk.GetNativeArray(RootMotionOffsetType);
-            var rootMotions = chunk.GetNativeArray(RootMotionType).Reinterpret<RigidTransform>();
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedDataType);
-            var rigs = chunk.GetNativeArray(RigType);
-            var rigRoots = chunk.GetNativeArray(RigRootEntityType);
+            var rootMotionOffsets = batchInChunk.GetNativeArray(RootMotionOffsetType);
+            var rootMotions = batchInChunk.GetNativeArray(RootMotionType).Reinterpret<RigidTransform>();
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedDataType);
+            var rigs = batchInChunk.GetNativeArray(RigType);
+            var rigRoots = batchInChunk.GetNativeArray(RigRootEntityType);
 
-            for (int i = 0; i < chunk.Count; ++i)
+            for (int i = 0; i < batchInChunk.Count; ++i)
             {
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());
                 var rigRoot = rigRoots[i].Value;

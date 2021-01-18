@@ -18,7 +18,7 @@ namespace Unity.Animation
 
         struct Data : INodeData, IMsgHandler<BlobAssetReference<BlendTree2DSimpleDirectional>>
         {
-            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<BlendTree2DSimpleDirectional> blendTree)
+            public void HandleMessage(MessageContext ctx, in BlobAssetReference<BlendTree2DSimpleDirectional> blendTree)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -60,7 +60,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 Core.ValidateIsCreated(data.BlendTree);
 

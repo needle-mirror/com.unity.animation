@@ -1,0 +1,42 @@
+.sm-basestate {
+    min-width: 500px;
+    min-height: 300px;
+
+    position: absolute;
+
+    --border-radius: 4px;
+    --selection-border-radius: 6px;
+    border-radius: var(--border-radius);
+    background-image: none;
+
+    background-color: #313131;
+
+    overflow: visible;
+}
+
+.sm-basestate .sm-basestate__title-container {
+    flex-grow: 1;
+}
+
+.sm-basestate .ge-editable-title-part {
+    padding: 4px 6px;
+}
+
+.sm-basestate .ge-editable-title-part__title {
+    font-size: 80px;
+    -unity-font-style: bold;
+    max-height: 90px;
+    --text-align: middle-center;
+}
+
+.sm-basestate .ge-selection-border__content-container {
+    background-color: rgba(63, 63, 63, 0.0);
+}
+
+.sm-graphstate {
+    background-color: #226542;
+}
+
+.sm-statemachinestate {
+    background-color: #3B4D84;
+}

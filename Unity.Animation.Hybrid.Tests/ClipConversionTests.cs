@@ -64,7 +64,6 @@ namespace Unity.Animation.Tests
 
             ref var bindings = ref denseClip.Value.Bindings;
 
-            var test = BindingHashUtils.DefaultBindingHash("Child1");
             Assert.That(bindings.TranslationBindings.Length, Is.EqualTo(4));
             Assert.That(HasPropertyHash(new StringHash(""), ref bindings.TranslationBindings));
             Assert.That(HasPropertyHash(new StringHash("Child1"), ref bindings.TranslationBindings));

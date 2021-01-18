@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Unity.Mathematics;
 using Unity.Collections;
@@ -26,33 +27,41 @@ namespace Unity.Animation.Hybrid
                     var rigEntity = GetPrimaryEntity(rigAuthoringComponent);
                     if (boneRenderer.RenderBones && DstEntityManager.HasComponent<Rig>(rigEntity))
                     {
-                        var bones = rigAuthoring.Bones;
+                        var bones = new List<RigIndexToBone>();
+                        rigAuthoring.GetBones(bones);
+
                         var transformIndices = new NativeList<int>(boneRenderer.Transforms.Length, Allocator.Temp);
-                        for (int i = 0; i < boneRenderer.Transforms.Length; ++i)
+
+                        for (int i = 0; i < bones.Count; ++i)
                         {
-                            int idx = RigGenerator.FindTransformIndex(boneRenderer.Transforms[i], bones);
-                            if (idx != -1)
-                                transformIndices.Add(idx);
+                            if (bones[i].Bone == null)
+                                continue;
+
+                            if (RigGenerator.FindTransformIndex(bones[i].Bone, boneRenderer.Transforms) != -1)
+                                transformIndices.Add(bones[i].Index);
                         }
 
-                        var props = new BoneRendererProperties
+                        if (!transformIndices.IsEmpty)
                         {
-                            BoneShape = boneRenderer.BoneShape,
-                            Color = Convert(boneRenderer.Color),
-                            Size = boneRenderer.Size
-                        };
+                            var props = new BoneRendererProperties
+                            {
+                                BoneShape = boneRenderer.BoneShape,
+                                Color = Convert(boneRenderer.Color),
+                                Size = boneRenderer.Size
+                            };
 
-                        var rigDefinition = DstEntityManager.GetComponentData<Rig>(rigEntity);
+                            var rigDefinition = DstEntityManager.GetComponentData<Rig>(rigEntity);
 
-                        BoneRendererEntityBuilder.SetupBoneRendererEntities(
-                            rigEntity,
-                            CreateAdditionalEntity(boneRenderer),
-                            CreateAdditionalEntity(boneRenderer),
-                            DstEntityManager,
-                            rigDefinition.Value,
-                            in props,
-                            transformIndices
-                        );
+                            BoneRendererEntityBuilder.SetupBoneRendererEntities(
+                                rigEntity,
+                                CreateAdditionalEntity(boneRenderer),
+                                CreateAdditionalEntity(boneRenderer),
+                                DstEntityManager,
+                                rigDefinition.Value,
+                                in props,
+                                transformIndices
+                            );
+                        }
 
                         transformIndices.Dispose();
                     }

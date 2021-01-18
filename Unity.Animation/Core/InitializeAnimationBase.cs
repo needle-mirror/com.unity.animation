@@ -20,7 +20,7 @@ namespace Unity.Animation
             {
                 RigType = GetComponentTypeHandle<Rig>(true),
                 AnimatedDataType = GetBufferTypeHandle<AnimatedData>()
-            }.ScheduleParallel(m_ClearFrameMaskQuery, Dependency);
+            }.ScheduleParallel(m_ClearFrameMaskQuery, 1, Dependency);
         }
     }
 }

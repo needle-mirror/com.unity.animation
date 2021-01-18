@@ -36,7 +36,7 @@ namespace Unity.Animation
 
         struct Data : INodeData, IMsgHandler<Rig>
         {
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -53,7 +53,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 var stream = AnimationStream.CreateReadOnly(data.RigDefinition, context.Resolve(ports.Input));
                 stream.ValidateIsNotNull();
@@ -121,7 +121,7 @@ namespace Unity.Animation
                 ctx.SetInitialPortValue(KernelPorts.Mode, SetFromMode.TranslationRotationScale);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 ctx.UpdateKernelData(new KernelData
                 {
@@ -144,7 +144,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 var input = context.Resolve(ports.Input);
                 var output = context.Resolve(ref ports.Output);

@@ -1,35 +1,39 @@
 using System;
 using System.Collections.Generic;
-using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Collections
 {
-    public static class NativeArrayUniqueExtension
+    internal static class NativeArrayUniqueExtension
     {
-        struct DefaultComparer<T> : IComparer<T> where T : IComparable<T>
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
+        internal struct DefaultComparer<T> : IComparer<T> where T : IComparable<T>
         {
             public int Compare(T x, T y) => x.CompareTo(y);
         }
 
         // Default Comparer
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         public unsafe static int Unique<T>(T* array, int length) where T : unmanaged, IComparable<T>
         {
-            return Unique<T, DefaultComparer<T>>(array, length, new DefaultComparer<T>());
+            return Unique(array, length, new DefaultComparer<T>());
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         public unsafe static int Unique<T>(this NativeArray<T> array) where T : struct, IComparable<T>
         {
             return Unique<T, DefaultComparer<T>>(array.GetUnsafePtr(), array.Length, new DefaultComparer<T>());
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int), typeof(DefaultComparer<int>) })]
         public unsafe static int Unique<T, U>(T* array, int length, U comp)
             where T : unmanaged
             where U : IComparer<T>
         {
-            return Unique<T, U>(array, length, comp);
+            return Unique<T, U>((void*)array, length, comp);
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int), typeof(DefaultComparer<int>) })]
         public unsafe static int Unique<T, U>(this NativeArray<T> array, U comp)
             where T : struct
             where U : IComparer<T>

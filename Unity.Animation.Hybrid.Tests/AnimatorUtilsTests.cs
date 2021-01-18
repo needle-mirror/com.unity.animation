@@ -42,6 +42,7 @@ namespace Unity.Animation.Tests
             }
         }
 
+#if !ENABLE_IL2CPP
         [TestCase(new string[] { "root", "object", "child", "sibling", "grandchild" }, new string[] { "root", "object", "child", "sibling", "grandchild" }, Description = "Valid skeleton")]
         [TestCase(new string[] { "root", "invalid name" }, new string[] { "root" }, Description = "Non exsistant bone")]
         [TestCase(new string[] { "root (clone)", "object" }, new string[] { "root (clone)", "object" }, Description = "Renamed root")]
@@ -72,5 +73,7 @@ namespace Unity.Animation.Tests
             var actual = AnimatorUtils.GetBoneParentIndicies(objects[0].transform, bones);
             Assert.AreEqual(expected, actual);
         }
+
+#endif
     }
 }

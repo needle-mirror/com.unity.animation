@@ -37,21 +37,21 @@ namespace Unity.Animation.Tests
             {
                 new SkeletonNode
                 {
-                    ParentIndex = -1, Id = "Root", AxisIndex = -1,
+                    ParentIndex = -1, Id = TransformChannelID("Root"), AxisIndex = -1,
                     LocalTranslationDefaultValue = new float3(0, 0, 0),
                     LocalRotationDefaultValue = new quaternion(0, 0, 0, 1),
                     LocalScaleDefaultValue = new float3(1, 1, 1),
                 },
                 new SkeletonNode
                 {
-                    ParentIndex = 0, Id = "Child1", AxisIndex = -1,
+                    ParentIndex = 0, Id = TransformChannelID("Child1"), AxisIndex = -1,
                     LocalTranslationDefaultValue = new float3(0, 0.95f, 0),
                     LocalRotationDefaultValue = new quaternion(0, 0, 0, 1),
                     LocalScaleDefaultValue = new float3(2, 2, 2),
                 },
                 new SkeletonNode
                 {
-                    ParentIndex = 0, Id = "Child2", AxisIndex = -1,
+                    ParentIndex = 0, Id = TransformChannelID("Child2"), AxisIndex = -1,
                     LocalTranslationDefaultValue = new float3(0, 0.10f, 0),
                     LocalRotationDefaultValue = new quaternion(0, 0, 0, 1),
                     LocalScaleDefaultValue = new float3(3, 3, 3),
@@ -60,7 +60,7 @@ namespace Unity.Animation.Tests
 
             var animationChannels = new IAnimationChannel[]
             {
-                new IntChannel { DefaultValue = 0, Id = new StringHash("Int1") }
+                new IntChannel { DefaultValue = 0, Id = IntegerChannelID("Int1") }
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels);
@@ -138,10 +138,7 @@ namespace Unity.Animation.Tests
 
             set.SendMessage(layerMixer, LayerMixerNode.SimulationPorts.LayerCount, (ushort)5);
 
-            set.SendTest(layerMixer, (LayerMixerNode.Data data) =>
-            {
-                Assert.That(data.m_KernelData.LayerCount, Is.EqualTo(5));
-            });
+            set.SendTest<LayerMixerNode.Data>(layerMixer, data => Assert.That(data.m_KernelData.LayerCount, Is.EqualTo(5)));
         }
 
         [Test]
@@ -162,21 +159,21 @@ namespace Unity.Animation.Tests
             {
                 new SkeletonNode
                 {
-                    ParentIndex = -1, Id = "Root", AxisIndex = -1,
+                    ParentIndex = -1, Id = TransformChannelID("Root"), AxisIndex = -1,
                     LocalTranslationDefaultValue = new float3(1, 2, 3),
                     LocalRotationDefaultValue = new quaternion(1, 0, 0, 0),
                     LocalScaleDefaultValue = new float3(2, 2, 2),
                 },
                 new SkeletonNode
                 {
-                    ParentIndex = 0, Id = "Child1", AxisIndex = -1,
+                    ParentIndex = 0, Id = TransformChannelID("Child1"), AxisIndex = -1,
                     LocalTranslationDefaultValue = new float3(4, 5, 6),
                     LocalRotationDefaultValue = new quaternion(0, 1, 0, 0),
                     LocalScaleDefaultValue = new float3(3, 3, 3),
                 },
                 new SkeletonNode
                 {
-                    ParentIndex = 0, Id = "Child2", AxisIndex = -1,
+                    ParentIndex = 0, Id = TransformChannelID("Child2"), AxisIndex = -1,
                     LocalTranslationDefaultValue = new float3(7, 8, 9),
                     LocalRotationDefaultValue = new quaternion(0, 0, 1, 0),
                     LocalScaleDefaultValue = new float3(4, 4, 4),
@@ -185,7 +182,7 @@ namespace Unity.Animation.Tests
 
             var animationChannels = new IAnimationChannel[]
             {
-                new IntChannel { DefaultValue = 5, Id = new StringHash("Int1") }
+                new IntChannel { DefaultValue = 5, Id = IntegerChannelID("Int1") }
             };
 
             var rig = new Rig { Value = RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels) };

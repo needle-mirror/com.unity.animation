@@ -1,0 +1,18 @@
+.sm-transition {
+    position: absolute;
+    --layer:-10;
+}
+
+.sm-transition__transition-control {
+    --transition-color: #929292;
+    --transition-width: 4;
+}
+
+.sm-transition:checked .sm-transition__transition-control {
+    --transition-color: #44C0FF;
+}
+
+.sm-transition:hover .sm-transition__transition-control {
+    --transition-color: #44C0FF;
+    --transition-width: 6;
+}

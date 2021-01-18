@@ -1,0 +1,554 @@
+/* Blackboard generic rules */
+.blackboard {
+    background-color: #1F1F1F;
+    font-size: 12px;
+}
+
+.mainContainer > #content > #header {
+    border-radius: 6px;
+    padding: 0;
+    margin: 4px 4px 2px;
+}
+
+.mainContainer > #content > .unity-scroll-view > #unity-content-viewport > #unity-content-container {
+    margin-top: 3px;
+}
+
+.blackboardRow > .mainContainer > #root > #itemRow > #expandButton > #buttonImage {
+    --unity-image : resource("IN foldout@2x");
+    width: 12px;
+    height: 12px;
+}
+
+.blackboardRow.expanded > .mainContainer > #root > #itemRow > #expandButton > #buttonImage {
+    --unity-image : resource("IN foldout on@2x");
+}
+
+.blackboardSection > .mainContainer {
+    padding-bottom: 2px;
+}
+
+.blackboardSection > .mainContainer > #sectionHeader {
+    flex-direction: row;
+    border-radius: 6px;
+    background-color: #6B6B6B;
+    padding: 0;
+    margin: 2px 4px 4px;
+}
+
+#addButton,
+#addComponentButton,
+#addCriteriaButton,
+#addCriterionButton {
+    color: #EEEEEE;
+    align-self: flex-end;
+    font-size: 20px;
+    background-image: none;
+    padding: 0 2px;
+    margin: 0 2px;
+    position: absolute;
+    top: -2px;
+    right: 0;
+    display: none;
+}
+
+#componentsSection #expandedContainer > #componentsSectionComponentQuery #addComponentButton,
+#criteriaSection #expandedContainer > #componentsSectionComponentQuery #addCriteriaButton,
+#stackNodeHeaderContainer > #criteriaSection #addCriteriaButton {
+    top: 0;
+}
+
+#stackNodeHeaderContainer > #criteriaSection #addCriteriaButton {
+    padding-left: 0;
+    margin-left: 0;
+    right: 3px;
+}
+
+.blackboard .blackboardSection:hover #addButton,
+#componentsSection #expandedContainer > #componentsSectionComponentQuery:hover #addComponentButton,
+#criteriaSection #expandedContainer > #componentsSectionComponentQuery:hover #addCriteriaButton,
+#stackNodeHeaderContainer > #criteriaSection:hover #addCriteriaButton,
+#criteriaSection #expandedContainer #sortableExpandableRow.criteriaModelRow:hover #addCriterionButton {
+    display: flex;
+}
+
+.blackboard .blackboardSection > .mainContainer > #sectionHeader > #sectionTitleLabel {
+    color: #EEEEEE;
+}
+
+/* Expandable rows rules */
+.expandableRow #expandedContainer {
+    display: none;
+}
+
+.expandableRow #expandedContainer.expanded {
+    display: flex;
+}
+
+ #expandableRowTitleContainer {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery #expandedContainer {
+    background-color: #292929;
+    border-radius: 5px;
+    margin-top: 4px;
+    margin-left: 41px;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery #expandedContainer.empty {
+    margin-top: 0;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery #sortableExpandableRow #expandedContainer {
+    margin-left: 0;
+}
+
+#expandableRowTitleContainer {
+    flex-direction: row;
+}
+
+#expandableRowTitleContainer #sectionTitle {
+    margin: 0;
+    padding: 0;
+}
+
+.subSection > #expandableRowTitleContainer > #expandButton {
+    position: absolute;
+    align-self: center;
+    margin-left: 10px;
+}
+
+#sortableExpandableRow {
+    flex-direction: column;
+    margin-left: 6px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+#expandableRowTitleContainer > #expandButton,
+#sortableExpandableRow #expandButton {
+    align-self: center;
+    background-image: none;
+    padding: 0;
+    border-left-width: 0;
+    border-top-width: 0;
+    border-right-width: 0;
+    border-bottom-width: 0;
+    margin: 0;
+}
+
+#expandedContainer > #title {
+    flex-direction: row;
+    border-radius: 6px;
+    background-color: #383838;
+    padding: 0;
+    margin: 2px 4px 4px 12px;
+    color: #EEEEEE;
+}
+
+/* Expand button rules */
+#expandableRowTitleContainer > #expandButton > #buttonImage,
+#sortableExpandableRow #expandButton > #buttonImage {
+    --unity-image : resource("IN foldout@2x");
+    width: 12px;
+    height: 12px;
+}
+
+#componentsSectionComponentQuery {
+    margin: 0;
+    padding: 0;
+}
+
+#componentsSectionComponentQuery #sortableExpandableRow #expandButton {
+    margin-left: 10px;
+}
+
+#sortableExpandableRow #expandButton > #buttonImage {
+    --unity-image-tint-color: #9F9F9F;
+}
+
+.expanded > #expandableRowTitleContainer > #expandButton > #buttonImage,
+#sortableExpandableRow.expanded > #expandButton > #buttonImage {
+    --unity-image : resource("IN foldout on@2x");
+}
+
+#expandableRowTitleContainer > #expandButton:hover > #buttonImage,
+#sortableExpandableRow #expandButton:hover > #buttonImage {
+    border-radius: 1px;
+}
+
+#sortableExpandableRow #expandButton {
+    align-self: center;
+}
+
+#expandableRowTitleContainer > #addButton {
+    position: absolute;
+    right: 0;
+}
+
+/* Pill rules */
+#sortableExpandableRow #rowPillContainer #renamableLabel #textField,
+.componentQueriesRow > #componentQueriesContainer > #componentQuery > .unity-text-field,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .unity-text-field {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin-bottom: 0;
+    -unity-text-align: middle-left;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .unity-text-field > #unity-text-input {
+    -unity-text-align: middle-center;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #node-border,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #selection-border {
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #node-border,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #selection-border,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #node-border,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #selection-border {
+    border-radius: 5px;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #node-border,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #selection-border {
+    margin-top: 2px;
+    margin-bottom: 0;
+}
+
+/* ComponentRow rules */
+#sortableExpandableRow #rowFieldContainer {
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+#sortableExpandableRow #expandedContainer #fieldView .unity-label,
+#sortableExpandableRow #rowFieldContainer #componentNamespace.unity-label {
+    padding-top: 0;
+    padding-bottom: 0;
+    margin: 0;
+}
+
+#sortableExpandableRow #rowPillContainer {
+    flex-direction: row;
+    align-items: center;
+}
+
+#sortableExpandableRow #rowPillContainer > .pill {
+    flex-shrink: 0;
+}
+
+#sortableExpandableRow #rowFieldContainer #componentNamespace {
+    color: #787878;
+}
+
+.subSection #sortableExpandableRow #expandedContainer > #fieldView {
+    flex-direction: row;
+    color: #787878;
+    margin-left: 24px;
+    padding-bottom: 2px;
+}
+
+.subSection #sortableExpandableRow #expandedContainer > #fieldView .unity-label {
+    margin-left: 0;
+}
+
+#sortableExpandableRow #rowPillContainer #label.criteriaModel {
+    margin-left: 2px;
+    left: 1px;
+    right: 1px;
+    top: 1px;
+    bottom: 1px;
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0);
+    padding-top: 1px;
+    padding-left: 2px;
+    padding-bottom: 1px;
+    margin-bottom: 2px;
+}
+
+#sortableExpandableRow #rowPillContainer #label.criteriaModel:hover {
+    border-color: rgba(68,192,255, 0.5);
+    border-width: 1px;
+}
+
+#sortableExpandableRow:selected #rowPillContainer #label.criteriaModel,
+#sortableExpandableRow:selected #rowPillContainer:selected .pill #selection-border {
+    border-color: #44C0FF;
+}
+
+#sortableExpandableRow:selected #rowPillContainer #renamableLabel:hover {
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
+
+#sortableExpandableRow:selected #rowPillContainer #label.criteriaModel:hover {
+    border-color: #44C0FF;
+    border-width: 2px;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    margin-bottom: 0;
+}
+
+#sortableExpandableRow #rowPillContainer > * > .pill > * > #selection-border,
+#sortableExpandableRow #rowPillContainer > * > .pill > * > #node-border {
+    margin-top: 1px;
+    margin-bottom: 1px;
+}
+
+#expandedContainer .criterionRow {
+    min-height: 31px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+#sortableExpandableRow #rowCriterionContainer > #rowPillContainer > * > .pill {
+    align-self: center;
+}
+
+#sortableExpandableRow #rowCriterionContainer > #rowPillContainer > * > .pill > * > #selection-border,
+#sortableExpandableRow #rowCriterionContainer > #rowPillContainer > * > .pill > * > #node-border {
+    margin-left: 0;
+}
+
+#sortableExpandableRow #rowPillContainer > * > .pill > * > #node-border > #contents > #top > #icon {
+    visibility: hidden;
+}
+
+#sortableExpandableRow #rowPillContainer > * > .sharedComponent #node-border > #contents > #top > #icon {
+    --unity-image-tint-color: #FF88FF;
+}
+
+#sortableExpandableRow #rowFieldContainer #componentNamespace {
+    flex-direction: row;
+    position: absolute;
+    align-self: center;
+    right: 80px;
+    top: 5px;
+    align-items: flex-end;
+    align-content: flex-end;
+    justify-content: flex-end;
+}
+
+#sortableExpandableRow #rowFieldContainer Toggle {
+    height: 18px;
+    top: 3px;
+    align-self: center;
+    position: absolute;
+}
+
+#sortableExpandableRow #rowFieldContainer Toggle .unity-label {
+    margin-left: 0;
+    min-width: 0;
+    -unity-text-align: middle-right;
+}
+
+#sortableExpandableRow #rowFieldContainer Toggle .unity-toggle__input {
+    top: 1px;
+}
+
+#sortableExpandableRow #rowFieldContainer Toggle.usage {
+    right: 4px;
+}
+
+#sortableExpandableRow #deleteComponentIcon,
+#sortableExpandableRow #deleteCriterionIcon,
+#sortableExpandableRow #deleteCriteriaModelIcon {
+    background-image: resource("ComponentDelete");
+    width: 12px;
+    height: 12px;
+    -unity-slice-left: 0;
+    -unity-slice-right: 0;
+    -unity-slice-top: 0;
+    -unity-slice-bottom: 0;
+    align-self: flex-start;
+    padding: 0;
+    top: 4px;
+    left: -3px;
+    margin-left: 0;
+    visibility: hidden;
+}
+
+#sortableExpandableRow #deleteCriteriaModelIcon {
+    top: 6px;
+}
+
+#sortableExpandableRow #deleteCriterionIcon {
+    top: 8px;
+    left: 9px;
+}
+
+#sortableExpandableRow.componentRow:hover > * > #deleteComponentIcon,
+#sortableExpandableRow.criterionRow:hover > * > #deleteCriterionIcon,
+#sortableExpandableRow.criteriaModelRow > #expandableRowTitleContainer:hover > #deleteCriteriaModelIcon {
+    visibility: visible;
+}
+
+#sortableExpandableRow #criterionOperatorKind {
+    margin-left: 0;
+    align-self: center;
+    padding-top: 0;
+    padding-bottom: 1px;
+}
+
+#sortableExpandableRow #criterionRowValue {
+    padding-bottom: 0;
+    margin-bottom: 0;
+}
+
+/* .subSection */
+.subSection #expandedContainer > #componentsSectionComponentQuery #expandedContainer > #dragIndicator,
+#criteriaSection #expandedContainer > #dragIndicator {
+    position: absolute;
+    background-color: #44C0FF;
+    min-height: 2px;
+}
+
+.subSection {
+    border-radius: 6px;
+    background-color: #272727;
+    padding-top: 2px;
+    padding-bottom: 0;
+    margin: 1px 4px 1px 17px;
+    color: #EEEEEE;
+    flex-direction: column;
+}
+
+.stack-node .subSection {
+    margin: 1px 4px 1px;
+}
+
+.stack-node #criteriaSection {
+    margin-top: 8px;
+    margin-left: 1px;
+    margin-right: 1px;
+    padding-bottom: 4px;
+}
+
+.stack-node #criteriaSection > #expandableRowTitleContainer {
+    margin: 2px 2px 0;
+}
+
+.subSection > #expandableRowTitleContainer {
+    padding-top: 0;
+    padding-bottom: 3px;
+    background-color: #424242;
+    border-radius: 5px;
+}
+
+.subSection #expandedContainer #expandButton {
+    position: absolute;
+    margin-left: 24px;
+}
+
+.subSection .unity-label {
+    margin-left: 40px;
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 12px;
+}
+
+.subSection FloatField .unity-label {
+    margin-left: 4px;
+}
+
+.subSection > #expandableRowTitleContainer > #sectionTitle {
+    margin-left: 26px;
+    margin-top: 2px;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery #sortableExpandableRow #expandableRowTitleContainer #sectionTitle {
+    margin-left: 6px;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery #expandableRowTitleContainer #sectionTitle {
+    height: 0;
+}
+
+.subSection #count.unity-label {
+    margin-left: 0;
+    align-self: center;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery {
+    margin-left: 38px;
+}
+
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > .pill > * > #node-border #title-label {
+    margin-left: 2px;
+    padding-top: 2px;
+    padding-bottom: 4px;
+}
+
+#sortableExpandableRow #rowPillContainer #renamableLabel #textField,
+.subSection #expandedContainer > #componentsSectionComponentQuery > * > #componentQuery > #componentQueryBaseTextField {
+    position: absolute;
+    left: 0;
+}
+
+/* PropertyField rules */
+#rowCriterionContainer .unity-property-field {
+    font-size: 11px;
+    margin: 0 0 3px;
+    padding: 0 0 1px;
+}
+
+#sortableExpandableRow #expandedContainer #rowCriterionContainer #rowPillContainer .unity-property-field .pill .unity-label {
+    padding-top: 1px;
+    padding-bottom: 2px;
+}
+
+.stack-node #criteriaSection #sortableExpandableRow #expandableRowTitleContainer #rowFieldContainer {
+    margin-left: 14px;
+}
+
+.stack-node .criterionRow {
+    margin-left: 20px;
+}
+
+*:selected .criterionRow .pill > * > #selection-border {
+    border-color: transparent;
+}
+
+.criterionRow:selected .pill > * > #selection-border {
+    border-color: #44C0FF;
+}
+
+.stack-node .criterionRow #rowCriterionContainer {
+    margin-left: 10px;
+}
+
+.stack-node .subSection #expandedContainer #expandButton {
+    position: absolute;
+    margin-left: 18px;
+}
+
+.stack-node .subSection #sortableExpandableRow #deleteCriteriaModelIcon {
+    left: 3px;
+    top: 3px;
+}
+
+.stack-node .subSection #sortableExpandableRow #criterionRowValue .unity-color-field {
+    margin-left: 9px;
+}
+
+.stack-node .subSection #sortableExpandableRow #addCriterionButton {
+    top: -4px;
+}
+
+#rowCriterionContainer {
+    flex-grow: 1;
+    flex-shrink: 0;
+}

@@ -6,7 +6,6 @@ using UnityEditor;
 using Unity.Animation.Hybrid;
 using Unity.Entities;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
 
@@ -16,14 +15,14 @@ namespace Unity.Animation.Tests
     {
         const float kAnimatedDataTolerance = 1e-5f;
 
-        internal class DummySyncTag : MonoBehaviour, ISynchronizationTag
+        class DummySyncTag : MonoBehaviour, ISynchronizationTag
         {
             public StringHash Type => new StringHash(nameof(DummySyncTag));
 
             public int State { get; set; }
         }
 
-        public GameObject CreateSyncTag(int state)
+        GameObject CreateSyncTag(int state)
         {
             var tag = CreateGameObject();
             var syncTag = tag.AddComponent<DummySyncTag>() as ISynchronizationTag;
@@ -49,15 +48,15 @@ namespace Unity.Animation.Tests
         {
             var skeletonNodes = new[]
             {
-                new SkeletonNode {ParentIndex = -1, Id = "", AxisIndex = -1},
-                new SkeletonNode {ParentIndex = 0, Id = "Child1", AxisIndex = -1},
-                new SkeletonNode {ParentIndex = 0, Id = "Child2", AxisIndex = -1}
+                new SkeletonNode {ParentIndex = -1, Id = TransformChannelID(""), AxisIndex = -1},
+                new SkeletonNode {ParentIndex = 0, Id = TransformChannelID("Child1"), AxisIndex = -1},
+                new SkeletonNode {ParentIndex = 0, Id = TransformChannelID("Child2"), AxisIndex = -1}
             };
 
             var animationChannels = new IAnimationChannel[]
             {
-                new IntChannel { DefaultValue = 0, Id = new StringHash("Int") },
-                new FloatChannel { DefaultValue = 0, Id = new StringHash("Float") }
+                new IntChannel { DefaultValue = 0, Id = GenericChannelID("intVar", "", typeof(Dummy)) },
+                new FloatChannel { DefaultValue = 0, Id = GenericChannelID("floatVar", "", typeof(Dummy)) }
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels);
@@ -126,8 +125,8 @@ namespace Unity.Animation.Tests
             animationClip.SetCurve("Child1/Child2", typeof(Transform), "localEulerAngles.y", CreateRandomCurve(10, deltaTime, 0.0f, 360.0f));
             animationClip.SetCurve("Child1/Child2", typeof(Transform), "localEulerAngles.z", CreateRandomCurve(10, deltaTime, 0.0f, 360.0f));
 
-            animationClip.SetCurve("Float", typeof(Dummy), "floatVar", CreateRandomCurve(10, deltaTime, -100.0f, 100.0f));
-            animationClip.SetCurve("Int", typeof(Dummy), "intVar", CreateRandomCurve(10, deltaTime, 0.0f, 1.0f));
+            animationClip.SetCurve("", typeof(Dummy), "floatVar", CreateRandomCurve(10, deltaTime, -100.0f, 100.0f));
+            animationClip.SetCurve("", typeof(Dummy), "intVar", CreateRandomCurve(10, deltaTime, 0.0f, 1.0f));
 
             var animationEvents = new AnimationEvent[]
             {
@@ -289,8 +288,6 @@ namespace Unity.Animation.Tests
             var denseClip = clip.ToDenseClip();
 
             var clipBuilder = new ClipBuilder(clip.length, clip.frameRate, Allocator.Temp);
-            clipBuilder.Duration = clip.length;
-            clipBuilder.SampleRate = clip.frameRate;
             var translations = new NativeArray<float3>(clipBuilder.SampleCount, Allocator.Temp);
             var floatData = new NativeArray<float>(clipBuilder.SampleCount, Allocator.Temp);
             for (var i = 0; i < clipBuilder.SampleCount; ++i)
@@ -299,10 +296,9 @@ namespace Unity.Animation.Tests
                 floatData[i] = 1.5f;
             }
 
-            var translationsBindingHash = BindingHashUtils.DefaultBindingHash("");
-
+            var translationsBindingHash = TransformChannelID("");
             clipBuilder.AddTranslationCurve(translations, translationsBindingHash);
-            var floatDataBindingHash = BindingHashUtils.DefaultBindingHash("floatVar");
+            var floatDataBindingHash = GenericChannelID("floatVar", "", typeof(Dummy));
             clipBuilder.AddFloatCurve(floatData, floatDataBindingHash);
             var builderDenseClip = clipBuilder.ToDenseClip();
 

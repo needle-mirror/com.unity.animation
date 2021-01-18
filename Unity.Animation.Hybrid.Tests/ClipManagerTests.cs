@@ -5,7 +5,7 @@ using Unity.Animation.Hybrid;
 
 namespace Unity.Animation.Tests
 {
-    public class ClipManagerTests
+    public class ClipManagerTests : AnimationTestsFixture
     {
         private BlobAssetReference<RigDefinition> m_Rig;
 
@@ -158,8 +158,8 @@ namespace Unity.Animation.Tests
 
             var animationChannels = new IAnimationChannel[]
             {
-                new FloatChannel {DefaultValue = 1.0f, Id = "Float/floatVar"},
-                new IntChannel {DefaultValue = 1, Id = "Int/intVar"}
+                new FloatChannel {DefaultValue = 1.0f, Id = GenericChannelID("floatVar", "Float", typeof(Dummy)) },
+                new IntChannel {DefaultValue = 1, Id = GenericChannelID("intVar", "Int", typeof(Dummy)) }
             };
 
             return RigBuilder.CreateRigDefinition(skeletonNodes, null, animationChannels);

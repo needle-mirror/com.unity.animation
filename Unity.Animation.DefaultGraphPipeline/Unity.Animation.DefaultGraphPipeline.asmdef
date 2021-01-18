@@ -2,6 +2,7 @@
     "name": "Unity.Animation.DefaultGraphPipeline",
     "references": [
         "Unity.Animation.Graph",
+        "Unity.DataFlowGraph",
         "Unity.Entities",
         "Unity.Animation",
         "Unity.Transforms",

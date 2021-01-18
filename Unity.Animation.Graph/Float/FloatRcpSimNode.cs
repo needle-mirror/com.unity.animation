@@ -16,7 +16,7 @@ namespace Unity.Animation
 
         struct Data : INodeData, IMsgHandler<float>
         {
-            public void HandleMessage(in MessageContext ctx, in float msg) =>
+            public void HandleMessage(MessageContext ctx, in float msg) =>
                 ctx.EmitMessage(SimulationPorts.Output, math.rcp(msg));
         }
     }

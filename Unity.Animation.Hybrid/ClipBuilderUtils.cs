@@ -13,7 +13,7 @@ namespace Unity.Animation.Hybrid
     /// <summary>
     /// Static class grouping help functions for ClipBuilder
     /// </summary>
-    public static class ClipBuilderUtils
+    public static partial class ClipBuilderUtils
     {
         static string GetBasePropertyName(this EditorCurveBinding binding)
         {
@@ -36,22 +36,17 @@ namespace Unity.Animation.Hybrid
         /// and result curves will be stored inside ClipBuilder. Also all SynchronizationTags from the AnimationClip will be copied and stored inside the ClipBuilder.
         /// </summary>
         /// <param name="allocator">Allocator policy for the curves inside the ClipBuilder</param>
-        /// <param name="bindingHashDelegate">Delegate used to convert property string to hash for each animation curve</param>
+        /// <param name="hasher">An optional BindingHashGenerator can be specified to compute unique animation binding IDs. When not specified the <see cref="BindingHashGlobals.DefaultHashGenerator"/> is used.</param>
         /// <returns></returns>
-        public static ClipBuilder ToClipBuilder(this UnityEngine.AnimationClip sourceClip, Allocator allocator, BindingHashDelegate bindingHashDelegate = null)
+        public static ClipBuilder ToClipBuilder(this UnityEngine.AnimationClip sourceClip, Allocator allocator, BindingHashGenerator hasher = default)
         {
             if (sourceClip == null)
                 return default;
 
-            if (bindingHashDelegate == null)
-            {
-                bindingHashDelegate = BindingHashUtils.DefaultBindingHash;
-            }
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
 
             var clipBuilder = new ClipBuilder(sourceClip.length, sourceClip.frameRate, allocator);
-
-            clipBuilder.Duration = sourceClip.length;
-            clipBuilder.SampleRate = sourceClip.frameRate;
             sourceClip.ExtractSynchronizationTag(clipBuilder.m_SynchronizationTags);
 
             var srcBindings = AnimationUtility.GetCurveBindings(sourceClip);
@@ -60,19 +55,19 @@ namespace Unity.Animation.Hybrid
                 switch (BindingProcessor.Instance.Execute(binding))
                 {
                     case ChannelBindType.Translation:
-                        AddTranslationCurveFromClip(clipBuilder, sourceClip, binding, bindingHashDelegate, allocator);
+                        AddTranslationCurveFromClip(clipBuilder, sourceClip, binding, hasher, allocator);
                         break;
                     case ChannelBindType.Rotation:
-                        AddQuaternionCurveFromClip(clipBuilder, sourceClip, binding, bindingHashDelegate, allocator);
+                        AddQuaternionCurveFromClip(clipBuilder, sourceClip, binding, hasher, allocator);
                         break;
                     case ChannelBindType.Scale:
-                        AddScaleCurveFromClip(clipBuilder, sourceClip, binding, bindingHashDelegate, allocator);
+                        AddScaleCurveFromClip(clipBuilder, sourceClip, binding, hasher, allocator);
                         break;
                     case ChannelBindType.Float:
-                        AddFloatCurveFromClip(clipBuilder, sourceClip, binding, bindingHashDelegate, allocator);
+                        AddFloatCurveFromClip(clipBuilder, sourceClip, binding, hasher, allocator);
                         break;
                     case ChannelBindType.Integer:
-                        AddIntCurveFromClip(clipBuilder, sourceClip, binding, bindingHashDelegate, allocator);
+                        AddIntCurveFromClip(clipBuilder, sourceClip, binding, hasher, allocator);
                         break;
                     case ChannelBindType.Discard:
                         break;
@@ -238,61 +233,34 @@ namespace Unity.Animation.Hybrid
             return resampledCurve;
         }
 
-        static void AddTranslationCurveFromClip(this ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashDelegate bindingHashFunc, Allocator allocator)
+        static void AddTranslationCurveFromClip(this ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashGenerator hasher, Allocator allocator)
         {
             var translation = clip.ResampleEditorFloat3Curve(binding, clipBuilder, allocator);
-
-            if (bindingHashFunc == null)
-            {
-                bindingHashFunc = BindingHashUtils.DefaultBindingHash;
-            }
-            clipBuilder.AddCurve(translation, bindingHashFunc(binding.path), ref clipBuilder.m_TranslationCurves);
+            clipBuilder.AddCurve(translation, hasher.ToHash(ToTransformBindingID(binding)), ref clipBuilder.m_TranslationCurves);
         }
 
-        static void AddScaleCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashDelegate bindingHashFunc, Allocator allocator)
+        static void AddScaleCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashGenerator hasher, Allocator allocator)
         {
             var scale = clip.ResampleEditorFloat3Curve(binding, clipBuilder, allocator);
-
-            if (bindingHashFunc == null)
-            {
-                bindingHashFunc = BindingHashUtils.DefaultBindingHash;
-            }
-            clipBuilder.AddCurve(scale, bindingHashFunc(binding.path), ref clipBuilder.m_ScaleCurves);
+            clipBuilder.AddCurve(scale, hasher.ToHash(ToTransformBindingID(binding)), ref clipBuilder.m_ScaleCurves);
         }
 
-        static void AddQuaternionCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashDelegate bindingHashFunc, Allocator allocator)
+        static void AddQuaternionCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashGenerator hasher, Allocator allocator)
         {
             var quaternionCurve = clip.ResampleEditorQuaternionCurve(binding, clipBuilder, allocator);
-
-            if (bindingHashFunc == null)
-            {
-                bindingHashFunc = BindingHashUtils.DefaultBindingHash;
-            }
-            clipBuilder.AddCurve(quaternionCurve, bindingHashFunc(binding.path), ref clipBuilder.m_QuaternionCurves);
+            clipBuilder.AddCurve(quaternionCurve, hasher.ToHash(ToTransformBindingID(binding)), ref clipBuilder.m_QuaternionCurves);
         }
 
-        static void AddFloatCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashDelegate bindingHashFunc, Allocator allocator)
+        static void AddFloatCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashGenerator hasher, Allocator allocator)
         {
             var floatCurve = clip.ResampleEditorFloatCurve(binding, clipBuilder, allocator);
-
-            var propertyPath = BindingHashUtils.BuildPath(binding.path, binding.propertyName);
-            if (bindingHashFunc == null)
-            {
-                bindingHashFunc = BindingHashUtils.DefaultBindingHash;
-            }
-            clipBuilder.AddCurve(floatCurve, bindingHashFunc(propertyPath), ref clipBuilder.m_FloatCurves);
+            clipBuilder.AddCurve(floatCurve, hasher.ToHash(ToGenericBindingID(binding)), ref clipBuilder.m_FloatCurves);
         }
 
-        static void AddIntCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashDelegate bindingHashFunc, Allocator allocator)
+        static void AddIntCurveFromClip(ClipBuilder clipBuilder, UnityEngine.AnimationClip clip, EditorCurveBinding binding, BindingHashGenerator hasher, Allocator allocator)
         {
             var intCurve = clip.ResampleEditorFloatCurve(binding, clipBuilder, allocator);
-
-            var propertyPath = BindingHashUtils.BuildPath(binding.path, binding.propertyName);
-            if (bindingHashFunc == null)
-            {
-                bindingHashFunc = BindingHashUtils.DefaultBindingHash;
-            }
-            clipBuilder.AddCurve(intCurve, bindingHashFunc(propertyPath), ref clipBuilder.m_IntCurves);
+            clipBuilder.AddCurve(intCurve, hasher.ToHash(ToGenericBindingID(binding)), ref clipBuilder.m_IntCurves);
         }
 
         static void CopyFloatCurveToClipSamples(UnsafeList<float> curve, int curveIndex, in int curveCount, ref BlobBuilderArray<float> samples)
@@ -503,6 +471,12 @@ namespace Unity.Animation.Hybrid
                 }
             }
         }
+
+        static internal TransformBindingID ToTransformBindingID(EditorCurveBinding binding) =>
+            new TransformBindingID { Path = binding.path };
+
+        static internal GenericBindingID ToGenericBindingID(EditorCurveBinding binding) =>
+            new GenericBindingID { Path = binding.path, AttributeName = binding.propertyName, ComponentType = binding.type };
     }
 }
 

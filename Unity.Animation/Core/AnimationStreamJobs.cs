@@ -6,17 +6,17 @@ using Unity.Burst;
 namespace Unity.Animation
 {
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct ClearPassMaskJob : IJobChunk
+    internal struct ClearPassMaskJob : IJobEntityBatch
     {
         [ReadOnly] public ComponentTypeHandle<Rig>           RigType;
         public BufferTypeHandle<AnimatedData>                AnimatedDataType;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var rigs = chunk.GetNativeArray(RigType);
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedDataType);
+            var rigs = batchInChunk.GetNativeArray(RigType);
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedDataType);
 
-            for (int i = 0; i < chunk.Count; ++i)
+            for (int i = 0; i < batchInChunk.Count; ++i)
             {
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());
 
@@ -26,17 +26,17 @@ namespace Unity.Animation
     }
 
     [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
-    internal struct ClearMasksJob : IJobChunk
+    internal struct ClearMasksJob : IJobEntityBatch
     {
         [ReadOnly] public ComponentTypeHandle<Rig>           RigType;
         public BufferTypeHandle<AnimatedData>                AnimatedDataType;
 
-        public void Execute(ArchetypeChunk chunk, int chunkIndex, int firstEntityIndex)
+        public void Execute(ArchetypeChunk batchInChunk, int batchIndex)
         {
-            var rigs = chunk.GetNativeArray(RigType);
-            var animatedDataAccessor = chunk.GetBufferAccessor(AnimatedDataType);
+            var rigs = batchInChunk.GetNativeArray(RigType);
+            var animatedDataAccessor = batchInChunk.GetBufferAccessor(AnimatedDataType);
 
-            for (int i = 0; i < chunk.Count; ++i)
+            for (int i = 0; i < batchInChunk.Count; ++i)
             {
                 var stream = AnimationStream.Create(rigs[i], animatedDataAccessor[i].AsNativeArray());
 

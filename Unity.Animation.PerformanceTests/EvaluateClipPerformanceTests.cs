@@ -124,10 +124,10 @@ namespace Unity.Animation.PerformanceTests
                     animationChannel[(i * 5) + 2] = new LocalScaleChannel { Id = $"{i}" };
 
                 if (channelType.HasFlag(ChannelType.FloatChannel))
-                    animationChannel[(i * 5) + 3] = new FloatChannel { Id = $"{i}" };
+                    animationChannel[(i * 5) + 3] = new FloatChannel { Id = FloatChannelID($"{i}") };
 
                 if (channelType.HasFlag(ChannelType.IntChannel))
-                    animationChannel[(i * 5) + 4] = new IntChannel { Id = $"{i}" };
+                    animationChannel[(i * 5) + 4] = new IntChannel { Id = IntegerChannelID($"{i}") };
             }
             ;
 

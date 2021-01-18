@@ -13,17 +13,17 @@ namespace Unity.Animation.Tests
             var boneNotInHierarchy  = CreateBoneNotInHierarchy();
             var destroyedBone       = CreateDestroyedBone();
 
-            Assert.Throws<System.ArgumentNullException>(() => rigComponent.ExcludeBoneAndDescendants(null));
-            Assert.Throws<System.ArgumentNullException>(() => rigComponent.ExcludeBoneAndDescendants(destroyedBone));
-            Assert.Throws<System.ArgumentException>(() => rigComponent.ExcludeBoneAndDescendants(boneNotInHierarchy));
+            Assert.Throws<System.ArgumentNullException>(() => Component.ExcludeBoneAndDescendants(null));
+            Assert.Throws<System.ArgumentNullException>(() => Component.ExcludeBoneAndDescendants(destroyedBone));
+            Assert.Throws<System.ArgumentException>(() => Component.ExcludeBoneAndDescendants(boneNotInHierarchy));
         }
 
         [Test]
         public void RigComponent_ExcludeBoneAndDescendants_DoesNotThrowExceptionsOnValidInput()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            Assert.DoesNotThrow(() => rigComponent.ExcludeBoneAndDescendants(boneInHierarchy));
+            Assert.DoesNotThrow(() => Component.ExcludeBoneAndDescendants(boneInHierarchy));
         }
 
         [Test]
@@ -32,131 +32,131 @@ namespace Unity.Animation.Tests
             var boneNotInHierarchy  = CreateBoneNotInHierarchy();
             var destroyedBone       = CreateDestroyedBone();
 
-            Assert.Throws<System.ArgumentNullException>(() => rigComponent.IncludeBoneAndAncestors(null));
-            Assert.Throws<System.ArgumentNullException>(() => rigComponent.IncludeBoneAndAncestors(destroyedBone));
-            Assert.Throws<System.ArgumentException>(() => rigComponent.IncludeBoneAndAncestors(boneNotInHierarchy));
+            Assert.Throws<System.ArgumentNullException>(() => Component.IncludeBoneAndAncestors(null));
+            Assert.Throws<System.ArgumentNullException>(() => Component.IncludeBoneAndAncestors(destroyedBone));
+            Assert.Throws<System.ArgumentException>(() => Component.IncludeBoneAndAncestors(boneNotInHierarchy));
         }
 
         [Test]
         public void RigComponent_IncludeBoneAndAncestors_DoesNotThrowExceptionsOnValidInput()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            Assert.DoesNotThrow(() => rigComponent.IncludeBoneAndAncestors(boneInHierarchy));
+            Assert.DoesNotThrow(() => Component.IncludeBoneAndAncestors(boneInHierarchy));
         }
 
         [Test]
         public void RigComponent_IncludeAndDestroyBone_BoneIsNotIncluded()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            rigComponent.IncludeBoneAndAncestors(boneInHierarchy);
+            Component.IncludeBoneAndAncestors(boneInHierarchy);
             Destroy(boneInHierarchy);
 
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy));
         }
 
         [Test]
         public void RigComponent_IncludeBone_BoneIsIncluded()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            rigComponent.IncludeBoneAndAncestors(boneInHierarchy);
+            Component.IncludeBoneAndAncestors(boneInHierarchy);
 
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy));
         }
 
         [Test]
         public void RigComponent_AddBoneToHierarchy_NotIncludedByDefault()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy));
         }
 
         // TODO: turn into edit-mode test
         [Test]
         public void RigComponent_PreExistingChild_BoneIsIncludedByDefault()
         {
-            rigComponent.Reset();
-            Assert.IsTrue(rigComponent.IsBoneIncluded(preExistingChildBone));
+            Component.Reset();
+            Assert.IsTrue(Component.IsBoneIncluded(PreExistingChildBone));
         }
 
         // TODO: turn into edit-mode test
         [Test]
         public void RigComponent_PreExistingChild_WhenExcluded_BoneIsExcluded()
         {
-            rigComponent.Reset();
-            Assume.That(rigComponent.IsBoneIncluded(preExistingChildBone), Is.True);
-            rigComponent.ExcludeBoneAndDescendants(preExistingChildBone);
+            Component.Reset();
+            Assume.That(Component.IsBoneIncluded(PreExistingChildBone), Is.True);
+            Component.ExcludeBoneAndDescendants(PreExistingChildBone);
 
-            Assert.IsFalse(rigComponent.IsBoneIncluded(preExistingChildBone));
+            Assert.IsFalse(Component.IsBoneIncluded(PreExistingChildBone));
         }
 
         [Test]
         public void RigComponent_IncludeGrandchild_ChildIsAlsoIncluded()
         {
-            var boneInHierarchy1 = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy1 = CreateBoneInHierarchy(Component);
             var boneInHierarchy2 = CreateBoneInHierarchy(boneInHierarchy1);
             var boneInHierarchy3 = CreateBoneInHierarchy(boneInHierarchy2);
 
-            rigComponent.IncludeBoneAndAncestors(boneInHierarchy3);
+            Component.IncludeBoneAndAncestors(boneInHierarchy3);
 
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy3));
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy2));
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy1));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy3));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy2));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy1));
         }
 
         [Test]
         public void RigComponent_ExcludeAllChildrenSetChildAsRootAndInclude_ChildIsIncluded()
         {
-            var boneInHierarchy1 = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy1 = CreateBoneInHierarchy(Component);
             var boneInHierarchy2 = CreateBoneInHierarchy(boneInHierarchy1);
             var boneInHierarchy3 = CreateBoneInHierarchy(boneInHierarchy2);
 
-            rigComponent.ExcludeBoneAndDescendants(boneInHierarchy1);
-            rigComponent.SkeletonRootBone = boneInHierarchy2;
-            rigComponent.IncludeBoneAndDescendants(boneInHierarchy2);
+            Component.ExcludeBoneAndDescendants(boneInHierarchy1);
+            Component.SkeletonRootBone = boneInHierarchy2;
+            Component.IncludeBoneAndDescendants(boneInHierarchy2);
 
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy3));
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy2));
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy1));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy3));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy2));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy1));
         }
 
         [Test]
         public void RigComponent_WhenGrandchildIsIncluded_ExcludeChild_GrandchildIsAlsoExcluded()
         {
-            var boneInHierarchy1 = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy1 = CreateBoneInHierarchy(Component);
             var boneInHierarchy2 = CreateBoneInHierarchy(boneInHierarchy1);
             var boneInHierarchy3 = CreateBoneInHierarchy(boneInHierarchy2);
 
-            rigComponent.IncludeBoneAndAncestors(boneInHierarchy3);
-            rigComponent.ExcludeBoneAndDescendants(boneInHierarchy2);
+            Component.IncludeBoneAndAncestors(boneInHierarchy3);
+            Component.ExcludeBoneAndDescendants(boneInHierarchy2);
 
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy3));
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy2));
-            Assert.IsTrue(rigComponent.IsBoneIncluded(boneInHierarchy1));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy3));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy2));
+            Assert.IsTrue(Component.IsBoneIncluded(boneInHierarchy1));
         }
 
         [Test]
         public void RigComponent_IncludeAndExcludeBone_BoneIsExcluded()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            rigComponent.IncludeBoneAndAncestors(boneInHierarchy);
-            rigComponent.ExcludeBoneAndDescendants(boneInHierarchy);
+            Component.IncludeBoneAndAncestors(boneInHierarchy);
+            Component.ExcludeBoneAndDescendants(boneInHierarchy);
 
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy));
         }
 
         [Test]
         public void RigComponent_ExcludeBone_BoneIsExcluded()
         {
-            var boneInHierarchy = CreateBoneInHierarchy(rigComponent);
+            var boneInHierarchy = CreateBoneInHierarchy(Component);
 
-            rigComponent.ExcludeBoneAndDescendants(boneInHierarchy);
+            Component.ExcludeBoneAndDescendants(boneInHierarchy);
 
-            Assert.IsFalse(rigComponent.IsBoneIncluded(boneInHierarchy));
+            Assert.IsFalse(Component.IsBoneIncluded(boneInHierarchy));
         }
     }
 }

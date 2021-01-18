@@ -1,13 +1,20 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Unity.Animation.Hybrid
 {
+    struct RigIndexToBone
+    {
+        public int Index;
+        public Transform Bone;
+    }
+
     /// <summary>
     /// Interfaces that describe a rig authoring component generating
     /// a RigDefinition at conversion.
     /// </summary>
-    internal interface IRigAuthoring
+    interface IRigAuthoring
     {
-        Transform[] Bones { get; }
+        void GetBones(List<RigIndexToBone> bones);
     }
 }

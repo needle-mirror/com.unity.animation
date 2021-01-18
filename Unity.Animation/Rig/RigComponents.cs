@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -19,6 +20,7 @@ namespace Unity.Animation
         T DefaultValue { get; set; }
     }
 
+    [BurstCompatible]
     public struct LocalTranslationChannel : IAnimationChannel<float3>, IEquatable<LocalTranslationChannel>
     {
         public StringHash Id { get; set; }
@@ -31,6 +33,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public struct LocalRotationChannel : IAnimationChannel<quaternion>, IEquatable<LocalRotationChannel>
     {
         public StringHash Id { get; set; }
@@ -43,6 +46,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public struct LocalScaleChannel : IAnimationChannel<float3>, IEquatable<LocalScaleChannel>
     {
         public StringHash Id { get; set; }
@@ -55,6 +59,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public struct FloatChannel : IAnimationChannel<float>, IEquatable<FloatChannel>
     {
         public StringHash Id { get; set; }
@@ -67,6 +72,7 @@ namespace Unity.Animation
         }
     }
 
+    [BurstCompatible]
     public struct IntChannel : IAnimationChannel<int>, IEquatable<IntChannel>
     {
         public StringHash Id { get; set; }
@@ -82,6 +88,7 @@ namespace Unity.Animation
     /// <summary>
     /// The representation of a transform in the animation rig.
     /// </summary>
+    [BurstCompatible]
     public struct SkeletonNode
     {
         public StringHash Id;
@@ -93,6 +100,7 @@ namespace Unity.Animation
         public float3       LocalScaleDefaultValue;
     }
 
+    [BurstCompatible]
     public struct Axis
     {
         public float3       RotationOffset;
@@ -103,6 +111,7 @@ namespace Unity.Animation
         public float3       ScalingPivot;
     }
 
+    [BurstCompatible]
     public struct Skeleton
     {
         // The 3 following field are stored as separate arrays rather than in a SkeletonNode to minimize cache pollution,
@@ -117,6 +126,7 @@ namespace Unity.Animation
         public int BoneCount => Ids.Length;
     }
 
+    [BurstCompatible]
     public struct RigDefinition : IEquatable<RigDefinition>
     {
         public Skeleton          Skeleton;
@@ -130,6 +140,7 @@ namespace Unity.Animation
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public override int GetHashCode() => m_HashCode;
 
+        [NotBurstCompatible]
         public override bool Equals(object other)
         {
             if (other == null || !(other is RigDefinition))
@@ -152,7 +163,6 @@ namespace Unity.Animation
     }
 
     [DebuggerTypeProxy(typeof(RigDebugView))]
-
     public struct Rig : IComponentData
     {
         public BlobAssetReference<RigDefinition> Value;

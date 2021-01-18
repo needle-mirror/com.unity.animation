@@ -6,6 +6,7 @@ using Unity.Entities;
 
 namespace Unity.Animation
 {
+    [BurstCompatible]
     static public partial class Core
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -14,6 +15,7 @@ namespace Unity.Animation
             return ((a + b - 1) / b) * b;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe void SetDataInSample<T>(ref BlobArray<float> samples, int offset, T data)
             where T : unmanaged
@@ -21,6 +23,7 @@ namespace Unity.Animation
             *(T*)((float*)samples.GetUnsafePtr() + offset) = data;
         }
 
+        [BurstCompatible(GenericTypeArguments = new[] { typeof(int) })]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         internal static unsafe ref T GetDataInSample<T>(ref BlobArray<float> samples, int offset)
             where T : unmanaged
@@ -468,7 +471,7 @@ namespace Unity.Animation
             var duration = 0.0f;
             for (int i = 0; i < length; i++)
             {
-                duration += weights[i] * blendTree.Value.Motions[i].Clip.Value.Duration / blendTree.Value.MotionSpeeds[i];
+                duration += weights[i] * blendTree.Value.Motions[i].Value.Duration / blendTree.Value.MotionSpeeds[i];
             }
 
             return duration;
@@ -602,7 +605,7 @@ namespace Unity.Animation
             var duration = 0.0f;
             for (int i = 0; i < length; i++)
             {
-                duration += weights[i] * blendTree.Value.Motions[i].Clip.Value.Duration / blendTree.Value.MotionSpeeds[i];
+                duration += weights[i] * blendTree.Value.Motions[i].Value.Duration / blendTree.Value.MotionSpeeds[i];
             }
 
             return duration;

@@ -21,12 +21,19 @@ namespace Unity.Animation.Hybrid
                 return;
 
             var relativePath = collector.ComputeRelativePath(smr.transform);
-
             for (int i = 0; i < count; ++i)
             {
+                var id = new GenericBindingID
+                {
+                    AttributeName = k_BlendShapeBindingPrefix + sharedMesh.GetBlendShapeName(i),
+                    ComponentType = typeof(SkinnedMeshRenderer),
+                    Path = relativePath
+                };
+
                 collector.Add(new FloatChannel
                 {
-                    Id = BindingHashUtils.BuildPath(relativePath, k_BlendShapeBindingPrefix + sharedMesh.GetBlendShapeName(i)),
+                    // TODO : Once we remove BindingHashDeprecationHelper, code should be replaced with Id = id.ID
+                    Id = BindingHashDeprecationHelper.BuildPath(id.Path, id.AttributeName),
                     DefaultValue = smr.GetBlendShapeWeight(i)
                 });
             }

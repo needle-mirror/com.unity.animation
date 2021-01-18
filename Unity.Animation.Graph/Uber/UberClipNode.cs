@@ -8,25 +8,6 @@ using Unity.Mathematics;
 
 namespace Unity.Animation
 {
-    [Serializable, Flags]
-    public enum ClipConfigurationMask : int
-    {
-        NormalizedTime         = 1 << 0,
-        LoopTime               = 1 << 1,
-        LoopValues             = 1 << 2,
-        CycleRootMotion        = 1 << 3,
-        DeltaRootMotion        = 1 << 4,
-        RootMotionFromVelocity = 1 << 5,
-        BankPivot              = 1 << 6
-    }
-
-    [Serializable]
-    public struct ClipConfiguration
-    {
-        public ClipConfigurationMask Mask;
-        public StringHash MotionID;
-    }
-
     [NodeDefinition(guid: "859141ab001b4967b5ea5798db0e5879", version: 1, category: "Animation Core", description: "Clip node that can perform different actions based on clip configuration data and supports root motion", isHidden: true)]
     public class UberClipNode
         : SimulationKernelNodeDefinition<UberClipNode.SimPorts, UberClipNode.KernelDefs>
@@ -110,7 +91,7 @@ namespace Unity.Animation
                 ClearNodes(ctx.Set);
             }
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_RigDefinition = rig;
 
@@ -125,7 +106,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            public void HandleMessage(in MessageContext ctx, in BlobAssetReference<Clip> clip)
+            public void HandleMessage(MessageContext ctx, in BlobAssetReference<Clip> clip)
             {
                 m_Clip = clip;
 
@@ -133,7 +114,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            public void HandleMessage(in MessageContext ctx, in ClipConfiguration msg)
+            public void HandleMessage(MessageContext ctx, in ClipConfiguration msg)
             {
                 m_Configuration = msg;
 
@@ -141,7 +122,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            public void HandleMessage(in MessageContext ctx, in bool msg)
+            public void HandleMessage(MessageContext ctx, in bool msg)
             {
                 m_IsAdditive = msg;
 
@@ -149,7 +130,7 @@ namespace Unity.Animation
                 BuildNodes(ctx);
             }
 
-            void BuildNodes(in MessageContext ctx)
+            void BuildNodes(MessageContext ctx)
             {
                 if (m_Clip == BlobAssetReference<Clip>.Null || m_RigDefinition == BlobAssetReference<RigDefinition>.Null)
                     return;
@@ -233,7 +214,7 @@ namespace Unity.Animation
                 EmitAllOutMessages(ctx);
             }
 
-            public void EmitAllOutMessages(in MessageContext ctx)
+            public void EmitAllOutMessages(MessageContext ctx)
             {
                 // We can emit on all the output messages, if there's no connection nothing happens.
                 ctx.EmitMessage(SimulationPorts.m_OutRig, new Rig { Value = m_RigDefinition });
@@ -272,7 +253,7 @@ namespace Unity.Animation
         [BurstCompile]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext context, KernelData data, ref KernelDefs ports) {}
+            public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports) {}
         }
 
 

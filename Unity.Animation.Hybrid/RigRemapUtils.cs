@@ -1,10 +1,12 @@
+using System.Collections.Generic;
+using Unity.Animation.Authoring;
 using Unity.Entities;
 using Unity.Collections;
 using Unity.Mathematics;
 
 namespace Unity.Animation.Hybrid
 {
-    public static class RigRemapUtils
+    public static partial class RigRemapUtils
     {
         internal enum RigElementType : byte
         {
@@ -29,14 +31,15 @@ namespace Unity.Animation.Hybrid
         /// <param name="dstRig">The destination RigComponent to remap to.</param>
         /// <param name="filter">Optional parameter to filter matches based on channel type. By default, all types of channels are used for matching.</param>
         /// <param name="offsetOverrides">Optional parameter to specify which translation or rotation channels should be matched with offsets in a given space (LocalToParent vs. LocalToRoot). By default, LocalToParent mapping is performed.</param>
-        /// <param name="bindingHash">Optional parameter to specify a BindingHashDelegate in order to match using either the transform path (BindingHashUtils.HashFullPath), the transform name (BindingHashUtils.HashName) or a custom delegate. When no binding hash deletegate is specified, the system wide BindingHashUtils.DefaultBindingHash is used.</param>
+        /// <param name="hasher">Optional parameter to specify a BindingHashGenerator in order to match bindings using a custom strategy. If not specified the system wide BindingHashGlobals.DefaultHashGenerator is used.</param>
         /// <returns>Returns the BlobAssetReference of the RigRemapTable.</returns>
+        /// <exception cref="ArgumentNullException">srcRig and dstRig must be not null.</exception>
         public static BlobAssetReference<RigRemapTable> CreateRemapTable(
             RigComponent srcRig,
             RigComponent dstRig,
             Animation.RigRemapUtils.ChannelFilter filter = Animation.RigRemapUtils.ChannelFilter.All,
             Animation.RigRemapUtils.OffsetOverrides offsetOverrides = default,
-            BindingHashDelegate bindingHash = null
+            BindingHashGenerator hasher = default
         )
         {
             if (srcRig == null)
@@ -44,7 +47,8 @@ namespace Unity.Animation.Hybrid
             if (dstRig == null)
                 throw new System.ArgumentNullException(nameof(dstRig));
 
-            var hasher = bindingHash ?? BindingHashUtils.DefaultBindingHash;
+            if (!hasher.IsValid)
+                hasher = BindingHashGlobals.DefaultHashGenerator;
 
             var srcRigHashMap = RigComponentHashMap(srcRig, hasher);
             FindMatches(
@@ -59,6 +63,84 @@ namespace Unity.Animation.Hybrid
                 hasher
             );
 
+            return CreateRemapTable(
+                srcRigHashMap,
+                translationMatches,
+                rotationMatches,
+                scaleMatches,
+                floatMatches,
+                intMatches,
+                filter,
+                offsetOverrides
+            );
+        }
+
+        /// <summary>
+        /// Given source and destination Skeletons this function creates a remap table based on matching ids.
+        /// </summary>
+        /// <param name="srcSkeleton">The source RigComponent to remap from.</param>
+        /// <param name="dstSkeleton">The destination RigComponent to remap to.</param>
+        /// <param name="filter">Optional parameter to filter matches based on channel type. By default, all types of channels are used for matching.</param>
+        /// <param name="offsetOverrides">Optional parameter to specify which translation or rotation channels should be matched with offsets in a given space (LocalToParent vs. LocalToRoot). By default, LocalToParent mapping is performed.</param>
+        /// <param name="srcHasher">Optional parameter to specify a BindingHashGenerator in order to match srcSkeleton bindings using a custom strategy. If not specified the system wide BindingHashGlobals.DefaultHashGenerator is used.</param>
+        /// <param name="dstHasher">Optional parameter to specify a BindingHashGenerator in order to match dstSkeleton bindings using a custom strategy. If not specified srcHasher is used instead.</param>
+        /// <returns>Returns the BlobAssetReference of the RigRemapTable.</returns>
+        /// <exception cref="ArgumentNullException">srcSkeleton and dstSkeleton must be not null.</exception>
+        public static BlobAssetReference<RigRemapTable> CreateRemapTable(
+            Authoring.Skeleton srcSkeleton,
+            Authoring.Skeleton dstSkeleton,
+            Animation.RigRemapUtils.ChannelFilter filter = Animation.RigRemapUtils.ChannelFilter.All,
+            Animation.RigRemapUtils.OffsetOverrides offsetOverrides = default,
+            BindingHashGenerator srcHasher = default,
+            BindingHashGenerator dstHasher = default
+        )
+        {
+            if (srcSkeleton == null)
+                throw new System.ArgumentNullException(nameof(srcSkeleton));
+            if (dstSkeleton == null)
+                throw new System.ArgumentNullException(nameof(dstSkeleton));
+
+            if (!srcHasher.IsValid)
+                srcHasher = BindingHashGlobals.DefaultHashGenerator;
+            if (!dstHasher.IsValid)
+                dstHasher = srcHasher;
+
+            var srcRigHashMap = RigComponentHashMap(srcSkeleton, srcHasher);
+            FindMatches(
+                srcRigHashMap,
+                dstSkeleton,
+                out NativeList<RigRemapEntry> translationMatches,
+                out NativeList<RigRemapEntry> rotationMatches,
+                out NativeList<RigRemapEntry> scaleMatches,
+                out NativeList<RigRemapEntry> floatMatches,
+                out NativeList<RigRemapEntry> intMatches,
+                filter,
+                dstHasher
+            );
+
+            return CreateRemapTable(
+                srcRigHashMap,
+                translationMatches,
+                rotationMatches,
+                scaleMatches,
+                floatMatches,
+                intMatches,
+                filter,
+                offsetOverrides
+            );
+        }
+
+        private static BlobAssetReference<RigRemapTable> CreateRemapTable(
+            NativeHashMap<StringHash, RigElementValue> srcRigHashMap,
+            NativeList<RigRemapEntry> translationMatches,
+            NativeList<RigRemapEntry> rotationMatches,
+            NativeList<RigRemapEntry> scaleMatches,
+            NativeList<RigRemapEntry> floatMatches,
+            NativeList<RigRemapEntry> intMatches,
+            Animation.RigRemapUtils.ChannelFilter filter = Animation.RigRemapUtils.ChannelFilter.All,
+            Animation.RigRemapUtils.OffsetOverrides offsetOverrides = default
+        )
+        {
             var blobBuilder = new BlobBuilder(Allocator.Temp);
             ref var rigRemapTable = ref blobBuilder.ConstructRoot<RigRemapTable>();
 
@@ -129,7 +211,7 @@ namespace Unity.Animation.Hybrid
             return rigRemapTableAsset;
         }
 
-        static NativeHashMap<StringHash, RigElementValue> RigComponentHashMap(RigComponent rig, BindingHashDelegate hasher)
+        static NativeHashMap<StringHash, RigElementValue> RigComponentHashMap(RigComponent rig, BindingHashGenerator hasher)
         {
             int boneCount = rig.Bones?.Length ?? 0;
             int translationCount = rig.TranslationChannels?.Length ?? 0;
@@ -144,22 +226,56 @@ namespace Unity.Animation.Hybrid
             );
 
             for (int i = 0; i < boneCount; ++i)
-                map.TryAdd(hasher(RigGenerator.ComputeRelativePath(rig.Bones[i], rig.transform)), new RigElementValue { Index = i, Type = RigElementType.Bone });
+                map.TryAdd(hasher.ToHash(RigGenerator.ToTransformBindingID(rig.Bones[i], rig.transform)), new RigElementValue { Index = i, Type = RigElementType.Bone });
 
             for (int i = 0; i < translationCount; ++i)
-                map.TryAdd(hasher(rig.TranslationChannels[i].Id), new RigElementValue { Index = boneCount + i, Type = RigElementType.Translation });
+                map.TryAdd(hasher.ToHash(RigGenerator.ToGenericBindingID(rig.TranslationChannels[i].Id)), new RigElementValue { Index = boneCount + i, Type = RigElementType.Translation });
 
             for (int i = 0; i < rotationCount; ++i)
-                map.TryAdd(hasher(rig.RotationChannels[i].Id), new RigElementValue { Index = boneCount + i, Type = RigElementType.Rotation });
+                map.TryAdd(hasher.ToHash(RigGenerator.ToGenericBindingID(rig.RotationChannels[i].Id)), new RigElementValue { Index = boneCount + i, Type = RigElementType.Rotation });
 
             for (int i = 0; i < scaleCount; ++i)
-                map.TryAdd(hasher(rig.ScaleChannels[i].Id), new RigElementValue { Index = boneCount + i, Type = RigElementType.Scale });
+                map.TryAdd(hasher.ToHash(RigGenerator.ToGenericBindingID(rig.ScaleChannels[i].Id)), new RigElementValue { Index = boneCount + i, Type = RigElementType.Scale });
 
             for (int i = 0; i < floatCount; ++i)
-                map.TryAdd(hasher(rig.FloatChannels[i].Id), new RigElementValue { Index = i, Type = RigElementType.Float });
+                map.TryAdd(hasher.ToHash(RigGenerator.ToGenericBindingID(rig.FloatChannels[i].Id)), new RigElementValue { Index = i, Type = RigElementType.Float });
 
             for (int i = 0; i < intCount; ++i)
-                map.TryAdd(hasher(rig.IntChannels[i].Id), new RigElementValue { Index = i, Type = RigElementType.Int });
+                map.TryAdd(hasher.ToHash(RigGenerator.ToGenericBindingID(rig.IntChannels[i].Id)), new RigElementValue { Index = i, Type = RigElementType.Int });
+
+            return map;
+        }
+
+        static NativeHashMap<StringHash, RigElementValue> RigComponentHashMap(Authoring.Skeleton skeleton, BindingHashGenerator hasher)
+        {
+            var transformChannels = new List<TransformChannel>();
+            skeleton.GetAllTransforms(transformChannels);
+
+            var quaternionChannels = skeleton.QuaternionChannels;
+            var floatChannels = skeleton.FloatChannels;
+            var intChannels = skeleton.IntChannels;
+
+            int boneCount = transformChannels.Count;
+            int quaternionCount = quaternionChannels.Count;
+            int floatCount = floatChannels.Count;
+            int intCount = intChannels.Count;
+
+            var map = new NativeHashMap<StringHash, RigElementValue>(
+                boneCount + quaternionCount + floatCount + intCount,
+                Allocator.Persistent
+            );
+
+            for (int i = 0; i < boneCount; ++i)
+                map.TryAdd(hasher.ToHash(transformChannels[i].ID), new RigElementValue { Index = i, Type = RigElementType.Bone });
+
+            for (int i = 0; i < quaternionCount; ++i)
+                map.TryAdd(hasher.ToHash(quaternionChannels[i].ID), new RigElementValue { Index = boneCount + i, Type = RigElementType.Rotation });
+
+            for (int i = 0; i < floatCount; ++i)
+                map.TryAdd(hasher.ToHash(floatChannels[i].ID), new RigElementValue { Index = i, Type = RigElementType.Float });
+
+            for (int i = 0; i < intCount; ++i)
+                map.TryAdd(hasher.ToHash(intChannels[i].ID), new RigElementValue { Index = i, Type = RigElementType.Int });
 
             return map;
         }
@@ -173,7 +289,7 @@ namespace Unity.Animation.Hybrid
             out NativeList<RigRemapEntry> floats,
             out NativeList<RigRemapEntry> ints,
             Animation.RigRemapUtils.ChannelFilter filter,
-            BindingHashDelegate hasher
+            BindingHashGenerator hasher
         )
         {
             int boneCount = dstRig.Bones?.Length ?? 0;
@@ -195,7 +311,7 @@ namespace Unity.Animation.Hybrid
 
             for (int i = 0; i < boneCount; ++i)
             {
-                if (srcRigHashMap.TryGetValue(hasher(RigGenerator.ComputeRelativePath(dstRig.Bones[i], dstRig.transform)), out RigElementValue value))
+                if (srcRigHashMap.TryGetValue(hasher.ToHash(RigGenerator.ToTransformBindingID(dstRig.Bones[i], dstRig.transform)), out RigElementValue value))
                 {
                     if (hasTranslation)
                         translations.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
@@ -210,7 +326,7 @@ namespace Unity.Animation.Hybrid
             {
                 for (int i = 0; i < translationCount; ++i)
                 {
-                    if (srcRigHashMap.TryGetValue(hasher(dstRig.TranslationChannels[i].Id), out RigElementValue value))
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(RigGenerator.ToGenericBindingID(dstRig.TranslationChannels[i].Id)), out RigElementValue value))
                         translations.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
                 }
             }
@@ -219,7 +335,7 @@ namespace Unity.Animation.Hybrid
             {
                 for (int i = 0; i < rotationCount; ++i)
                 {
-                    if (srcRigHashMap.TryGetValue(hasher(dstRig.RotationChannels[i].Id), out RigElementValue value))
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(RigGenerator.ToGenericBindingID(dstRig.RotationChannels[i].Id)), out RigElementValue value))
                         rotations.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
                 }
             }
@@ -228,7 +344,7 @@ namespace Unity.Animation.Hybrid
             {
                 for (int i = 0; i < scaleCount; ++i)
                 {
-                    if (srcRigHashMap.TryGetValue(hasher(dstRig.ScaleChannels[i].Id), out RigElementValue value))
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(RigGenerator.ToGenericBindingID(dstRig.ScaleChannels[i].Id)), out RigElementValue value))
                         scales.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
                 }
             }
@@ -237,7 +353,7 @@ namespace Unity.Animation.Hybrid
             {
                 for (int i = 0; i < floatCount; ++i)
                 {
-                    if (srcRigHashMap.TryGetValue(hasher(dstRig.FloatChannels[i].Id), out RigElementValue value))
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(RigGenerator.ToGenericBindingID(dstRig.FloatChannels[i].Id)), out RigElementValue value))
                         floats.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
                 }
             }
@@ -246,7 +362,82 @@ namespace Unity.Animation.Hybrid
             {
                 for (int i = 0; i < intCount; ++i)
                 {
-                    if (srcRigHashMap.TryGetValue(hasher(dstRig.IntChannels[i].Id), out RigElementValue value))
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(RigGenerator.ToGenericBindingID(dstRig.IntChannels[i].Id)), out RigElementValue value))
+                        ints.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
+                }
+            }
+        }
+
+        static void FindMatches(
+            NativeHashMap<StringHash, RigElementValue> srcRigHashMap,
+            Authoring.Skeleton dstSkeleton,
+            out NativeList<RigRemapEntry> translations,
+            out NativeList<RigRemapEntry> rotations,
+            out NativeList<RigRemapEntry> scales,
+            out NativeList<RigRemapEntry> floats,
+            out NativeList<RigRemapEntry> ints,
+            Animation.RigRemapUtils.ChannelFilter filter,
+            BindingHashGenerator hasher
+        )
+        {
+            var transformChannels = new List<TransformChannel>();
+            dstSkeleton.GetAllTransforms(transformChannels);
+
+            var quaternionChannels = dstSkeleton.QuaternionChannels;
+            var floatChannels = dstSkeleton.FloatChannels;
+            var intChannels = dstSkeleton.IntChannels;
+
+            int boneCount = transformChannels.Count;
+            int quaternionCount = quaternionChannels.Count;
+            int floatCount = floatChannels.Count;
+            int intCount = intChannels.Count;
+
+            translations = new NativeList<RigRemapEntry>(boneCount, Allocator.Persistent);
+            rotations = new NativeList<RigRemapEntry>(boneCount + quaternionCount, Allocator.Persistent);
+            scales = new NativeList<RigRemapEntry>(boneCount, Allocator.Persistent);
+            floats = new NativeList<RigRemapEntry>(floatCount, Allocator.Persistent);
+            ints = new NativeList<RigRemapEntry>(intCount, Allocator.Persistent);
+
+            bool hasTranslation = (filter & Animation.RigRemapUtils.ChannelFilter.Translation) != Animation.RigRemapUtils.ChannelFilter.None;
+            bool hasRotation = (filter & Animation.RigRemapUtils.ChannelFilter.Rotation) != Animation.RigRemapUtils.ChannelFilter.None;
+            bool hasScale = (filter & Animation.RigRemapUtils.ChannelFilter.Scale) != Animation.RigRemapUtils.ChannelFilter.None;
+
+            for (int i = 0; i < boneCount; ++i)
+            {
+                if (srcRigHashMap.TryGetValue(hasher.ToHash(transformChannels[i].ID), out RigElementValue value))
+                {
+                    if (hasTranslation)
+                        translations.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
+                    if (hasRotation)
+                        rotations.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
+                    if (hasScale)
+                        scales.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
+                }
+            }
+
+            if (hasRotation)
+            {
+                for (int i = 0; i < quaternionCount; ++i)
+                {
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(quaternionChannels[i].ID), out RigElementValue value))
+                        rotations.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
+                }
+            }
+
+            if ((filter & Animation.RigRemapUtils.ChannelFilter.Float) != Animation.RigRemapUtils.ChannelFilter.None)
+            {
+                for (int i = 0; i < floatCount; ++i)
+                {
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(floatChannels[i].ID), out RigElementValue value))
+                        floats.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
+                }
+            }
+
+            if ((filter & Animation.RigRemapUtils.ChannelFilter.Int) != Animation.RigRemapUtils.ChannelFilter.None)
+            {
+                for (int i = 0; i < intCount; ++i)
+                {
+                    if (srcRigHashMap.TryGetValue(hasher.ToHash(intChannels[i].ID), out RigElementValue value))
                         ints.Add(new RigRemapEntry { SourceIndex = value.Index, DestinationIndex = i, OffsetIndex = -1 });
                 }
             }

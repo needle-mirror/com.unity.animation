@@ -476,7 +476,7 @@ namespace Unity.Animation.Tests
 
             struct Data : INodeData, IMsgHandler<Rig>
             {
-                public void HandleMessage(in MessageContext ctx, in Rig rig)
+                public void HandleMessage(MessageContext ctx, in Rig rig)
                 {
                     ctx.UpdateKernelData(new KernelData
                     {
@@ -494,7 +494,7 @@ namespace Unity.Animation.Tests
 
             struct Kernel : IGraphKernel<KernelData, KernelDefs>
             {
-                public void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+                public void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
                 {
                     // Test to validate that output is initialized with 0 if nobody write to the buffer
                 }

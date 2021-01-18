@@ -44,7 +44,7 @@ namespace Unity.Animation
         {
             internal KernelData m_KernelData;
 
-            public void HandleMessage(in MessageContext ctx, in Rig rig)
+            public void HandleMessage(MessageContext ctx, in Rig rig)
             {
                 m_KernelData.RigDefinition = rig;
 
@@ -57,7 +57,7 @@ namespace Unity.Animation
                 ctx.UpdateKernelData(m_KernelData);
             }
 
-            public void HandleMessage(in MessageContext ctx, in ushort layerCount)
+            public void HandleMessage(MessageContext ctx, in ushort layerCount)
             {
                 if (layerCount != m_KernelData.LayerCount)
                 {
@@ -81,7 +81,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public unsafe void Execute(RenderContext context, KernelData data, ref KernelDefs ports)
+            public unsafe void Execute(RenderContext context, in KernelData data, ref KernelDefs ports)
             {
                 var inputArray = context.Resolve(ports.Inputs);
                 var weightArray = context.Resolve(ports.Weights);

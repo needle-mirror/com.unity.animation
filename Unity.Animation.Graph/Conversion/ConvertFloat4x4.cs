@@ -17,7 +17,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports) =>
+            public void Execute(RenderContext ctx, in KernelData data, ref KernelDefs ports) =>
                 ctx.Resolve(ref ports.Output) = ctx.Resolve(ports.Input).Value;
         }
     }
@@ -33,7 +33,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports) =>
+            public void Execute(RenderContext ctx, in KernelData data, ref KernelDefs ports) =>
                 ctx.Resolve(ref ports.Output).Value = ctx.Resolve(ports.Input);
         }
     }
@@ -49,7 +49,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports) =>
+            public void Execute(RenderContext ctx, in KernelData data, ref KernelDefs ports) =>
                 ctx.Resolve(ref ports.Output) = ctx.Resolve(ports.Input).Value;
         }
     }
@@ -65,7 +65,7 @@ namespace Unity.Animation
         [BurstCompile /*(FloatMode = FloatMode.Fast)*/]
         public struct Kernel : IGraphKernel<KernelData, KernelDefs>
         {
-            public void Execute(RenderContext ctx, KernelData data, ref KernelDefs ports) =>
+            public void Execute(RenderContext ctx, in KernelData data, ref KernelDefs ports) =>
                 ctx.Resolve(ref ports.Output).Value = ctx.Resolve(ports.Input);
         }
     }

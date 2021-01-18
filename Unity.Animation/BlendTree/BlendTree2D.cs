@@ -1,5 +1,6 @@
 using System;
 
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
 
@@ -16,9 +17,10 @@ namespace Unity.Animation
     {
         public float2                              MotionPosition;
         public float                               MotionSpeed;
-        public Motion                              Motion;
+        public BlobAssetReference<Clip>            Motion;
     }
 
+    [BurstCompatible]
     public struct BlendTree2DSimpleDirectional
     {
         public StringHash                       BlendParameterX;
